@@ -270,6 +270,24 @@ broadway_output_set_show_keyboard (BroadwayOutput *output,
 }
 
 void
+broadway_output_set_clipboard (BroadwayOutput *output,
+                               const char     *text,
+                               gsize           len)
+{
+  write_header (output, BROADWAY_OP_SET_CLIPBOARD);
+  append_uint32 (output, (guint32) len);
+  g_string_append_len (output->buf, text, len);
+}
+
+void
+broadway_output_request_clipboard (BroadwayOutput *output,
+                                   guint32         id)
+{
+  write_header (output, BROADWAY_OP_REQUEST_CLIPBOARD);
+  append_uint32 (output, id);
+}
+
+void
 broadway_output_move_resize_surface (BroadwayOutput *output,
                                      int             id,
                                      gboolean        has_pos,

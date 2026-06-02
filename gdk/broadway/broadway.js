@@ -38,6 +38,13 @@ const BROADWAY_OP_UPLOAD_TEXTURE = 13;
 const BROADWAY_OP_RELEASE_TEXTURE = 14;
 const BROADWAY_OP_SET_NODES = 15;
 const BROADWAY_OP_ROUNDTRIP = 16;
+const BROADWAY_OP_SET_CLIPBOARD = 17;
+const BROADWAY_OP_REQUEST_CLIPBOARD = 18;
+
+/* Latin 'v'/'V' keysyms, used to recognise the paste shortcut (Ctrl+V and
+ * Ctrl+Shift+V) so the browser's native 'paste' event is allowed to fire. */
+const KEYSYM_v = 118;
+const KEYSYM_V = 86;
 
 const BROADWAY_EVENT_ENTER = 0;
 const BROADWAY_EVENT_LEAVE = 1;
@@ -54,6 +61,7 @@ const BROADWAY_EVENT_CONFIGURE_NOTIFY = 11;
 const BROADWAY_EVENT_SCREEN_SIZE_CHANGED = 12;
 const BROADWAY_EVENT_FOCUS = 13;
 const BROADWAY_EVENT_ROUNDTRIP_NOTIFY = 14;
+const BROADWAY_EVENT_CLIPBOARD_CONTENTS = 15;
 
 const DISPLAY_OP_REPLACE_CHILD = 0;
 const DISPLAY_OP_APPEND_CHILD = 1;
@@ -235,6 +243,13 @@ var outstandingDisplayCommands = null;
 var inputSocket = null;
 var debugDecoding = false;
 var fakeInput = null;
+/* Clipboard paste capture: a hidden, focused textarea receives the browser's
+ * native 'paste' event (Ctrl+V). Unlike navigator.clipboard.readText(), that
+ * event needs no permission/user-activation popup, so we cache the pasted text
+ * and answer the GTK app's clipboard request from it. */
+var clipboardArea = null;
+var pasteCache = "";
+var pasteCacheTime = 0;
 var showKeyboard = false;
 var showKeyboardChanged = false;
 var firstTouchDownId = null;
@@ -1171,6 +1186,35 @@ function handleCommands(cmd, display_commands, new_textures, modified_trees)
             showKeyboardChanged = true;
             break;
 
+        case BROADWAY_OP_SET_CLIPBOARD:
+            var _cbdata = cmd.get_data();
+            var _cbtext = new TextDecoder("utf-8").decode(_cbdata);
+            setHostClipboard(_cbtext);
+            break;
+
+        case BROADWAY_OP_REQUEST_CLIPBOARD:
+            /* IIFE so each request's id is captured by the async callbacks even
+             * if several requests arrive in one command batch. */
+            (function (id) {
+                if (Date.now() - pasteCacheTime < 1000) {
+                    /* A native paste event (Ctrl+V) just captured the clipboard:
+                     * answer from it with no permission popup. Consume it so a
+                     * later request can't reuse stale text. */
+                    pasteCacheTime = 0;
+                    sendClipboardContents(pasteCache, id);
+                } else if (navigator.clipboard && navigator.clipboard.readText) {
+                    /* No recent native paste (e.g. the right-click menu's Paste):
+                     * fall back to the async API. Silent on Chromium once
+                     * permission is granted; Firefox shows its one-time prompt. */
+                    navigator.clipboard.readText().then(
+                        function (t) { sendClipboardContents(t, id); },
+                        function (e) { sendClipboardContents("", id); });
+                } else {
+                    sendClipboardContents("", id);
+                }
+            })(cmd.get_32());
+            break;
+
         default:
             alert("Unknown op " + command);
         }
@@ -1326,6 +1370,60 @@ function sendInput(cmd, args)
     fullArgs.forEach(function(arg, i) {
         view.setInt32(i*4, arg, false);
     });
+
+    inputSocket.send(buffer);
+}
+
+/* Best-effort copy into the host clipboard via the hidden textarea. Works on
+ * insecure (http) origins where navigator.clipboard is unavailable, but the
+ * browser may ignore execCommand('copy') outside a user gesture. */
+function copyViaTextarea(text)
+{
+    if (!clipboardArea) {
+        console.warn("broadway: cannot copy to host clipboard (no clipboard API)");
+        return;
+    }
+
+    var prev = clipboardArea.value;
+    clipboardArea.value = text;
+    clipboardArea.select();
+
+    var ok = false;
+    try { ok = document.execCommand("copy"); } catch (e) { ok = false; }
+
+    clipboardArea.value = prev;
+    if (!ok)
+        console.warn("broadway: copy to host clipboard was rejected by the browser");
+}
+
+function setHostClipboard(text)
+{
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).catch(function (e) {
+            copyViaTextarea(text);
+        });
+    } else {
+        copyViaTextarea(text);
+    }
+}
+
+function sendClipboardContents(text, id)
+{
+    if (inputSocket == null)
+        return;
+
+    /* Echo back the request id so the daemon can route this answer to the one
+     * client (and read) that asked for it. Layout: type, serial, time, id, len,
+     * then the UTF-8 text. */
+    var bytes = new TextEncoder().encode(text == null ? "" : text);
+    var buffer = new ArrayBuffer(4 * 5 + bytes.length);
+    var view = new DataView(buffer);
+    view.setInt32(0, BROADWAY_EVENT_CLIPBOARD_CONTENTS, false);
+    view.setInt32(4, lastSerial, false);
+    view.setInt32(8, lastTimeStamp, false);
+    view.setInt32(12, id, false);
+    view.setInt32(16, bytes.length, false);
+    new Uint8Array(buffer, 20).set(bytes);
 
     inputSocket.send(buffer);
 }
@@ -2972,6 +3070,13 @@ function handleKeyDown(e) {
     }
 
     if (suppress) {
+        // Paste (Ctrl+V, and Ctrl+Shift+V which yields the shifted 'V' keysym)
+        // must NOT be preventDefaulted: we still forward it to the app (so GTK
+        // runs its paste action) but we let the browser fire its native 'paste'
+        // event into the hidden textarea, which reads the clipboard without any
+        // permission popup.
+        if (ev.ctrlKey && !ev.altKey && (keysym === KEYSYM_v || keysym === KEYSYM_V))
+            return true;
         // Suppress bubbling/default actions
         return cancelEvent(ev);
     }
@@ -3174,6 +3279,50 @@ function setupDocument(document)
       document.addEventListener('touchend', onTouchEnd, false);
     } else if (document.attachEvent) {
       element.attachEvent("onmousewheel", onMouseWheel);
+    }
+
+    /* Non-touch only: keep a hidden textarea focused to capture native 'paste'
+     * (Ctrl+V / menu Paste) events. On touch devices (phones/tablets) a focused
+     * textarea would pop up the on-screen keyboard, so skip it there. A
+     * fine-pointer touch laptop still keeps the feature. */
+    var touchDevice = (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) ||
+                      /(iPad|iPhone|iPod|Android)/i.test(navigator.userAgent);
+    if (!touchDevice && document.addEventListener) {
+        clipboardArea = document.createElement("textarea");
+        clipboardArea.setAttribute("autocapitalize", "off");
+        clipboardArea.setAttribute("autocomplete", "off");
+        clipboardArea.setAttribute("autocorrect", "off");
+        clipboardArea.spellcheck = false;
+        clipboardArea.style.position = "absolute";
+        clipboardArea.style.left = "-1000px";
+        clipboardArea.style.top = "-1000px";
+        clipboardArea.style.width = "1px";
+        clipboardArea.style.height = "1px";
+        clipboardArea.style.opacity = "0";
+        document.body.appendChild(clipboardArea);
+
+        clipboardArea.addEventListener("paste", function (ev) {
+            var t = "";
+            if (ev.clipboardData && ev.clipboardData.getData)
+                t = ev.clipboardData.getData("text/plain");
+            else if (window.clipboardData && window.clipboardData.getData)
+                t = window.clipboardData.getData("Text");
+            pasteCache = (t == null) ? "" : t;
+            pasteCacheTime = Date.now();
+            /* Cache only; never insert into the hidden textarea. */
+            ev.preventDefault();
+        });
+        /* Refocus the capture textarea when the user interacts with the app or
+         * returns to the tab, so the next paste is captured here - without
+         * holding focus hostage from other elements via a tight blur loop.
+         * (Desktop IME composition could still land here; rare for canvas apps.) */
+        document.addEventListener("mousedown", function () {
+            if (clipboardArea) clipboardArea.focus();
+        });
+        window.addEventListener("focus", function () {
+            if (clipboardArea) clipboardArea.focus();
+        });
+        clipboardArea.focus();
     }
 }
 

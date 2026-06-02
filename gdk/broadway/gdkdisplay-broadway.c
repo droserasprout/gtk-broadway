@@ -218,6 +218,8 @@ _gdk_broadway_display_open (const char *display_name)
       return NULL;
     }
 
+  display->clipboard = gdk_broadway_clipboard_new (display);
+
   g_signal_emit_by_name (display, "opened");
 
   return display;
