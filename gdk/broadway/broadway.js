@@ -40,6 +40,8 @@ const BROADWAY_OP_SET_NODES = 15;
 const BROADWAY_OP_ROUNDTRIP = 16;
 const BROADWAY_OP_SET_CLIPBOARD = 17;
 const BROADWAY_OP_REQUEST_CLIPBOARD = 18;
+const BROADWAY_OP_SET_INPUT_REGION = 19;
+const BROADWAY_OP_REASSERT_POINTER = 20;
 
 /* Latin 'v'/'V' keysyms, used to recognise the paste shortcut (Ctrl+V and
  * Ctrl+Shift+V) so the browser's native 'paste' event is allowed to fire. */
@@ -296,9 +298,33 @@ var fakeInput = null;
 var clipboardArea = null;
 var pasteCache = "";
 var pasteCacheTime = 0;
+/* A 'keyPress' (or 'paste', or 'compositionend') and the trailing 'beforeinput'
+ * the browser fires to mirror it are dispatched in the *same* event-loop turn,
+ * so a small wall-clock window cleanly separates "this beforeinput just echoes
+ * something we already forwarded" from "this is a genuinely new character". The
+ * window only has to outlast that single turn; it stays far below the gap
+ * between two real keystrokes, so it never swallows distinct input. The
+ * keyPress/composition cases additionally match on the text itself (below), so
+ * the window can at worst double a repeated char, never drop a different one. */
+const INPUT_ECHO_WINDOW_MS = 50;
+/* Dedupes a 'paste' against its trailing 'beforeinput' on touch. */
+var lastPasteForwardTime = 0;
+/* The text + time of the last real keyPress, to dedupe the trailing 'beforeinput'
+ * on the touch OSK input (Latin keys fire both; IME/non-Latin only beforeinput). */
+var lastKeyPressTime = 0;
+var lastKeyPressText = "";
+/* True while an IME composition is in progress on the touch OSK input. */
+var imeComposing = false;
+/* The text + time of the last compositionend, to dedupe a trailing 'insertText'
+ * beforeinput that some browsers fire after the composition already committed. */
+var lastCompositionEndTime = 0;
+var lastCompositionText = "";
 var showKeyboard = false;
 var showKeyboardChanged = false;
 var firstTouchDownId = null;
+/* Surface id per active touch, captured at touchstart. A drag keeps routing to
+ * the right surface even after GTK repaints and detaches the node it began on. */
+var touchSurfaceIds = {};
 
 function getButtonMask (button) {
     if (button == 1)
@@ -1127,6 +1153,33 @@ function handleCommands(cmd, display_commands, new_textures, modified_trees)
             }
             break;
 
+        case BROADWAY_OP_SET_INPUT_REGION:
+            id = cmd.get_16();
+            var inputEmpty = cmd.get_16();
+            surface = surfaces[id];
+            if (surface)
+                /* Empty input region => click-through (e.g. GtkTextHandle), so
+                 * taps fall through to the surface below instead of being
+                 * misrouted to this overlay. */
+                surface.div.style.pointerEvents = inputEmpty ? "none" : "auto";
+            break;
+
+        case BROADWAY_OP_REASSERT_POINTER:
+            id = cmd.get_16();
+            var rx = cmd.get_16();
+            var ry = cmd.get_16();
+            /* The daemon asks us to re-assert pointer focus after a popup that
+             * held the (touch-emulated) pointer focus went away. Routing it
+             * through the normal input path (rather than injecting it daemon-
+             * side) gives the app's GTK a crossing with the live serial/time it
+             * needs to actually move pointer focus, unsticking touch input.
+             * The ENTER rebuilds the (stale) pointer focus; the immediately
+             * following LEAVE clears the mouse-hover state it would otherwise
+             * leave behind (spurious :hover styling / tooltips on touch). */
+            sendInput(BROADWAY_EVENT_ENTER, [id, id, rx, ry, rx, ry, lastState, GDK_CROSSING_NORMAL]);
+            sendInput(BROADWAY_EVENT_LEAVE, [id, id, rx, ry, rx, ry, lastState, GDK_CROSSING_NORMAL]);
+            break;
+
         case BROADWAY_OP_SET_TRANSIENT_FOR:
             id = cmd.get_16();
             var parentId = cmd.get_16();
@@ -1235,8 +1288,16 @@ function handleCommands(cmd, display_commands, new_textures, modified_trees)
             break;
 
         case BROADWAY_OP_SET_SHOW_KEYBOARD:
-            showKeyboard = cmd.get_16() != 0;
-            showKeyboardChanged = true;
+            var wantKeyboard = cmd.get_16() != 0;
+            if (wantKeyboard != showKeyboard) {
+                showKeyboard = wantKeyboard;
+                showKeyboardChanged = true;
+                /* GTK requests this within ~10-25ms of the tap that moved focus,
+                 * so the tap's transient activation is still live and focus()
+                 * can summon the keyboard now - no need to wait for the next
+                 * touch (which made the OSK lag a gesture behind). */
+                applyKeyboard();
+            }
             break;
 
         case BROADWAY_OP_SET_CLIPBOARD:
@@ -1403,13 +1464,13 @@ function handleMessage(message)
 
 function getSurfaceId(ev) {
     var target = ev.target;
-    while (target.surface == undefined) {
+    while (target && target.surface == undefined) {
         if (target == document)
             return 0;
         target = target.parentNode;
     }
 
-    return target.surface.id;
+    return (target && target.surface) ? target.surface.id : 0;
 }
 
 function sendInput(cmd, args)
@@ -1445,6 +1506,13 @@ function copyViaTextarea(text)
     try { ok = document.execCommand("copy"); } catch (e) { ok = false; }
 
     clipboardArea.value = prev;
+    /* select() stole focus from the OSK input; restore its intended state. */
+    if (clipboardArea === fakeInput) {
+        if (showKeyboard)
+            fakeInput.focus();
+        else
+            fakeInput.blur();
+    }
     if (!ok)
         console.warn("broadway: copy to host clipboard was rejected by the browser");
 }
@@ -1479,6 +1547,42 @@ function sendClipboardContents(text, id)
     new Uint8Array(buffer, 20).set(bytes);
 
     inputSocket.send(buffer);
+}
+
+/* Commit literal text into the focused GTK widget as synthetic key events. A
+ * keyval of (codepoint | 0x01000000) is GDK's direct Unicode encoding. */
+function commitTextToGtk(text)
+{
+    if (!text)
+        return;
+
+    var state = lastState & ~(GDK_SHIFT_MASK|GDK_CONTROL_MASK|GDK_ALT_MASK);
+    text = text.replace(/\r\n?/g, "\n");
+
+    /* Iterate by code point so astral chars (e.g. emoji) commit as one keyval. */
+    for (var ch of text) {
+        var cp = ch.codePointAt(0);
+        /* Control chars need their named GDK keysym, not a direct-Unicode one:
+         * GtkText/GtkTextView treat 0xFF0D/0xFF09 as Return/Tab, but ignore a
+         * direct-Unicode LF, so pasted/IME-committed newlines would be lost. */
+        var keysym;
+        if (cp == 0x0A)      /* newline */
+            keysym = 0xFF0D; /* GDK_KEY_Return */
+        else if (cp == 0x09) /* tab */
+            keysym = 0xFF09; /* GDK_KEY_Tab */
+        else
+            keysym = cp | 0x01000000;
+        sendInput(BROADWAY_EVENT_KEY_PRESS, [keysym, state]);
+        sendInput(BROADWAY_EVENT_KEY_RELEASE, [keysym, state]);
+    }
+}
+
+/* Touch paste: forward straight into GTK rather than via pasteCache, which only
+ * feeds GTK's own clipboard request (desktop Ctrl+V) and would double-insert. */
+function capturePaste(text)
+{
+    lastPasteForwardTime = Date.now();
+    commitTextToGtk(text);
 }
 
 function getPositionsFromAbsCoord(absX, absY, relativeId) {
@@ -1519,19 +1623,27 @@ function getEffectiveEventTarget (id) {
     return id;
 }
 
+function applyKeyboard() {
+    if (fakeInput == null)
+        return;
+    if (showKeyboard) {
+        if (isAndroidChrome) {
+            fakeInput.blur();
+            fakeInput.value = ' '.repeat(80); // TODO: Should be exchange with broadway server
+                                              // to bring real value here.
+        }
+        fakeInput.focus();
+    }
+    else
+        fakeInput.blur();
+}
+
+/* Fallback path: re-assert the keyboard state on a touch (a real gesture), in
+ * case applyKeyboard() ran while the transient activation window was closed. */
 function updateKeyboardStatus() {
     if (fakeInput != null && showKeyboardChanged) {
         showKeyboardChanged = false;
-        if (showKeyboard) {
-	    if (isAndroidChrome) {
-		fakeInput.blur();
-		fakeInput.value = ' '.repeat(80); // TODO: Should be exchange with broadway server
-		                                  // to bring real value here.
-	    }
-            fakeInput.focus();
-	}
-        else
-            fakeInput.blur();
+        applyKeyboard();
     }
 }
 
@@ -3183,8 +3295,13 @@ function handleKeyPress(e) {
     }
 
     // Send the translated keysym
-    if (keysym > 0)
+    if (keysym > 0) {
+        lastKeyPressTime = Date.now();
+        /* ev.key is the character this keyPress produced ("a", "я", …); used to
+         * match (not just time) the echoing 'beforeinput' on the touch OSK. */
+        lastKeyPressText = (typeof ev.key === "string") ? ev.key : "";
         sendInput (BROADWAY_EVENT_KEY_PRESS, [keysym, lastState]);
+    }
 
     // Stop keypress events just in case
     return cancelEvent(ev);
@@ -3301,6 +3418,7 @@ function onTouchStart(ev) {
 	var touchId = touchIdentifierStart(touch.identifier);
 
         var origId = getSurfaceId(touch);
+        touchSurfaceIds[touch.identifier] = origId;
         var id = getEffectiveEventTarget (origId);
         var pos = getPositionsFromEvent(touch, id);
         var isEmulated = 0;
@@ -3309,23 +3427,36 @@ function onTouchStart(ev) {
             firstTouchDownId = touchId;
             isEmulated = 1;
 
-            if (realSurfaceWithMouse != origId || id != surfaceWithMouse) {
-                if (id != 0) {
-                    sendInput (BROADWAY_EVENT_LEAVE, [realSurfaceWithMouse, id, pos.rootX, pos.rootY, pos.winX, pos.winY, lastState, GDK_CROSSING_NORMAL]);
-                }
-
-                surfaceWithMouse = id;
-                realSurfaceWithMouse = origId;
-
-                sendInput (BROADWAY_EVENT_ENTER, [origId, id, pos.rootX, pos.rootY, pos.winX, pos.winY, lastState, GDK_CROSSING_NORMAL]);
-            }
+            /* Track the touched surface (grab handling needs it), but emit no
+             * ENTER/LEAVE pointer crossings: they ride the mouse device, so GTK
+             * would read a tap as mouse hover and show :hover styling and
+             * tooltips. GtkTooltip only suppresses tooltips for
+             * GDK_SOURCE_TOUCHSCREEN events; the touch events route the tap. */
+            surfaceWithMouse = id;
+            realSurfaceWithMouse = origId;
         }
 
         sendInput (BROADWAY_EVENT_TOUCH, [0, id, touchId, isEmulated, pos.rootX, pos.rootY, pos.winX, pos.winY, lastState]);
     }
+
+    /* Touch events stay targeted at the node the touch began on; once GTK
+     * repaints that surface the node is detached from the DOM and move/end
+     * events stop bubbling to document. Listen on the target itself so the
+     * gesture keeps flowing (the document listeners stay as a fallback; the
+     * handlers de-dupe). addEventListener de-dupes and detached nodes are
+     * garbage-collected, so no teardown is needed. */
+    if (ev.target && ev.target.addEventListener) {
+        ev.target.addEventListener('touchmove', onTouchMove, {passive: false});
+        ev.target.addEventListener('touchend', onTouchEnd, {passive: false});
+        ev.target.addEventListener('touchcancel', onTouchEnd, {passive: false});
+    }
 }
 
 function onTouchMove(ev) {
+    /* Reaches us from both the document and the touchstart-target listener. */
+    if (ev.broadwayHandled)
+        return;
+    ev.broadwayHandled = true;
     ev.preventDefault();
 
     updateKeyboardStatus();
@@ -3335,7 +3466,9 @@ function onTouchMove(ev) {
         var touch = ev.changedTouches.item(i);
 	var touchId = touchIdentifier(touch.identifier);
 
-        var origId = getSurfaceId(touch);
+        var origId = touchSurfaceIds[touch.identifier];
+        if (origId === undefined)
+            origId = getSurfaceId(touch);
         var id = getEffectiveEventTarget (origId);
         var pos = getPositionsFromEvent(touch, id);
 
@@ -3349,6 +3482,10 @@ function onTouchMove(ev) {
 }
 
 function onTouchEnd(ev) {
+    /* Reaches us from both the document and the touchstart-target listener. */
+    if (ev.broadwayHandled)
+        return;
+    ev.broadwayHandled = true;
     ev.preventDefault();
 
     updateKeyboardStatus();
@@ -3358,7 +3495,10 @@ function onTouchEnd(ev) {
         var touch = ev.changedTouches.item(i);
 	var touchId = touchIdentifier(touch.identifier);
 
-        var origId = getSurfaceId(touch);
+        var origId = touchSurfaceIds[touch.identifier];
+        if (origId === undefined)
+            origId = getSurfaceId(touch);
+        delete touchSurfaceIds[touch.identifier];
         var id = getEffectiveEventTarget (origId);
         var pos = getPositionsFromEvent(touch, id);
 
@@ -3370,6 +3510,15 @@ function onTouchEnd(ev) {
 
         sendInput (BROADWAY_EVENT_TOUCH, [2, id, touchId, isEmulated, pos.rootX, pos.rootY, pos.winX, pos.winY, lastState]);
     }
+}
+
+/* Heuristic for phones/tablets, where focusing an offscreen input summons the
+ * on-screen keyboard (wanted for GTK entries) and focusing a textarea would do
+ * so unwantedly (so the clipboard capture textarea is skipped there). */
+function isTouchDevice()
+{
+    return (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) ||
+           /(iPad|iPhone|iPod|Android)/i.test(navigator.userAgent);
 }
 
 function setupDocument(document)
@@ -3385,11 +3534,18 @@ function setupDocument(document)
     document.onkeyup = onKeyUp;
 
     if (document.addEventListener) {
-	document.addEventListener('DOMMouseScroll', onMouseWheel, passiveSupported ? { passive: false, capture: false } : false);
-	document.addEventListener('mousewheel', onMouseWheel, passiveSupported ? { passive: false, capture: false } : false);
-	document.addEventListener('touchstart', onTouchStart, passiveSupported ? { passive: false, capture: false } : false);
-	document.addEventListener('touchmove', onTouchMove, passiveSupported ? { passive: false, capture: false } : false);
-	document.addEventListener('touchend', onTouchEnd, passiveSupported ? { passive: false, capture: false } : false);
+      document.addEventListener('DOMMouseScroll', onMouseWheel, passiveSupported ? { passive: false, capture: false } : false);
+      document.addEventListener('mousewheel', onMouseWheel, passiveSupported ? { passive: false, capture: false } : false);
+      /* passive:false is required or the browser ignores preventDefault() in
+       * the handlers (touch listeners on the document default to passive), and
+       * Firefox/Android then cancels the touch on the slightest move - turning
+       * taps into touchcancel and eating roughly half of them. */
+      document.addEventListener('touchstart', onTouchStart, passiveSupported ? { passive: false, capture: false } : false);
+      document.addEventListener('touchmove', onTouchMove, passiveSupported ? { passive: false, capture: false } : false);
+      document.addEventListener('touchend', onTouchEnd, passiveSupported ? { passive: false, capture: false } : false);
+      /* Still handle touchcancel (system-initiated): end the sequence like a
+       * normal touchend so firstTouchDownId and the GTK grab aren't stranded. */
+      document.addEventListener('touchcancel', onTouchEnd, passiveSupported ? { passive: false, capture: false } : false);
     } else if (document.attachEvent) {
       element.attachEvent("onmousewheel", onMouseWheel);
     }
@@ -3398,9 +3554,7 @@ function setupDocument(document)
      * (Ctrl+V / menu Paste) events. On touch devices (phones/tablets) a focused
      * textarea would pop up the on-screen keyboard, so skip it there. A
      * fine-pointer touch laptop still keeps the feature. */
-    var touchDevice = (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) ||
-                      /(iPad|iPhone|iPod|Android)/i.test(navigator.userAgent);
-    if (!touchDevice && document.addEventListener) {
+    if (!isTouchDevice() && document.addEventListener) {
         clipboardArea = document.createElement("textarea");
         clipboardArea.setAttribute("autocapitalize", "off");
         clipboardArea.setAttribute("autocomplete", "off");
@@ -3498,15 +3652,82 @@ function connect()
         handleMessage(event.data);
     };
 
-    var iOS = /(iPad|iPhone|iPod)/g.test( navigator.userAgent );
-    if (iOS || isAndroidChrome) {
+    /* On touch devices, summon the on-screen keyboard by focusing this hidden
+     * input when GTK asks for keyboard input (see updateKeyboardStatus). Not
+     * iOS-only: Android needs it too, or the OSK never appears. */
+    if (isTouchDevice()) {
         fakeInput = document.createElement("input");
         fakeInput.type = "text";
+        fakeInput.setAttribute("autocapitalize", "off");
+        fakeInput.setAttribute("autocomplete", "off");
+        fakeInput.setAttribute("autocorrect", "off");
+        fakeInput.spellcheck = false;
         fakeInput.style.position = "absolute";
         fakeInput.style.left = "-1000px";
         fakeInput.style.top = "-1000px";
         document.body.appendChild(fakeInput);
-	if (isAndroidChrome)
-	    fakeInput.addEventListener('input', onInput, passiveSupported ? { passive: false, capture: false } : false);
+
+        /* The OSK input doubles as the clipboard surface on touch: while focused
+         * it catches a system paste (e.g. Gboard's clipboard chip) as a native
+         * 'paste'/'beforeinput', and serves as copyViaTextarea()'s copy target. */
+        clipboardArea = fakeInput;
+        fakeInput.addEventListener("paste", function (ev) {
+            var t = "";
+            if (ev.clipboardData && ev.clipboardData.getData)
+                t = ev.clipboardData.getData("text/plain");
+            capturePaste(t);
+            ev.preventDefault();
+        });
+        fakeInput.addEventListener("beforeinput", function (ev) {
+            if (ev.inputType === "insertFromPaste") {
+                /* Skip if the 'paste' event already handled this. */
+                if (Date.now() - lastPasteForwardTime < INPUT_ECHO_WINDOW_MS)
+                    return;
+                var t = ev.data;
+                if (t == null && ev.dataTransfer && ev.dataTransfer.getData)
+                    t = ev.dataTransfer.getData("text/plain");
+                capturePaste(t);
+                ev.preventDefault();
+                return;
+            }
+            /* Typed text that produced no usable keyPress (non-Latin layouts,
+             * autocorrect/suggestion replacements, dead keys): GBoard reports a
+             * keyCode-229 keydown we drop, and the character arrives only here.
+             * Composition (insertCompositionText) is handled on compositionend. */
+            if (imeComposing)
+                return;
+            if (ev.inputType === "insertText" ||
+                ev.inputType === "insertReplacementText") {
+                /* Latin keys fire both keyPress and beforeinput; don't re-send the
+                 * same char the keyPress already forwarded (matched by value, so a
+                 * genuinely different char is never suppressed). */
+                if (ev.data === lastKeyPressText &&
+                    Date.now() - lastKeyPressTime < INPUT_ECHO_WINDOW_MS)
+                    return;
+                /* Likewise for a composition just committed via compositionend. */
+                if (ev.data === lastCompositionText &&
+                    Date.now() - lastCompositionEndTime < INPUT_ECHO_WINDOW_MS)
+                    return;
+                if (ev.data) {
+                    commitTextToGtk(ev.data);
+                    fakeInput.value = "";
+                }
+                ev.preventDefault();
+            }
+        });
+        /* IME composition (CJK, gesture typing): commit the final string once,
+         * on compositionend — Broadway has no preedit, so intermediate updates
+         * are not forwarded. */
+        fakeInput.addEventListener("compositionstart", function () {
+            imeComposing = true;
+        });
+        fakeInput.addEventListener("compositionend", function (ev) {
+            imeComposing = false;
+            lastCompositionEndTime = Date.now();
+            lastCompositionText = ev.data || "";
+            if (ev.data)
+                commitTextToGtk(ev.data);
+            fakeInput.value = "";
+        });
     }
 }

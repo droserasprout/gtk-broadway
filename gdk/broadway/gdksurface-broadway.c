@@ -271,10 +271,15 @@ gdk_broadway_surface_constructed (GObject *object)
     broadway_display->toplevels = g_list_prepend (broadway_display->toplevels, self);
 
   self->resizible = TRUE;
+
+  /* Only popups (menus/popovers) carry a parent surface; toplevels — including
+   * transient dialogs set via gtk_window_set_transient_for() — do not. The
+   * daemon needs this to avoid stealing keyboard focus to popups on touch. */
   self->id = _gdk_broadway_server_new_surface (broadway_display->server,
                                                self->root_x,
                                                self->root_y,
-                                               1, 1);
+                                               1, 1,
+                                               surface->parent != NULL);
   g_hash_table_insert (broadway_display->id_ht, GINT_TO_POINTER (self->id), surface);
 
   g_object_ref (self);
@@ -828,6 +833,22 @@ static void
 gdk_broadway_surface_set_input_region (GdkSurface     *surface,
                                        cairo_region_t *shape_region)
 {
+  GdkBroadwaySurface *impl = GDK_BROADWAY_SURFACE (surface);
+  GdkBroadwayDisplay *broadway_display;
+  gboolean is_empty;
+
+  if (GDK_SURFACE_DESTROYED (surface))
+    return;
+
+  /* Broadway can't represent arbitrary input shapes, but the important case is
+   * an empty region: a click-through surface (e.g. GtkTextHandle). Forward that
+   * so the client makes its div pointer-events:none; otherwise the handle's div
+   * would swallow taps meant for the widget below it. */
+  is_empty = shape_region != NULL && cairo_region_is_empty (shape_region);
+
+  broadway_display = GDK_BROADWAY_DISPLAY (gdk_surface_get_display (surface));
+  _gdk_broadway_server_surface_set_input_region (broadway_display->server,
+                                                 impl->id, is_empty);
 }
 
 static void

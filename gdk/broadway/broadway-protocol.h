@@ -93,6 +93,8 @@ typedef enum {
   BROADWAY_OP_ROUNDTRIP = 16,
   BROADWAY_OP_SET_CLIPBOARD = 17,
   BROADWAY_OP_REQUEST_CLIPBOARD = 18,
+  BROADWAY_OP_SET_INPUT_REGION = 19,
+  BROADWAY_OP_REASSERT_POINTER = 20,
 } BroadwayOpType;
 
 typedef struct {
@@ -223,6 +225,7 @@ typedef enum {
   BROADWAY_REQUEST_SET_MODAL_HINT,
   BROADWAY_REQUEST_SET_CLIPBOARD,
   BROADWAY_REQUEST_REQUEST_CLIPBOARD,
+  BROADWAY_REQUEST_SET_INPUT_REGION,
 } BroadwayRequestType;
 
 typedef struct {
@@ -286,6 +289,7 @@ typedef struct {
   gint32 y;
   guint32 width;
   guint32 height;
+  guint32 is_popup; /* TRUE for menus/popovers, FALSE for toplevels (incl. dialogs) */
 } BroadwayRequestNewSurface;
 
 typedef struct {
@@ -308,6 +312,12 @@ typedef struct {
   guint32 id;
   gboolean modal_hint;
 } BroadwayRequestSetModalHint;
+
+typedef struct {
+  BroadwayRequestBase base;
+  guint32 id;
+  guint32 is_empty;
+} BroadwayRequestSetInputRegion;
 
 typedef struct {
   BroadwayRequestBase base;
@@ -335,6 +345,7 @@ typedef union {
   BroadwayRequestReleaseTexture release_texture;
   BroadwayRequestSetNodes set_nodes;
   BroadwayRequestSetModalHint set_modal_hint;
+  BroadwayRequestSetInputRegion set_input_region;
   BroadwayRequestSetClipboard set_clipboard;
 } BroadwayRequest;
 

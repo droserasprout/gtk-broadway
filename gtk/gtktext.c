@@ -6274,7 +6274,16 @@ gtk_text_activate_selection_select_all (GtkWidget  *widget,
                                         GVariant   *parameter)
 {
   GtkText *self = GTK_TEXT (widget);
+  GtkTextPrivate *priv = gtk_text_get_instance_private (self);
+
   gtk_text_select_line (self);
+
+  /* If this was triggered from the touch selection bubble (which is built
+   * once, when there was no selection yet, so it lacks Cut/Copy), re-pop it
+   * so it rebuilds with the now-enabled clipboard actions. Gated on the
+   * bubble being visible so a keyboard Select-All doesn't summon one. */
+  if (priv->selection_bubble && gtk_widget_get_visible (priv->selection_bubble))
+    gtk_text_selection_bubble_popup_set (self);
 }
 
 static void

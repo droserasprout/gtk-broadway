@@ -2851,11 +2851,25 @@ check_autohide (GdkEvent *event)
     case GDK_TOUCHPAD_PINCH:
       display = gdk_event_get_display (event);
       device = gdk_event_get_device (event);
+      /* Touch events are delivered from the physical touchscreen device, but
+       * grabs (e.g. a popover's autohide grab) are taken on the logical pointer.
+       * This is true on every backend (the touchscreen's associated device is
+       * the logical pointer on Broadway, X11 and Wayland alike), so without
+       * falling back to it an outside tap could fail to dismiss the popover. */
+      if (!gdk_device_grab_info (display, device, &grab_surface, NULL) &&
+          device->associated != NULL)
+        device = device->associated;
       if (gdk_device_grab_info (display, device, &grab_surface, NULL))
         {
           event_surface = gdk_event_get_surface (event);
-          if (event_surface->autohide &&
-              evtype != GDK_TOUCH_BEGIN &&
+          /* has_pointer is tracked from pointer crossings, which the touch
+           * path doesn't send, so it is always FALSE for touch. Without this
+           * guard a tap *inside* an autohide popup (e.g. selecting a
+           * GtkDropDown item) would look "outside" and dismiss the popup
+           * instead of activating the item. The touch landed on event_surface,
+           * so trust it. */
+          if (evtype != GDK_TOUCH_BEGIN &&
+              event_surface->autohide &&
               !event_surface->has_pointer)
             event_surface = NULL;
 

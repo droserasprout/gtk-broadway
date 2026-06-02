@@ -9278,7 +9278,15 @@ gtk_text_view_activate_selection_select_all (GtkWidget  *widget,
                                              const char *action_name,
                                              GVariant   *parameter)
 {
+  GtkTextView *text_view = GTK_TEXT_VIEW (widget);
+  GtkTextViewPrivate *priv = text_view->priv;
+
   gtk_text_view_select_all (widget, TRUE);
+
+  /* Re-pop the touch selection bubble (if showing) so it rebuilds with the
+   * now-enabled Cut/Copy actions; see the matching GtkText change. */
+  if (priv->selection_bubble && gtk_widget_get_visible (priv->selection_bubble))
+    gtk_text_view_selection_bubble_popup_set (text_view);
 }
 
 static void

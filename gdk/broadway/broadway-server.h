@@ -99,7 +99,8 @@ guint32             broadway_server_new_surface               (BroadwayServer  *
                                                                int              x,
                                                                int              y,
                                                                int              width,
-                                                               int              height);
+                                                               int              height,
+                                                               gboolean         is_popup);
 void                broadway_server_destroy_surface           (BroadwayServer  *server,
                                                                int              id,
                                                                gboolean         disconnected);
@@ -142,5 +143,8 @@ void                broadway_server_focus_surface             (BroadwayServer  *
 void                broadway_server_surface_set_modal_hint    (BroadwayServer *server,
                                                                int             id,
                                                                gboolean        modal_hint);
+void                broadway_server_surface_set_input_region  (BroadwayServer *server,
+                                                               int             id,
+                                                               gboolean        is_empty);
 
 
