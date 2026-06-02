@@ -618,7 +618,7 @@ queue_input_message (BroadwayServer *server, BroadwayInputMsg *msg)
 }
 
 static void
-parse_input_message (BroadwayInput *input, const unsigned char *message)
+parse_input_message (BroadwayInput *input, const unsigned char *message, gsize payload_len)
 {
   BroadwayServer *server = input->server;
   BroadwayInputMsg msg;
@@ -735,6 +735,28 @@ parse_input_message (BroadwayInput *input, const unsigned char *message)
     msg.screen_resize_notify.scale = ntohl (*p++);
     break;
 
+  case BROADWAY_EVENT_CLIPBOARD_CONTENTS:
+    {
+      /* type, serial, time, id, len precede the text in the frame. */
+      gsize header = 5 * sizeof (guint32);
+      guint32 id, len;
+
+      if (payload_len < header)
+        return; /* truncated frame */
+
+      id = ntohl (*p++);
+      len = ntohl (*p++);
+
+      /* The browser is untrusted: never read past the frame, and cap the size. */
+      if (len > payload_len - header)
+        len = payload_len - header;
+      if (len > BROADWAY_CLIPBOARD_MAX_SIZE)
+        len = BROADWAY_CLIPBOARD_MAX_SIZE;
+
+      broadway_clipboard_contents_received (id, (const char *) p, len);
+    }
+    return;
+
   default:
     g_printerr ("parse_input_message - Unknown input command %c (%s)\n", msg.base.type, message);
     break;
@@ -846,7 +868,7 @@ parse_input (BroadwayInput *input)
           }
         else
           {
-            parse_input_message (input, data);
+            parse_input_message (input, data, payload_len);
           }
         break;
       case BROADWAY_WS_CNX_PING:
@@ -1693,6 +1715,29 @@ broadway_server_set_show_keyboard (BroadwayServer *server,
   if (server->output)
     {
       broadway_output_set_show_keyboard (server->output, server->show_keyboard);
+      broadway_server_flush (server);
+    }
+}
+
+void
+broadway_server_set_clipboard (BroadwayServer *server,
+                               const char     *text,
+                               gsize           len)
+{
+  if (server->output)
+    {
+      broadway_output_set_clipboard (server->output, text, len);
+      broadway_server_flush (server);
+    }
+}
+
+void
+broadway_server_request_clipboard (BroadwayServer *server,
+                                   guint32         id)
+{
+  if (server->output)
+    {
+      broadway_output_request_clipboard (server->output, id);
       broadway_server_flush (server);
     }
 }

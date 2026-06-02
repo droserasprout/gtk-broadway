@@ -86,6 +86,16 @@ void _gdk_broadway_display_size_changed (GdkDisplay *display,
 void _gdk_broadway_events_got_input      (GdkDisplay *display,
                                           BroadwayInputMsg *message);
 
+void          _gdk_broadway_server_set_clipboard_text     (GdkBroadwayServer *server,
+                                                           const char        *text);
+guint32       _gdk_broadway_server_request_clipboard      (GdkBroadwayServer *server);
+
+GdkClipboard *gdk_broadway_clipboard_new                  (GdkDisplay *display);
+void          _gdk_broadway_clipboard_contents_received   (GdkDisplay *display,
+                                                           guint32     in_reply_to,
+                                                           const char *text,
+                                                           gsize       len);
+
 void _gdk_broadway_display_init_root_window (GdkDisplay *display);
 GdkDisplay * _gdk_broadway_display_open (const char *display_name);
 void _gdk_broadway_display_queue_events (GdkDisplay *display);

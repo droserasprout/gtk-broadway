@@ -43,11 +43,14 @@ struct _GdkBroadwayServer {
   GSocketConnection *connection;
 
   guint32 recv_buffer_size;
-  guint8 recv_buffer[1024];
+  guint32 recv_buffer_capacity;
+  guint8 *recv_buffer;
 
   guint process_input_idle;
   GList *incoming;
 };
+
+#define RECV_BUFFER_INITIAL_SIZE 1024
 
 struct _GdkBroadwayServerClass
 {
@@ -65,11 +68,17 @@ gdk_broadway_server_init (GdkBroadwayServer *server)
 {
   server->next_serial = 1;
   server->next_texture_id = 1;
+  server->recv_buffer_capacity = RECV_BUFFER_INITIAL_SIZE;
+  server->recv_buffer = g_malloc (server->recv_buffer_capacity);
 }
 
 static void
 gdk_broadway_server_finalize (GObject *object)
 {
+  GdkBroadwayServer *server = GDK_BROADWAY_SERVER (object);
+
+  g_free (server->recv_buffer);
+
   G_OBJECT_CLASS (gdk_broadway_server_parent_class)->finalize (object);
 }
 
@@ -227,11 +236,30 @@ gdk_broadway_server_send_message_with_size (GdkBroadwayServer *server, BroadwayR
 #define gdk_broadway_server_send_fd_message(_server, _msg, _type, _fd)      \
   gdk_broadway_server_send_message_with_size(_server, (BroadwayRequestBase *)&_msg, sizeof (_msg), _type, _fd)
 
+/* Grow the receive buffer so it can hold at least @needed bytes. Clipboard
+ * replies are variable-sized and can exceed the initial buffer; without this a
+ * reply larger than the buffer could never be assembled. */
+static void
+ensure_recv_capacity (GdkBroadwayServer *server, guint32 needed)
+{
+  guint32 capacity = server->recv_buffer_capacity;
+
+  if (needed <= capacity)
+    return;
+
+  while (capacity < needed)
+    capacity *= 2;
+
+  server->recv_buffer = g_realloc (server->recv_buffer, capacity);
+  server->recv_buffer_capacity = capacity;
+}
+
 static void
 parse_all_input (GdkBroadwayServer *server)
 {
   guint8 *p, *end;
   guint32 size;
+  guint32 incomplete_size = 0;
   BroadwayReply *reply;
 
   p = server->recv_buffer;
@@ -241,7 +269,12 @@ parse_all_input (GdkBroadwayServer *server)
     {
       memcpy (&size, p, sizeof (guint32));
       if (p + size > end)
-        break;
+        {
+          /* Incomplete message; remember its full size so we can grow the
+           * buffer below to make room for the rest of it. */
+          incomplete_size = size;
+          break;
+        }
 
       reply = g_memdup2 (p, size);
       p += size;
@@ -249,9 +282,13 @@ parse_all_input (GdkBroadwayServer *server)
       server->incoming = g_list_append (server->incoming, reply);
     }
 
-  if (p < end)
+  if (p < end && p != server->recv_buffer)
     memmove (server->recv_buffer, p, end - p);
   server->recv_buffer_size = end - p;
+
+  /* Done with p/end (into the old buffer) before any realloc that may move it. */
+  if (incomplete_size > 0)
+    ensure_recv_capacity (server, incomplete_size);
 }
 
 static void
@@ -262,9 +299,10 @@ read_some_input_blocking (GdkBroadwayServer *server)
 
   in = g_io_stream_get_input_stream (G_IO_STREAM (server->connection));
 
-  g_assert (server->recv_buffer_size < sizeof (server->recv_buffer));
+  if (server->recv_buffer_size == server->recv_buffer_capacity)
+    ensure_recv_capacity (server, server->recv_buffer_capacity + 1);
   res = g_input_stream_read (in, &server->recv_buffer[server->recv_buffer_size],
-                             sizeof (server->recv_buffer) - server->recv_buffer_size,
+                             server->recv_buffer_capacity - server->recv_buffer_size,
                              NULL, NULL);
 
   if (res <= 0)
@@ -287,10 +325,11 @@ read_some_input_nonblocking (GdkBroadwayServer *server)
   in = g_io_stream_get_input_stream (G_IO_STREAM (server->connection));
   pollable = G_POLLABLE_INPUT_STREAM (in);
 
-  g_assert (server->recv_buffer_size < sizeof (server->recv_buffer));
+  if (server->recv_buffer_size == server->recv_buffer_capacity)
+    ensure_recv_capacity (server, server->recv_buffer_capacity + 1);
   error = NULL;
   res = g_pollable_input_stream_read_nonblocking (pollable, &server->recv_buffer[server->recv_buffer_size],
-                                                  sizeof (server->recv_buffer) - server->recv_buffer_size,
+                                                  server->recv_buffer_capacity - server->recv_buffer_size,
                                                   NULL, &error);
 
   if (res < 0 && g_error_matches (error, G_IO_ERROR, G_IO_ERROR_WOULD_BLOCK))
@@ -343,6 +382,11 @@ process_input_messages (GdkBroadwayServer *server)
 
       if (reply->base.type == BROADWAY_REPLY_EVENT)
         _gdk_broadway_events_got_input (server->display, &reply->event.msg);
+      else if (reply->base.type == BROADWAY_REPLY_CLIPBOARD)
+        _gdk_broadway_clipboard_contents_received (server->display,
+                                                   reply->base.in_reply_to,
+                                                   reply->clipboard.text,
+                                                   reply->clipboard.len);
       else
         g_warning ("Unhandled reply type %d", reply->base.type);
       g_free (reply);
@@ -775,4 +819,37 @@ _gdk_broadway_server_set_show_keyboard (GdkBroadwayServer *server,
   msg.show_keyboard = show;
   gdk_broadway_server_send_message (server, msg,
                                     BROADWAY_REQUEST_SET_SHOW_KEYBOARD);
+}
+
+void
+_gdk_broadway_server_set_clipboard_text (GdkBroadwayServer *server,
+                                         const char        *text)
+{
+  gsize len = text ? strlen (text) : 0;
+  gsize size;
+  BroadwayRequestSetClipboard *msg;
+
+  if (len > BROADWAY_CLIPBOARD_MAX_SIZE)
+    len = BROADWAY_CLIPBOARD_MAX_SIZE;
+
+  size = G_STRUCT_OFFSET (BroadwayRequestSetClipboard, text) + len;
+  /* Allocate at least the full struct so accessing msg->len stays in bounds
+   * (the text[1] member makes sizeof larger than size when len is small). */
+  msg = g_malloc0 (MAX (size + 1, sizeof *msg));
+
+  msg->len = (guint32) len;
+  if (len > 0)
+    memcpy (msg->text, text, len);
+
+  gdk_broadway_server_send_message_with_size (server, (BroadwayRequestBase *) msg,
+                                              size, BROADWAY_REQUEST_SET_CLIPBOARD, -1);
+  g_free (msg);
+}
+
+guint32
+_gdk_broadway_server_request_clipboard (GdkBroadwayServer *server)
+{
+  BroadwayRequestBase msg;
+  return gdk_broadway_server_send_message_with_size (server, &msg, sizeof (msg),
+                                                     BROADWAY_REQUEST_REQUEST_CLIPBOARD, -1);
 }

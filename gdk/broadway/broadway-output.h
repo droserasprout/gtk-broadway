@@ -72,4 +72,9 @@ guint32         broadway_output_ungrab_pointer      (BroadwayOutput *output);
 void            broadway_output_pong                (BroadwayOutput *output);
 void            broadway_output_set_show_keyboard   (BroadwayOutput *output,
                                                      gboolean        show);
+void            broadway_output_set_clipboard       (BroadwayOutput *output,
+                                                     const char     *text,
+                                                     gsize           len);
+void            broadway_output_request_clipboard   (BroadwayOutput *output,
+                                                     guint32         id);
 
