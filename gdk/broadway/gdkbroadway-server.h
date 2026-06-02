@@ -44,7 +44,8 @@ guint32            _gdk_broadway_server_new_surface               (GdkBroadwaySe
 								  int                 x,
 								  int                 y,
 								  int                 width,
-								  int                 height);
+								  int                 height,
+								  gboolean            is_popup);
 void               _gdk_broadway_server_destroy_surface           (GdkBroadwayServer  *server,
 								  int                 id);
 gboolean           _gdk_broadway_server_surface_show              (GdkBroadwayServer  *server,
@@ -80,4 +81,7 @@ gboolean           _gdk_broadway_server_surface_move_resize       (GdkBroadwaySe
 void               _gdk_broadway_server_surface_set_modal_hint   (GdkBroadwayServer *server,
                                                                   int                id,
                                                                   gboolean           modal_hint);
+void               _gdk_broadway_server_surface_set_input_region (GdkBroadwayServer *server,
+                                                                  int                id,
+                                                                  gboolean           is_empty);
 

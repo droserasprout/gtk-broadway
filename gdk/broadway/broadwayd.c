@@ -278,7 +278,8 @@ client_handle_request (BroadwayClient *client,
                                      request->new_surface.x,
                                      request->new_surface.y,
                                      request->new_surface.width,
-                                     request->new_surface.height);
+                                     request->new_surface.height,
+                                     request->new_surface.is_popup);
       client->surfaces =
         g_list_prepend (client->surfaces,
                         GUINT_TO_POINTER (reply.new_surface.id));
@@ -429,10 +430,21 @@ client_handle_request (BroadwayClient *client,
                                               request->set_modal_hint.id,
                                               request->set_modal_hint.modal_hint);
       break;
+    case BROADWAY_REQUEST_SET_INPUT_REGION:
+      broadway_server_surface_set_input_region (server,
+                                                request->set_input_region.id,
+                                                request->set_input_region.is_empty);
+      break;
     case BROADWAY_REQUEST_SET_CLIPBOARD:
-      broadway_server_set_clipboard (server,
-                                     request->set_clipboard.text,
-                                     request->set_clipboard.len);
+      {
+        /* Don't trust the wire len: clamp to what the framed request actually
+         * carries, so a bogus len can't read past the request buffer. */
+        gsize max = request->base.size -
+                    G_STRUCT_OFFSET (BroadwayRequestSetClipboard, text);
+        guint32 len = request->set_clipboard.len > max
+                      ? (guint32) max : request->set_clipboard.len;
+        broadway_server_set_clipboard (server, request->set_clipboard.text, len);
+      }
       break;
     case BROADWAY_REQUEST_REQUEST_CLIPBOARD:
       {
@@ -443,8 +455,10 @@ client_handle_request (BroadwayClient *client,
         pending->serial = request->base.serial;
         pending_clipboard_requests = g_list_append (pending_clipboard_requests, pending);
 
-        /* Bound memory if some requests never get answered (e.g. browser gone). */
-        while (g_list_length (pending_clipboard_requests) > MAX_PENDING_CLIPBOARD_REQUESTS)
+        /* Bound memory if some requests never get answered (e.g. browser gone).
+         * The list grows by one per request, so at most one entry is ever over
+         * the cap — a single check suffices (no need to re-walk the list). */
+        if (g_list_length (pending_clipboard_requests) > MAX_PENDING_CLIPBOARD_REQUESTS)
           {
             GList *oldest = pending_clipboard_requests;
             g_free (oldest->data);

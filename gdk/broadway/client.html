@@ -5,7 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>broadway 2.0</title>
 <style type="text/css">
-body { overflow: hidden; }
+/* touch-action: none stops the browser from claiming touch sequences for
+ * scroll/zoom (GTK handles those) and firing touchcancel mid-gesture. */
+html, body { overflow: hidden; touch-action: none; }
 </style>
 <script type="text/javascript" src="broadway.js"></script>
 </head>

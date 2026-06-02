@@ -491,13 +491,21 @@ _gtk_gesture_update_point (GtkGesture     *gesture,
         }
 
       data = g_new0 (PointData, 1);
+      /* Assign the event before inserting: recognition can be checked
+       * re-entrantly while this point is in the hash (e.g. the
+       * _gtk_gesture_get_n_physical_points() call below, or a drag-begin claim
+       * that cancels a sibling gesture's sequence mid-add), and iterating a
+       * point with a NULL event would crash. */
+      data->event = gdk_event_ref ((GdkEvent *)event);
       g_hash_table_insert (priv->points, sequence, data);
     }
+  else
+    {
+      if (data->event)
+        gdk_event_unref (data->event);
+      data->event = gdk_event_ref ((GdkEvent *)event);
+    }
 
-  if (data->event)
-    gdk_event_unref (data->event);
-
-  data->event = gdk_event_ref ((GdkEvent *)event);
   g_set_object (&data->target, target);
   _update_touchpad_deltas (data);
   data->widget_x = x + data->accum_dx;
