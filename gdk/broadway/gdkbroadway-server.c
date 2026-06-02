@@ -247,8 +247,12 @@ ensure_recv_capacity (GdkBroadwayServer *server, guint32 needed)
   if (needed <= capacity)
     return;
 
-  while (capacity < needed)
+  /* Double, but stop before guint32 overflows (which would wrap to 0 and spin
+   * forever / under-allocate); fall back to the exact size for the last step. */
+  while (capacity < needed && capacity <= G_MAXUINT32 / 2)
     capacity *= 2;
+  if (capacity < needed)
+    capacity = needed;
 
   server->recv_buffer = g_realloc (server->recv_buffer, capacity);
   server->recv_buffer_capacity = capacity;
@@ -288,7 +292,18 @@ parse_all_input (GdkBroadwayServer *server)
 
   /* Done with p/end (into the old buffer) before any realloc that may move it. */
   if (incomplete_size > 0)
-    ensure_recv_capacity (server, incomplete_size);
+    {
+      /* The largest legitimate frame is a clipboard reply (text capped at
+       * BROADWAY_CLIPBOARD_MAX_SIZE) plus a small header. A larger claimed size
+       * means a corrupt/hostile stream; bail rather than try to allocate it. */
+      if (incomplete_size > BROADWAY_CLIPBOARD_MAX_SIZE + 1024)
+        {
+          g_printerr ("Broadway server sent an oversized message (%u bytes)\n",
+                      incomplete_size);
+          exit (1);
+        }
+      ensure_recv_capacity (server, incomplete_size);
+    }
 }
 
 static void
@@ -383,10 +398,18 @@ process_input_messages (GdkBroadwayServer *server)
       if (reply->base.type == BROADWAY_REPLY_EVENT)
         _gdk_broadway_events_got_input (server->display, &reply->event.msg);
       else if (reply->base.type == BROADWAY_REPLY_CLIPBOARD)
-        _gdk_broadway_clipboard_contents_received (server->display,
-                                                   reply->base.in_reply_to,
-                                                   reply->clipboard.text,
-                                                   reply->clipboard.len);
+        {
+          /* Don't trust the wire len: clamp to what the framed reply carries
+           * so the text read never runs past the allocation. */
+          gsize max = reply->base.size -
+                      G_STRUCT_OFFSET (BroadwayReplyClipboard, text);
+          guint32 len = reply->clipboard.len > max
+                        ? (guint32) max : reply->clipboard.len;
+          _gdk_broadway_clipboard_contents_received (server->display,
+                                                     reply->base.in_reply_to,
+                                                     reply->clipboard.text,
+                                                     len);
+        }
       else
         g_warning ("Unhandled reply type %d", reply->base.type);
       g_free (reply);
@@ -518,7 +541,8 @@ _gdk_broadway_server_new_surface (GdkBroadwayServer *server,
                                  int x,
                                  int y,
                                  int width,
-                                 int height)
+                                 int height,
+                                 gboolean is_popup)
 {
   BroadwayRequestNewSurface msg;
   guint32 serial, id;
@@ -528,6 +552,7 @@ _gdk_broadway_server_new_surface (GdkBroadwayServer *server,
   msg.y = y;
   msg.width = width;
   msg.height = height;
+  msg.is_popup = is_popup;
   serial = gdk_broadway_server_send_message (server, msg,
                                              BROADWAY_REQUEST_NEW_SURFACE);
   reply = gdk_broadway_server_wait_for_reply (server, serial);
@@ -611,6 +636,18 @@ _gdk_broadway_server_surface_set_modal_hint (GdkBroadwayServer *server,
   msg.modal_hint = modal_hint;
   gdk_broadway_server_send_message (server, msg,
 				    BROADWAY_REQUEST_SET_MODAL_HINT);
+}
+
+void
+_gdk_broadway_server_surface_set_input_region (GdkBroadwayServer *server,
+                                               int id, gboolean is_empty)
+{
+  BroadwayRequestSetInputRegion msg;
+
+  msg.id = id;
+  msg.is_empty = is_empty;
+  gdk_broadway_server_send_message (server, msg,
+				    BROADWAY_REQUEST_SET_INPUT_REGION);
 }
 
 static int

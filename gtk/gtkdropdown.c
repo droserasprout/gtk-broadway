@@ -212,6 +212,13 @@ row_activated (GtkListView *listview,
   gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (self->button), FALSE);
   gtk_popover_popdown (GTK_POPOVER (self->popup));
 
+  /* Trust the activated position. On a pointer it matches the popup selection
+     (set by select-on-hover), but a touch tap activates a row without ever
+     selecting it (there is no hover crossing), leaving popup_selection stale at
+     0 -> every tap would pick the first item. Set it here, before the filter
+     reset below maps this (filtered) position back to the unfiltered one. */
+  gtk_single_selection_set_selected (GTK_SINGLE_SELECTION (self->popup_selection), position);
+
   /* reset the filter so positions are 1-1 */
   filter = gtk_filter_list_model_get_filter (GTK_FILTER_LIST_MODEL (self->filter_model));
   if (GTK_IS_STRING_FILTER (filter))

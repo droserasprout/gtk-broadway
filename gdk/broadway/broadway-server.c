@@ -88,6 +88,8 @@ struct _BroadwayServer {
   int future_mouse_in_surface;
 
   GList *outstanding_roundtrips;
+
+  GSList *deferred_enters; /* pending DeferredEnter timers (see below) */
 };
 
 struct _BroadwayServerClass
@@ -123,8 +125,10 @@ struct BroadwaySurface {
   gint32 height;
   gboolean visible;
   gint32 transient_for;
+  gboolean is_popup; /* menu/popover/bubble, as opposed to a toplevel or dialog */
   guint32 texture;
   gboolean modal_hint;
+  gboolean input_region_is_empty;
   BroadwayNode *nodes;
   GHashTable *node_lookup;
 };
@@ -134,6 +138,15 @@ struct _BroadwayTexture {
   guint32 id;
   GBytes *bytes;
 };
+
+/* A pending pointer-recovery ENTER, scheduled when a popup closes (see
+ * recover_pointer_focus). Tracked on server->deferred_enters so the timer can
+ * be cancelled on finalize and coalesced per toplevel. */
+typedef struct {
+  BroadwayServer *server;
+  gint32 parent_id;
+  guint source_id;
+} DeferredEnter;
 
 static void broadway_server_resync_surfaces (BroadwayServer *server);
 static void send_outstanding_roundtrips (BroadwayServer *server);
@@ -284,6 +297,17 @@ static void
 broadway_server_finalize (GObject *object)
 {
   BroadwayServer *server = BROADWAY_SERVER (object);
+  GSList *l;
+
+  /* Cancel any pending pointer-recovery timers so they can't fire on a freed
+   * server. */
+  for (l = server->deferred_enters; l != NULL; l = l->next)
+    {
+      DeferredEnter *de = l->data;
+      g_source_remove (de->source_id);
+      g_free (de);
+    }
+  g_slist_free (server->deferred_enters);
 
   g_free (server->address);
   g_free (server->ssl_cert);
@@ -396,15 +420,32 @@ update_event_state (BroadwayServer *server,
     if (message->touch.touch_type == 0 && message->touch.is_emulated &&
         server->focused_surface_id != message->touch.event_surface_id)
       {
-        broadway_server_surface_raise (server, message->touch.event_surface_id);
-        broadway_server_focus_surface (server, message->touch.event_surface_id);
-        broadway_server_flush (server);
+        BroadwaySurface *touched =
+          broadway_server_lookup_surface (server, message->touch.event_surface_id);
+
+        /* Tapping a popup (menu, popover, or the touch selection bubble) must
+         * not move keyboard focus to it. Focusing the popup makes the
+         * toplevel's focused widget emit focus-out, whose handler tears the
+         * popup down (e.g. GtkText hides its selection bubble) before the tap
+         * can activate the popup's content, so the bubble's Cut/Copy/Paste
+         * silently do nothing. Real backends (Wayland xdg_popup) don't take
+         * keyboard focus on click either. So only raise + focus genuine
+         * toplevels (including dialogs) here, never popups. */
+        if (touched && !touched->is_popup)
+          {
+            broadway_server_surface_raise (server, message->touch.event_surface_id);
+            broadway_server_focus_surface (server, message->touch.event_surface_id);
+            broadway_server_flush (server);
+          }
       }
 
     if (message->touch.is_emulated)
       {
-        server->last_x = message->pointer.root_x;
-        server->last_y = message->pointer.root_y;
+        /* touch and pointer structs have different layouts; the touch root
+         * coords live in message->touch, not message->pointer (which would
+         * alias sequence_id/is_emulated here). */
+        server->last_x = message->touch.root_x;
+        server->last_y = message->touch.root_y;
       }
 
     server->last_state = message->touch.state;
@@ -570,6 +611,108 @@ fake_configure_notify (BroadwayServer *server,
   ev.configure_notify.height = surface->height;
 
   process_input_message (server, &ev);
+}
+
+static gboolean
+any_popup_visible (BroadwayServer *server)
+{
+  GList *l;
+  gboolean found = FALSE;
+
+  for (l = server->surfaces; l != NULL; l = l->next)
+    {
+      BroadwaySurface *s = l->data;
+      if (s->visible && s->is_popup)
+        {
+          /* Click-through popups (empty input region: GtkTextHandle cursor /
+           * selection handles) are not interactive menus, so they don't mean
+           * "navigation in progress" — ignore them. */
+          if (!s->input_region_is_empty)
+            found = TRUE;
+        }
+    }
+  return found;
+}
+
+/* Fired ~50 ms after a popup went away. The delay matters: the app processes
+ * the ENTER (high-priority socket IO) before its own popdown/focus-restore
+ * idle work (lower priority), so an immediate ENTER gets clobbered. Deferring
+ * lets the app settle first, then re-assert pointer focus. Re-check the
+ * navigation gate at fire time in case a new popup opened meanwhile. */
+static gboolean
+deferred_enter_cb (gpointer data)
+{
+  DeferredEnter *de = data;
+  BroadwayServer *server = de->server;
+  BroadwaySurface *parent;
+
+  /* Drop our entry first: the source auto-removes on return, so finalize must
+   * not also try to remove it. */
+  server->deferred_enters = g_slist_remove (server->deferred_enters, de);
+
+  if (any_popup_visible (server))
+    goto out;
+
+  parent = broadway_server_lookup_surface (server, de->parent_id);
+  if (parent == NULL)
+    goto out;
+
+  /* Ask the browser to re-send a pointer ENTER through the normal input path.
+   * Injecting the crossing daemon-side doesn't take — the browser-originated
+   * event carries the live serial/time the app's GTK needs to honor the
+   * crossing — so we route it through the client. */
+  if (server->output)
+    {
+      broadway_output_reassert_pointer (server->output, de->parent_id,
+                                        server->last_x, server->last_y);
+      broadway_server_flush (server);
+    }
+
+out:
+  g_free (de);
+  return G_SOURCE_REMOVE;
+}
+
+/* A popup (menu/dropdown/popover) just went away (was hidden or destroyed).
+ * Re-assert pointer focus on its toplevel so emulated-touch input keeps
+ * flowing — but only if no other popup is still up: if one is, this was menu
+ * navigation (close A to open B), and entering the parent would dismiss the
+ * new popup. The hidden/destroyed surface is already non-visible/removed by
+ * the time we get here, so it never counts itself. Deferred (see above). */
+static void
+recover_pointer_focus (BroadwayServer *server,
+                       gint32          transient_for)
+{
+  DeferredEnter *de;
+  GSList *l;
+  gint32 top = transient_for;
+
+  if (transient_for <= 0)
+    return;
+
+  /* Resolve to the toplevel: the immediate parent may itself be a popup. */
+  for (;;)
+    {
+      BroadwaySurface *s = broadway_server_lookup_surface (server, top);
+      if (s == NULL || !s->is_popup)
+        break;
+      top = s->transient_for;
+    }
+
+  /* A popdown often hides *and* destroys the surface, and nested popups can
+   * close together; coalesce so we don't schedule duplicate ENTERs for the
+   * same toplevel. */
+  for (l = server->deferred_enters; l != NULL; l = l->next)
+    {
+      if (((DeferredEnter *) l->data)->parent_id == top)
+        return;
+    }
+
+  de = g_new0 (DeferredEnter, 1);
+  de->server = server;
+  de->parent_id = top;
+  server->deferred_enters = g_slist_prepend (server->deferred_enters, de);
+  de->source_id = g_timeout_add (50, deferred_enter_cb, de);
 }
 
 static guint32 *
@@ -1601,6 +1744,8 @@ broadway_server_destroy_surface (BroadwayServer *server,
 {
   BroadwaySurface *surface;
   gint32 transient_for = -1;
+  gboolean is_popup = FALSE;
+  gboolean was_focused = FALSE;
 
   if (server->mouse_in_surface_id == id)
     {
@@ -1617,8 +1762,11 @@ broadway_server_destroy_surface (BroadwayServer *server,
   surface = broadway_server_lookup_surface (server, id);
   if (surface != NULL)
     {
-      if (server->focused_surface_id == id)
-	transient_for = surface->transient_for;
+      /* A popup (menu, popover, …) keeps its parent for pointer recovery
+       * below, independent of keyboard focus. */
+      transient_for = surface->transient_for;
+      is_popup = surface->is_popup;
+      was_focused = (server->focused_surface_id == id);
 
       server->surfaces = g_list_remove (server->surfaces, surface);
       g_hash_table_remove (server->surface_id_hash,
@@ -1626,14 +1774,12 @@ broadway_server_destroy_surface (BroadwayServer *server,
       broadway_surface_free (server, surface);
     }
 
-  if (transient_for != -1 && !disconnected)
+  if (is_popup && transient_for > 0 && !disconnected)
     {
-      surface = broadway_server_lookup_surface (server, transient_for);
-      if (surface != NULL)
-        {
-	  broadway_server_focus_surface (server, transient_for);
-	  broadway_server_flush (server);
-	}
+      if (was_focused &&
+          broadway_server_lookup_surface (server, transient_for) != NULL)
+        broadway_server_focus_surface (server, transient_for);
+      recover_pointer_focus (server, transient_for);
     }
 }
 
@@ -1686,6 +1832,12 @@ broadway_server_surface_hide (BroadwayServer *server,
       broadway_output_hide_surface (server->output, surface->id);
       sent = TRUE;
     }
+
+  /* A popped-down popup (e.g. a GtkDropDown reuses its surface, hiding rather
+   * than destroying it) leaves pointer focus stale just like destroy does. */
+  if (surface->is_popup && surface->transient_for > 0)
+    recover_pointer_focus (server, surface->transient_for);
+
   return sent;
 }
 
@@ -1789,6 +1941,22 @@ broadway_server_surface_set_modal_hint (BroadwayServer *server,
     return;
 
   surface->modal_hint = modal_hint;
+}
+
+void
+broadway_server_surface_set_input_region (BroadwayServer *server,
+                                          int id, gboolean is_empty)
+{
+  BroadwaySurface *surface;
+
+  surface = broadway_server_lookup_surface (server, id);
+  if (surface == NULL)
+    return;
+
+  surface->input_region_is_empty = is_empty;
+
+  if (server->output)
+    broadway_output_set_input_region (server->output, id, is_empty);
 }
 
 gboolean
@@ -2155,7 +2323,8 @@ broadway_server_new_surface (BroadwayServer *server,
                              int x,
                              int y,
                              int width,
-                             int height)
+                             int height,
+                             gboolean is_popup)
 {
   BroadwaySurface *surface;
 
@@ -2166,6 +2335,7 @@ broadway_server_new_surface (BroadwayServer *server,
   surface->y = y;
   surface->width = width;
   surface->height = height;
+  surface->is_popup = is_popup;
   surface->node_lookup = g_hash_table_new (g_direct_hash, g_direct_equal);
 
   g_hash_table_insert (server->surface_id_hash,
@@ -2239,6 +2409,9 @@ broadway_server_resync_surfaces (BroadwayServer *server)
         broadway_output_surface_set_nodes (server->output, surface->id,
                                            surface->nodes,
                                            NULL, NULL);
+
+      if (surface->input_region_is_empty)
+        broadway_output_set_input_region (server->output, surface->id, TRUE);
 
       if (surface->visible)
         broadway_output_show_surface (server->output, surface->id);
