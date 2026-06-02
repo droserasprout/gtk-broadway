@@ -3,6 +3,7 @@ gdk_broadway_sources = files([
   'broadway-server.c',
   'broadwayd.c',
   'gdkbroadway-server.c',
+  'gdkclipboard-broadway.c',
   'gdkcairocontext-broadway.c',
   'gdkdrawcontext-broadway.c',
   'gdkcursor-broadway.c',

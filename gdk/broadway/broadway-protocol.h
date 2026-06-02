@@ -2,6 +2,11 @@
 
 #include <glib.h>
 
+/* Upper bound on clipboard text transferred to/from the browser. Caps the
+ * allocation a (possibly malicious or buggy) browser-supplied length can drive
+ * on the daemon, and the resulting reply size on the client. */
+#define BROADWAY_CLIPBOARD_MAX_SIZE (16 * 1024 * 1024)
+
 typedef struct  {
     gint32 x, y;
     gint32 width, height;
@@ -65,6 +70,7 @@ typedef enum {
   BROADWAY_EVENT_SCREEN_SIZE_CHANGED = 12,
   BROADWAY_EVENT_FOCUS = 13,
   BROADWAY_EVENT_ROUNDTRIP_NOTIFY = 14,
+  BROADWAY_EVENT_CLIPBOARD_CONTENTS = 15,
 } BroadwayEventType;
 
 typedef enum {
@@ -85,6 +91,8 @@ typedef enum {
   BROADWAY_OP_RELEASE_TEXTURE = 14,
   BROADWAY_OP_SET_NODES = 15,
   BROADWAY_OP_ROUNDTRIP = 16,
+  BROADWAY_OP_SET_CLIPBOARD = 17,
+  BROADWAY_OP_REQUEST_CLIPBOARD = 18,
 } BroadwayOpType;
 
 typedef struct {
@@ -213,6 +221,8 @@ typedef enum {
   BROADWAY_REQUEST_SET_NODES,
   BROADWAY_REQUEST_ROUNDTRIP,
   BROADWAY_REQUEST_SET_MODAL_HINT,
+  BROADWAY_REQUEST_SET_CLIPBOARD,
+  BROADWAY_REQUEST_REQUEST_CLIPBOARD,
 } BroadwayRequestType;
 
 typedef struct {
@@ -299,6 +309,12 @@ typedef struct {
   gboolean modal_hint;
 } BroadwayRequestSetModalHint;
 
+typedef struct {
+  BroadwayRequestBase base;
+  guint32 len;
+  char text[1];
+} BroadwayRequestSetClipboard;
+
 typedef union {
   BroadwayRequestBase base;
   BroadwayRequestNewSurface new_surface;
@@ -319,6 +335,7 @@ typedef union {
   BroadwayRequestReleaseTexture release_texture;
   BroadwayRequestSetNodes set_nodes;
   BroadwayRequestSetModalHint set_modal_hint;
+  BroadwayRequestSetClipboard set_clipboard;
 } BroadwayRequest;
 
 typedef enum {
@@ -327,7 +344,8 @@ typedef enum {
   BROADWAY_REPLY_QUERY_MOUSE,
   BROADWAY_REPLY_NEW_SURFACE,
   BROADWAY_REPLY_GRAB_POINTER,
-  BROADWAY_REPLY_UNGRAB_POINTER
+  BROADWAY_REPLY_UNGRAB_POINTER,
+  BROADWAY_REPLY_CLIPBOARD
 } BroadwayReplyType;
 
 typedef struct {
@@ -359,6 +377,12 @@ typedef struct {
   BroadwayInputMsg msg;
 } BroadwayReplyEvent;
 
+typedef struct {
+  BroadwayReplyBase base;
+  guint32 len;
+  char text[1];
+} BroadwayReplyClipboard;
+
 typedef union {
   BroadwayReplyBase base;
   BroadwayReplySync sync;
@@ -367,5 +391,6 @@ typedef union {
   BroadwayReplyNewSurface new_surface;
   BroadwayReplyGrabPointer grab_pointer;
   BroadwayReplyUngrabPointer ungrab_pointer;
+  BroadwayReplyClipboard clipboard;
 } BroadwayReply;
 
