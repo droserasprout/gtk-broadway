@@ -239,6 +239,9 @@ _gdk_broadway_events_got_input (GdkDisplay *display,
         case 2:
           event_type = GDK_TOUCH_END;
           break;
+        case 3:
+          event_type = GDK_TOUCH_CANCEL;
+          break;
         default:
           g_printerr ("_gdk_broadway_events_got_input - Unknown touch type %d\n", message->touch.touch_type);
         }
