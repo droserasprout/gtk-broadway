@@ -1,185 +1,84 @@
-GTK — The GTK toolkit
-=====================
+# GTK Broadway fork
 
-[![Build status](https://gitlab.gnome.org/GNOME/gtk/badges/main/pipeline.svg)](https://gitlab.gnome.org/GNOME/gtk/-/commits/main)
+A fork of GTK **4.14.5** that adds bidirectional text clipboard and
+Android/touch support to the **Broadway** backend (GTK rendered in a web browser
+via `gtk4-broadwayd`). Upstream GTK docs: <https://gitlab.gnome.org/GNOME/gtk>.
 
-General information
--------------------
+## Features / Bugfixes
 
-GTK is a multi-platform toolkit for creating graphical user interfaces.
-Offering a complete set of widgets, GTK is suitable for projects ranging
-from small one-off projects to complete application suites.
+### Bidirectional text clipboard
 
-GTK is a free and open-source software project. The licensing terms
-for GTK, the GNU LGPL, allow it to be used by all developers, including those
-developing proprietary software, without any license fees or royalties.
+- **GdkClipboard ⇄ gtk4-broadwayd ⇄ browser `navigator.clipboard` bridge** — a new
+  clipboard backend, `gdk/broadway/gdkclipboard-broadway.c` (`GdkBroadwayClipboard`).
+- **Copy guest → host** — push model: GTK claim → `SET_CLIPBOARD` → browser
+  `writeText` (Ctrl+C / Ctrl+X, right-click-menu copy, custom "Copy" actions).
+- **Paste host → guest** — request/reply: `REQUEST_CLIPBOARD` → browser →
+  `CLIPBOARD_CONTENTS` event, routed back to the one client that asked
+  (Ctrl+V, right-click paste).
+- **New wire protocol** — ops/events `SET_CLIPBOARD`, `REQUEST_CLIPBOARD`,
+  `CLIPBOARD_CONTENTS` (`broadway-protocol.h`, `broadway-output.c`).
+- **Per-client request-id table** in the daemon — routes a reply to the
+  requesting client only, with cleanup on disconnect (`broadwayd.c`).
+- **Growable receive buffer** on the client for variable-size clipboard replies
+  (`gdkbroadway-server.c`).
+- **GtkTextView selection copy** via `text/plain` serialization (for providers
+  that don't yield a plain string).
+- **Hidden-textarea trick** in JS to capture native paste without a permission
+  popup (`broadway.js`, `client.html`).
+- **Read-timeout + remote-reclaim** so a paste never hangs if the tab closed.
 
-GTK is hosted by the GNOME project (thanks!) and used by a wide variety
-of applications and projects.
+### Android / touch support
 
-The official download location
+- **Touch delivered from the touchscreen device** — unlocks GTK's touch text UI
+  (selection handles + Cut/Copy/Paste bubble), which gates on
+  `GDK_SOURCE_TOUCHSCREEN` (`gdkeventsource.c`).
+- **Non-passive touch listeners + `touchcancel` handling** — `preventDefault()`
+  actually works, so jittery taps are no longer cancelled by the browser
+  (`broadway.js`; `touch-action: none` in `client.html`).
+- **On-screen keyboard show/hide** on Android, applied without a one-gesture lag.
+- **Touch / snippet paste forwarded into GTK** as Unicode key events
+  (`commitTextToGtk`).
+- **Non-Latin / IME typed text forwarding** — Cyrillic / CJK / gesture-typed /
+  autocorrect text, via `beforeinput` / composition events.
+- **Autohide popovers dismiss on outside touch tap** — logical-pointer grab
+  fallback in `check_autohide` (`gdk/gdksurface.c`).
+- **Touch gestures survive surface repaints** — listeners re-attached to the
+  touched node after GTK detaches the original DOM node; per-event dedupe.
+- **No spurious `:hover` styling / tooltips on tap** — mouse hover crossings
+  dropped from the touch path.
+- **Empty input regions honored as click-through** (`SET_INPUT_REGION`), so text
+  cursor/selection handles don't count as interactive popups.
 
-  - https://download.gnome.org/sources/gtk/
+### Touch interaction fixes
 
-The official web site
+- **Selection-bubble Cut / Copy / Paste work** — on touch, only genuine
+  toplevels are raised + focused (never popups), so the bubble isn't torn down
+  before its action fires (`broadway-server.c`).
+- **Menu-item / GtkDropDown freeze fixed** — `check_autohide` touch guard (a tap
+  *inside* a popup activates instead of dismissing it) plus browser-routed
+  `REASSERT_POINTER` pointer-focus recovery.
+- **GtkDropDown selects the tapped row** (not always the first) — `row_activated`
+  honors the `position` from the activate signal (`gtk/gtkdropdown.c`).
+- **Reopen-bubble crash (SIGSEGV) fixed** — a gesture point with a not-yet-set
+  event is no longer dereferenced (`gtk/gtkgesture.c`).
+- **Copy button restored after Select-All** in editable fields — the selection
+  bubble is rebuilt with the now-enabled actions (`gtk/gtktext.c`,
+  `gtk/gtktextview.c`).
 
-  - https://www.gtk.org
+## Known issues
 
-The official developers blog
+- GTK: BROADWAY_OP_ROUNDTRIP storm (upstream)
+- Touch: tab bar is not scrollable (probably Nicotine)
+- Touch: emoji widget is ugly and slow
 
-  - https://blog.gtk.org
+## Tested configurations
 
-Discussion forum
+- Docker ubuntu:24.04, GTK 4.14.5
+- Desktop: Firefox 151.0.2, Chromium 148.0.7778.178
+- Android: Firefox Beta 152.0b4, Google Chrome 146.0.7680.119
+- HTTP localhost and HTTPS behind Traefik in Docker Swarm
 
-  - https://discourse.gnome.org/c/platform/core/
+## Not tested
 
-Nightly documentation can be found at
-  - Gtk: https://gnome.pages.gitlab.gnome.org/gtk/gtk4/
-  - Gdk: https://gnome.pages.gitlab.gnome.org/gtk/gdk4/
-  - Gsk: https://gnome.pages.gitlab.gnome.org/gtk/gsk4/
-
-Nightly flatpaks of our demos can be installed from the
-[GNOME Nightly](https://wiki.gnome.org/Apps/Nightly) repository:
-  - `flatpak remote-add --if-not-exists gnome-nightly https://nightly.gnome.org/gnome-nightly.flatpakrepo`
-  - `flatpak install gnome-nightly org.gtk.Demo4`
-  - `flatpak install gnome-nightly org.gtk.WidgetFactory4`
-  - `flatpak install gnome-nightly org.gtk.IconBrowser4`
-
-Building and installing
------------------------
-
-In order to build GTK you will need:
-
-  - [a C99 compatible compiler](https://wiki.gnome.org/Projects/GLib/CompilerRequirements)
-  - [Python 3](https://www.python.org/)
-  - [Meson](http://mesonbuild.com)
-  - [Ninja](https://ninja-build.org)
-
-You will also need various dependencies, based on the platform you are
-building for:
-
-  - [GLib](https://download.gnome.org/sources/glib/)
-  - [GdkPixbuf](https://download.gnome.org/sources/gdk-pixbuf/)
-  - [GObject-Introspection](https://download.gnome.org/sources/gobject-introspection/)
-  - [Cairo](https://www.cairographics.org/)
-  - [Pango](https://download.gnome.org/sources/pango/)
-  - [Epoxy](https://github.com/anholt/libepoxy)
-  - [Graphene](https://github.com/ebassi/graphene)
-  - [Xkb-common](https://github.com/xkbcommon/libxkbcommon)
-
-If you are building the Wayland backend, you will also need:
-
-  - Wayland-client
-  - Wayland-protocols
-  - Wayland-cursor
-  - Wayland-EGL
-
-If you are building the X11 backend, you will also need:
-
-  - Xlib, and the following X extensions:
-    - xrandr
-    - xrender
-    - xi
-    - xext
-    - xfixes
-    - xcursor
-    - xdamage
-    - xcomposite
-
-Once you have all the necessary dependencies, you can build GTK by using
-Meson:
-
-```sh
-$ meson setup _build
-$ meson compile -C_build
-```
-
-You can run the test suite using:
-
-```sh
-$ meson test -C_build
-```
-
-And, finally, you can install GTK using:
-
-```
-$ sudo meson install -C_build
-```
-
-Complete information about installing GTK and related libraries
-can be found in the file:
-
-```
-docs/reference/gtk/html/gtk-building.html
-```
-
-Or [online](https://docs.gtk.org/gtk4/building.html)
-
-Building from git
------------------
-
-The GTK sources are hosted on [gitlab.gnome.org](http://gitlab.gnome.org). The main
-development branch is called `main`, and stable branches are named after their minor
-version, for example `gtk-4-10`.
-
-How to report bugs
-------------------
-
-Bugs should be reported on the [issues page](https://gitlab.gnome.org/GNOME/gtk/issues/).
-
-In the bug report please include:
-
-* Information about your system. For instance:
-
-   - which version of GTK you are using
-   - what operating system and version
-   - for Linux, which distribution
-   - if you built GTK, the list of options used to configure the build
-
-  And anything else you think is relevant.
-
-* How to reproduce the bug.
-
-  If you can reproduce it with one of the demo applications that are
-  built in the demos/ subdirectory, on one of the test programs that
-  are built in the tests/ subdirectory, that will be most convenient.
-  Otherwise, please include a short test program that exhibits the
-  behavior. As a last resort, you can also provide a pointer to a
-  larger piece of software that can be downloaded.
-
-* If the bug was a crash, the exact text that was printed out
-  when the crash occurred.
-
-* Further information such as stack traces may be useful, but
-  is not necessary.
-
-Contributing to GTK
--------------------
-
-Please, follow the [contribution guide](./CONTRIBUTING.md) to know how to
-start contributing to GTK.
-
-If you want to support GTK financially, please consider donating to
-the GNOME project, which runs the infrastructure hosting GTK.
-
-Release notes
--------------
-
-The release notes for GTK are part of the migration guide in the API
-reference. See:
-
- - [3.x release notes](https://developer.gnome.org/gtk3/stable/gtk-migrating-2-to-3.html)
- - [4.x release notes](https://docs.gtk.org/gtk4/migrating-3to4.html)
-
-Licensing terms
----------------
-
-GTK is released under the terms of the GNU Lesser General Public License,
-version 2.1 or, at your option, any later version, as published by the Free
-Software Foundation.
-
-Please, see the [`COPYING`](./COPYING) file for further information.
-
-GTK includes a small number of source files under the Apache license:
-- A fork of the roaring bitmaps implementation in [gtk/roaring](./gtk/roaring)
-- An adaptation of timsort from python in [gtk/timsort](./gtk/timsort)
+- iOS
+- Mixed devices (laptops with touchscreen)
