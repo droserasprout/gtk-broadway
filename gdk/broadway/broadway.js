@@ -280,6 +280,111 @@ var firstTouchDownId = null;
  * the right surface even after GTK repaints and detaches the node it began on. */
 var touchSurfaceIds = {};
 
+/* Touch pinch-zoom. Mirrors desktop browser page-zoom: a two-finger pinch sets
+ * zoomFactor, which (a) scales down the size we report to GTK and bumps the
+ * reported scale (sendScreenSizeChanged) so GTK re-lays-out crisply, and (b)
+ * magnifies the surface wrapper (#zoomRoot) by the same factor so it fills the
+ * viewport. Page coords map to surface root coords by a plain divide-by-zoom
+ * (getPositionsFromEvent), since the wrapper's transform-origin is 0 0. */
+var ZOOM_MIN = 0.25;
+var ZOOM_MAX = 5.0;
+var zoomFactor = 1.0;       /* committed zoom; drives reported size + remap */
+var zoomRoot = null;        /* the #zoomRoot wrapper element (or document.body) */
+/* Live pinch state. activeTouches tracks every finger by identifier so we can
+ * measure the pinch distance; suppressTouchForward stays true from pinch-begin
+ * until ALL fingers lift, so a leftover finger never becomes a stray GTK tap. */
+var activeTouches = {};
+var pinchActive = false;
+var pinchStartDist = 0;
+var pinchStartZoom = 1.0;
+var pinchStartMid = { x: 0, y: 0 };
+var suppressTouchForward = false;
+
+function clampZoom(z) {
+    if (z < ZOOM_MIN) return ZOOM_MIN;
+    if (z > ZOOM_MAX) return ZOOM_MAX;
+    return z;
+}
+
+function touchPointDistance(a, b) {
+    var dx = a.x - b.x, dy = a.y - b.y;
+    return Math.sqrt(dx * dx + dy * dy);
+}
+
+/* The two-point distance of the currently active fingers (first two by id). */
+function activeTouchDistance() {
+    var pts = [];
+    for (var k in activeTouches) {
+        pts.push(activeTouches[k]);
+        if (pts.length == 2)
+            break;
+    }
+    if (pts.length < 2)
+        return 0;
+    return touchPointDistance(pts[0], pts[1]);
+}
+
+function activeTouchCount() {
+    return Object.keys(activeTouches).length;
+}
+
+/* Midpoint (page coords) of the first two active fingers. */
+function activeTouchMidpoint() {
+    var pts = [];
+    for (var k in activeTouches) {
+        pts.push(activeTouches[k]);
+        if (pts.length == 2)
+            break;
+    }
+    if (pts.length == 0)
+        return { x: 0, y: 0 };
+    if (pts.length == 1)
+        return { x: pts[0].x, y: pts[0].y };
+    return { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 };
+}
+
+/* Magnify the surface wrapper. At z == 1 leave transform unset so the desktop
+ * path is untouched (no extra compositing layer / text reblur). */
+function applyZoomTransform(z) {
+    if (zoomRoot == null)
+        return;
+    zoomRoot.style.transform = (z == 1.0) ? "" : ("scale(" + z + ")");
+}
+
+/* Live pinch preview: scale around the pinch midpoint and let it follow the
+ * fingers, so the magnified view floats with them (Apple-like) instead of
+ * anchoring to the top-left corner. We pin the layout point that was under the
+ * start midpoint to the current midpoint: page = translate(t) + zoom * layout,
+ * with layout_focus = pinchStartMid / pinchStartZoom (the pre-pinch transform
+ * was scale(pinchStartZoom) at origin 0 0). On commit endPinch resets to a plain
+ * scale (no translate) as the crisp reflow fills the viewport. */
+function applyPinchPreview() {
+    if (zoomRoot == null)
+        return;
+    var mid = activeTouchMidpoint();
+    var tx = mid.x - zoomFactor * (pinchStartMid.x / pinchStartZoom);
+    var ty = mid.y - zoomFactor * (pinchStartMid.y / pinchStartZoom);
+    zoomRoot.style.transform = "translate(" + tx + "px," + ty + "px) scale(" + zoomFactor + ")";
+}
+
+/* Persist the committed zoom (per origin) so a page refresh (common on mobile)
+ * keeps it instead of snapping back to 1. localStorage may be unavailable
+ * (private mode / disabled), so guard. */
+var ZOOM_STORAGE_KEY = "broadwayZoom";
+
+function saveZoom() {
+    try { window.localStorage.setItem(ZOOM_STORAGE_KEY, String(zoomFactor)); }
+    catch (e) { }
+}
+
+function loadSavedZoom() {
+    try {
+        var v = parseFloat(window.localStorage.getItem(ZOOM_STORAGE_KEY));
+        if (!isNaN(v))
+            zoomFactor = clampZoom(v);
+    } catch (e) { }
+}
+
 function getButtonMask (button) {
     if (button == 1)
         return GDK_BUTTON1_MASK;
@@ -994,7 +1099,10 @@ function handleDisplayCommands(display_commands)
                 parent.insertBefore(div, afterThis.nextSibling);
             break;
         case DISPLAY_OP_APPEND_ROOT:
-            document.body.appendChild(cmd[1]);
+            /* Into the zoom wrapper, not document.body, so the pinch-zoom
+             * transform magnifies all surfaces (the offscreen clipboard/OSK
+             * helpers stay on document.body and unscaled). */
+            (zoomRoot || document.body).appendChild(cmd[1]);
             break;
         case DISPLAY_OP_SHOW_SURFACE:
             div = cmd[1];
@@ -1550,8 +1658,11 @@ function getPositionsFromAbsCoord(absX, absY, relativeId) {
 
 function getPositionsFromEvent(ev, relativeId) {
     var absX, absY;
-    absX = ev.pageX;
-    absY = ev.pageY;
+    /* Page coords are physical CSS pixels; the #zoomRoot wrapper is scaled by
+     * zoomFactor (origin 0 0), so surface root coords are page coords / zoom.
+     * At zoom 1 this is a no-op (the desktop path is unchanged). */
+    absX = ev.pageX / zoomFactor;
+    absY = ev.pageY / zoomFactor;
     var res = getPositionsFromAbsCoord(absX, absY, relativeId);
 
     lastX = res.rootX;
@@ -3297,11 +3408,68 @@ function onMouseWheel(ev)
     return cancelEvent(ev);
 }
 
+/* Cancel the in-flight single-finger GTK touch (if any) when a pinch starts, so
+ * GTK doesn't keep a dangling sequence AND doesn't read begin->end as a tap that
+ * leaks through to the widget under the fingers. Touch type 3 == GDK_TOUCH_CANCEL
+ * (gdkeventsource.c) aborts the sequence with no activation, unlike a type-2 end,
+ * which a click gesture treats as a tap. */
+function endInFlightGtkTouch() {
+    if (firstTouchDownId == null)
+        return;
+    var pt = activeTouches[firstTouchDownId];
+    if (pt != null) {
+        var origId = touchSurfaceIds[firstTouchDownId];
+        if (origId === undefined)
+            origId = 0;
+        var id = getEffectiveEventTarget (origId);
+        var pos = getPositionsFromAbsCoord(pt.x / zoomFactor, pt.y / zoomFactor, id);
+        sendInput (BROADWAY_EVENT_TOUCH, [3, id, firstTouchDownId, 1, pos.rootX, pos.rootY, pos.winX, pos.winY, lastState]);
+    }
+    delete touchSurfaceIds[firstTouchDownId];
+    firstTouchDownId = null;
+}
+
+function beginPinch() {
+    pinchActive = true;
+    suppressTouchForward = true;
+    pinchStartZoom = zoomFactor;
+    pinchStartDist = activeTouchDistance();
+    pinchStartMid = activeTouchMidpoint();
+    endInFlightGtkTouch();
+}
+
+/* Commit the live-previewed zoom: report the new (reflowed, crisper) size so GTK
+ * re-renders sharp; the wrapper transform already shows the magnified view. */
+function endPinch() {
+    pinchActive = false;
+    saveZoom();
+    sendScreenSizeChanged();
+    applyZoomTransform(zoomFactor);
+}
+
 function onTouchStart(ev) {
     ev.preventDefault();
 
     updateKeyboardStatus();
     updateForEvent(ev);
+
+    /* Track every finger for pinch-distance math. */
+    for (var i = 0; i < ev.changedTouches.length; i++) {
+        var t = ev.changedTouches.item(i);
+        activeTouches[t.identifier] = { x: t.pageX, y: t.pageY };
+    }
+
+    /* Two or more fingers => pinch-zoom: consume the gesture, don't forward it
+     * to GTK as touches. */
+    if (activeTouchCount() >= 2) {
+        if (!pinchActive)
+            beginPinch();
+        return;
+    }
+    /* A finger left over from a just-ended pinch is never forwarded, so it can't
+     * kick off a stray GTK touch. */
+    if (suppressTouchForward)
+        return;
 
     for (var i = 0; i < ev.changedTouches.length; i++) {
         var touch = ev.changedTouches.item(i);
@@ -3351,6 +3519,27 @@ function onTouchMove(ev) {
     updateKeyboardStatus();
     updateForEvent(ev);
 
+    /* Keep finger positions current for pinch-distance math. */
+    for (var i = 0; i < ev.changedTouches.length; i++) {
+        var t = ev.changedTouches.item(i);
+        if (activeTouches[t.identifier] != null)
+            activeTouches[t.identifier] = { x: t.pageX, y: t.pageY };
+    }
+
+    if (pinchActive) {
+        var dist = activeTouchDistance();
+        if (pinchStartDist > 0 && dist > 0) {
+            /* Magnify live around the pinch midpoint, floating with the fingers
+             * (the bitmap may be briefly soft); the crisp reflow is committed on
+             * touch-end. */
+            zoomFactor = clampZoom(pinchStartZoom * (dist / pinchStartDist));
+            applyPinchPreview();
+        }
+        return;
+    }
+    if (suppressTouchForward)
+        return;
+
     for (var i = 0; i < ev.changedTouches.length; i++) {
         var touch = ev.changedTouches.item(i);
 
@@ -3379,6 +3568,34 @@ function onTouchEnd(ev) {
     updateKeyboardStatus();
     updateForEvent(ev);
 
+    /* Drop lifted fingers from pinch tracking. */
+    for (var i = 0; i < ev.changedTouches.length; i++) {
+        var t = ev.changedTouches.item(i);
+        delete activeTouches[t.identifier];
+    }
+
+    if (pinchActive) {
+        if (activeTouchCount() < 2)
+            endPinch();
+        return; /* pinch fingers are never forwarded as touches */
+    }
+    if (suppressTouchForward) {
+        /* Pinch already committed but fingers still down: keep suppressing until
+         * all lift, so a lingering finger can't start a stray GTK touch. */
+        if (activeTouchCount() == 0)
+            suppressTouchForward = false;
+        return;
+    }
+
+    /* A browser `touchcancel` is an aborted touch, NOT a completed tap: forward
+     * it as GDK_TOUCH_CANCEL (type 3), not a type-2 end. This is the real
+     * pinch-leak fix: mobile Firefox fires `touchcancel` on the first finger
+     * when the second lands; if that beats the pinch-begin (touchstart of finger
+     * 2) it reaches here while !pinchActive, and a type-2 end would make GTK read
+     * begin->end as a tap that activates the widget under the fingers. A type-2
+     * end stays only for a genuine `touchend`. */
+    var touchType = (ev.type === 'touchcancel') ? 3 : 2;
+
     for (var i = 0; i < ev.changedTouches.length; i++) {
         var touch = ev.changedTouches.item(i);
 
@@ -3395,7 +3612,7 @@ function onTouchEnd(ev) {
             firstTouchDownId = null;
         }
 
-        sendInput (BROADWAY_EVENT_TOUCH, [2, id, touch.identifier, isEmulated, pos.rootX, pos.rootY, pos.winX, pos.winY, lastState]);
+        sendInput (BROADWAY_EVENT_TOUCH, [touchType, id, touch.identifier, isEmulated, pos.rootX, pos.rootY, pos.winX, pos.winY, lastState]);
     }
 }
 
@@ -3482,14 +3699,25 @@ function setupDocument(document)
 
 function sendScreenSizeChanged() {
     var w, h, s;
-    w = window.innerWidth;
-    h = window.innerHeight;
-    s = Math.round(window.devicePixelRatio);
+    /* Touch pinch-zoom: report a logical size shrunk by zoomFactor and a
+     * render scale bumped by it, so GTK re-lays-out smaller and renders crisper;
+     * the #zoomRoot transform then magnifies that back to fill the viewport.
+     * At zoom 1 this is byte-identical to the unmodified behaviour (desktop,
+     * which gets its own crisp zoom from the browser's native page-zoom). */
+    w = Math.round(window.innerWidth / zoomFactor);
+    h = Math.round(window.innerHeight / zoomFactor);
+    s = Math.max(1, Math.round(window.devicePixelRatio * zoomFactor));
     sendInput (BROADWAY_EVENT_SCREEN_SIZE_CHANGED, [w, h, s]);
 }
 
 function start()
 {
+    zoomRoot = document.getElementById('zoomRoot') || document.body;
+    /* Restore a zoom saved from a previous session before the initial
+     * sendScreenSizeChanged() below, so GTK lays out at the right size at once. */
+    loadSavedZoom();
+    applyZoomTransform(zoomFactor);
+
     setupDocument(document);
 
     window.onresize = function(ev) {

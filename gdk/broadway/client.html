@@ -6,12 +6,23 @@
 <title>broadway 2.0</title>
 <style type="text/css">
 /* touch-action: none stops the browser from claiming touch sequences for
- * scroll/zoom (GTK handles those) and firing touchcancel mid-gesture. */
+ * scroll/zoom (GTK handles those) and firing touchcancel mid-gesture. It is NOT
+ * inherited, and mobile browsers (Gecko APZ + Chrome compositor) key off the
+ * *touched* element, so body alone doesn't cover the dynamically-created surface
+ * divs, so a 2nd finger on a list element then lets the compositor hijack or
+ * cancel the touch and leak a tap. Apply it to every element so no touched node
+ * is left with the default. */
 html, body { overflow: hidden; touch-action: none; }
+* { touch-action: none; }
+/* Wrapper holding all toplevel surfaces; touch pinch-zoom magnifies it via a
+ * CSS transform (see zoom handling in broadway.js). transform-origin 0 0 keeps
+ * surface root coordinates a simple divide-by-zoom from page coordinates. */
+#zoomRoot { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
 </style>
 <script type="text/javascript" src="broadway.js"></script>
 </head>
 
 <body onload="connect()" onclick="if (!document.hasFocus() && window.topElement !== window.self) { window.focus(); }">
+<div id="zoomRoot"></div>
 </body>
 </html>
