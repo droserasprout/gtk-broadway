@@ -207,14 +207,22 @@ _gdk_broadway_events_got_input (GdkDisplay *display,
     surface = g_hash_table_lookup (display_broadway->id_ht, GINT_TO_POINTER (message->pointer.event_surface_id));
     if (surface)
       {
+        GdkScrollDirection scroll_dir;
+
+        switch (message->scroll.dir)
+          {
+          case 1:  scroll_dir = GDK_SCROLL_DOWN;  break;
+          case 2:  scroll_dir = GDK_SCROLL_LEFT;  break;
+          case 3:  scroll_dir = GDK_SCROLL_RIGHT; break;
+          default: scroll_dir = GDK_SCROLL_UP;    break;
+          }
+
         event = gdk_scroll_event_new_discrete (surface,
                                                display_broadway->core_pointer,
                                                NULL,
                                                message->base.time,
                                                message->pointer.state,
-                                               message->scroll.dir == 0
-                                                 ? GDK_SCROLL_UP
-                                                 : GDK_SCROLL_DOWN,
+                                               scroll_dir,
                                                GDK_SCROLL_RELATIVE_DIRECTION_UNKNOWN);
 
         node = _gdk_event_queue_append (display, event);

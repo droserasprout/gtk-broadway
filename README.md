@@ -64,6 +64,13 @@ via `gtk4-broadwayd`). Upstream GTK docs: <https://gitlab.gnome.org/GNOME/gtk>.
 - **Copy button restored after Select-All** in editable fields — the selection
   bubble is rebuilt with the now-enabled actions (`gtk/gtktext.c`,
   `gtk/gtktextview.c`).
+- **Tab strip (GtkNotebook) is pixel-scrolled on touch** — the tab bar is one
+  continuous strip you drag to scroll pixel-for-pixel with the finger, without
+  changing the page; the scroll position stays where you leave it (no snapping),
+  tab widths stay natural, and edge fades (not arrows) hint at more tabs. A plain
+  tap still selects a tab (selection is deferred to release so a drag can preempt
+  it). Touch-only and Broadway-only, so desktop mouse/reorder is unchanged
+  (`gtk/gtknotebook.c`).
 
 ### Touch pinch-zoom
 
@@ -89,15 +96,27 @@ via `gtk4-broadwayd`). Upstream GTK docs: <https://gitlab.gnome.org/GNOME/gtk>.
   a tap. (This does not fully stop a pinch from leaking a tap to selectable text
   under the fingers — see Known issues.)
 
+### Desktop touchpad
+
+- **Horizontal two-finger swipe scrolls instead of navigating** — the browser's
+  back/forward history gesture is suppressed (a non-passive standard `wheel`
+  listener that `preventDefault()`s) and the swipe is forwarded to GTK as a
+  left/right scroll, so a sideways swipe pans the widget under the pointer
+  rather than leaving the app. Vertical wheel scrolling is unchanged
+  (`broadway.js`, `gdk/broadway/gdkeventsource.c`).
+- **Wheel over the notebook tab strip** — horizontal scroll pans the pixel-scroll
+  strip without changing the page; vertical scroll switches the page and pans the
+  strip so the now-active tab is fully in view. Pixel-scroll (Broadway top/bottom)
+  strips only; off Broadway, stock scroll-to-switch is unchanged
+  (`gtk/gtknotebook.c`).
+
 ## Known issues
 
-- Touch: tab bar (gtknotebook) is not draggable
+- WONTFIX: desktop: browsers expose no JS API for the X11/Wayland PRIMARY selection.
+- WONTFIX: touch: pinch gesture leaks first tap. No solution found without introducing a single tap delay.
 - Touch: emoji widget is ugly and slow
-- Touch: a two-finger pinch over selectable text / list rows can leak a tap to
-  the widget under the fingers — the press registers before the gesture is known
-  to be a pinch. Deferring the press to prevent it added too much tap/selection
-  latency (a pinch's first finger is indistinguishable from a tap until the
-  second lands), so the leak is left in place.
+- Desktop: white background when zooming out
+- New windows appear top left
 
 ## Tested configurations
 
