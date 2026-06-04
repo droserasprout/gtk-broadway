@@ -1730,6 +1730,31 @@ gdk_broadway_toplevel_present (GdkToplevel       *toplevel,
     }
 
   gdk_surface_request_layout (surface);
+
+  /* Center a new toplevel on the monitor rather than letting it land at the
+   * top-left (0,0) default. Only on first map (re-present keeps the user's
+   * position), not when maximized (the main window fills the screen), and only
+   * when the monitor bounds are known. 4.22.2 moved size/shadow computation into
+   * compute_toplevel_size(), so fetch the monitor locally here. */
+  {
+    GdkBroadwaySurface *impl = GDK_BROADWAY_SURFACE (surface);
+    GdkDisplay *display = gdk_surface_get_display (surface);
+    GdkMonitor *monitor = gdk_display_get_monitor_at_surface (display, surface);
+
+    if (monitor &&
+        !impl->maximized &&
+        !GDK_SURFACE_IS_MAPPED (surface))
+      {
+        GdkRectangle monitor_geometry;
+        int x, y;
+
+        gdk_monitor_get_geometry (monitor, &monitor_geometry);
+        x = (monitor_geometry.width - width) / 2;
+        y = (monitor_geometry.height - height) / 2;
+
+        gdk_broadway_surface_move (surface, MAX (0, x), MAX (0, y));
+      }
+  }
   show_surface (surface);
 }
 

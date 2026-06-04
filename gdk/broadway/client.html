@@ -13,6 +13,14 @@
  * cancel the touch and leak a tap. Apply it to every element so no touched node
  * is left with the default. */
 html, body { overflow: hidden; touch-action: none; }
+/* Fill the area not painted by a GTK surface (page load, disconnect, and the
+ * margins around a zoomed-out surface) with a theme-ish background instead of
+ * white. Follows the browser's light/dark preference; dark matches the GTK
+ * default theme's window background (~#242424), light its ~#fafafa. */
+html, body { background: #fafafa; }
+@media (prefers-color-scheme: dark) {
+  html, body { background: #242424; }
+}
 * { touch-action: none; }
 /* Wrapper holding all toplevel surfaces; touch pinch-zoom magnifies it via a
  * CSS transform (see zoom handling in broadway.js). transform-origin 0 0 keeps
