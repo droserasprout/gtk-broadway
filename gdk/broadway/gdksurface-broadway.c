@@ -1590,6 +1590,20 @@ gdk_broadway_toplevel_present (GdkToplevel       *toplevel,
       impl->shadow_bottom = size.shadow.bottom;
     }
 
+  /* Center a new toplevel on the monitor rather than letting it land at the
+   * top-left (0,0) default. Only on first map (re-present keeps the user's
+   * position), not when maximized (the main window fills the screen), and only
+   * when the monitor bounds are known. */
+  if (monitor &&
+      !impl->maximized &&
+      !GDK_SURFACE_IS_MAPPED (surface))
+    {
+      int x = (bounds_width - width) / 2;
+      int y = (bounds_height - height) / 2;
+
+      gdk_broadway_surface_move (surface, MAX (0, x), MAX (0, y));
+    }
+
   show_surface (surface);
 }
 

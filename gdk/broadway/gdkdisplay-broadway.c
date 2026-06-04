@@ -109,11 +109,23 @@ _gdk_broadway_display_size_changed (GdkDisplay                      *display,
   for (l = toplevels; l != NULL; l = l->next)
     {
       GdkBroadwaySurface *toplevel = l->data;
+      GdkSurface *surface = GDK_SURFACE (toplevel);
 
       if (toplevel->maximized)
-        gdk_broadway_surface_move_resize (GDK_SURFACE (toplevel),
+        gdk_broadway_surface_move_resize (surface,
                                           0, 0,
                                           msg->width, msg->height);
+      else if (toplevel->visible)
+        {
+          /* Re-center a non-maximized toplevel on the resized screen, so a zoom
+           * change (which shrinks/grows the logical screen) can't leave a
+           * centered window stranded off-screen. */
+          int x = (msg->width - surface->width) / 2;
+          int y = (msg->height - surface->height) / 2;
+
+          gdk_broadway_surface_move_resize (surface, MAX (0, x), MAX (0, y),
+                                            surface->width, surface->height);
+        }
     }
 }
 

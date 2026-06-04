@@ -1722,6 +1722,15 @@ function onMouseMove (ev) {
 function onMouseOver (ev) {
     updateForEvent(ev);
 
+    /* During an implicit pointer grab (a mouse button held after pressing a
+     * widget) the pointer is confined to the grabbed surface, like an X11/GDK
+     * implicit grab. Suppress surface-crossing enter/leave -- which the document
+     * handlers otherwise fire on every DOM node boundary, even within one
+     * surface -- so e.g. dragging a scrollbar keeps tracking when the cursor
+     * wanders off the widget. Explicit grabs (menus/popovers) are unaffected. */
+    if (grab.surface != null && grab.implicit)
+        return;
+
     var id = getSurfaceId(ev);
     realSurfaceWithMouse = id;
     id = getEffectiveEventTarget (id);
@@ -1734,6 +1743,12 @@ function onMouseOver (ev) {
 
 function onMouseOut (ev) {
     updateForEvent(ev);
+
+    /* See onMouseOver: keep the implicit-grab surface even when the cursor
+     * leaves the widget, so a button drag isn't interrupted. */
+    if (grab.surface != null && grab.implicit)
+        return;
+
     var id = getSurfaceId(ev);
     var origId = id;
     id = getEffectiveEventTarget (id);
