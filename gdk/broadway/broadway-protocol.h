@@ -95,6 +95,7 @@ typedef enum {
   BROADWAY_OP_REQUEST_CLIPBOARD = 18,
   BROADWAY_OP_SET_INPUT_REGION = 19,
   BROADWAY_OP_REASSERT_POINTER = 20,
+  BROADWAY_OP_OPEN_URI = 21,
 } BroadwayOpType;
 
 typedef struct {
@@ -226,6 +227,7 @@ typedef enum {
   BROADWAY_REQUEST_SET_CLIPBOARD,
   BROADWAY_REQUEST_REQUEST_CLIPBOARD,
   BROADWAY_REQUEST_SET_INPUT_REGION,
+  BROADWAY_REQUEST_OPEN_URI,
 } BroadwayRequestType;
 
 typedef struct {
@@ -325,6 +327,12 @@ typedef struct {
   char text[1];
 } BroadwayRequestSetClipboard;
 
+typedef struct {
+  BroadwayRequestBase base;
+  guint32 len;
+  char uri[1];
+} BroadwayRequestOpenUri;
+
 typedef union {
   BroadwayRequestBase base;
   BroadwayRequestNewSurface new_surface;
@@ -347,6 +355,7 @@ typedef union {
   BroadwayRequestSetModalHint set_modal_hint;
   BroadwayRequestSetInputRegion set_input_region;
   BroadwayRequestSetClipboard set_clipboard;
+  BroadwayRequestOpenUri open_uri;
 } BroadwayRequest;
 
 typedef enum {

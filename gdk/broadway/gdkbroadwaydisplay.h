@@ -46,6 +46,9 @@ GDK_DEPRECATED_IN_4_18
 void                    gdk_broadway_display_show_keyboard       (GdkBroadwayDisplay *display);
 GDK_DEPRECATED_IN_4_18
 void                    gdk_broadway_display_hide_keyboard       (GdkBroadwayDisplay *display);
+GDK_AVAILABLE_IN_ALL
+void                    gdk_broadway_display_show_uri            (GdkBroadwayDisplay *display,
+                                                                  const char         *uri);
 
 GDK_DEPRECATED_IN_4_18
 int                     gdk_broadway_display_get_surface_scale   (GdkDisplay *display);

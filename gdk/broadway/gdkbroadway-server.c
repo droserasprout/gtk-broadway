@@ -890,3 +890,30 @@ _gdk_broadway_server_request_clipboard (GdkBroadwayServer *server)
   return gdk_broadway_server_send_message_with_size (server, &msg, sizeof (msg),
                                                      BROADWAY_REQUEST_REQUEST_CLIPBOARD, -1);
 }
+
+void
+_gdk_broadway_server_open_uri (GdkBroadwayServer *server,
+                               const char        *uri)
+{
+  gsize len = uri ? strlen (uri) : 0;
+  gsize size;
+  BroadwayRequestOpenUri *msg;
+
+  if (len == 0)
+    return;
+
+  if (len > BROADWAY_CLIPBOARD_MAX_SIZE)
+    len = BROADWAY_CLIPBOARD_MAX_SIZE;
+
+  size = G_STRUCT_OFFSET (BroadwayRequestOpenUri, uri) + len;
+  /* Allocate at least the full struct so accessing msg->len stays in bounds
+   * (the uri[1] member makes sizeof larger than size when len is small). */
+  msg = g_malloc0 (MAX (size + 1, sizeof *msg));
+
+  msg->len = (guint32) len;
+  memcpy (msg->uri, uri, len);
+
+  gdk_broadway_server_send_message_with_size (server, (BroadwayRequestBase *) msg,
+                                              size, BROADWAY_REQUEST_OPEN_URI, -1);
+  g_free (msg);
+}
