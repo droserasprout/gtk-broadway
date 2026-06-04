@@ -96,7 +96,7 @@ via `gtk4-broadwayd`). Upstream GTK docs: <https://gitlab.gnome.org/GNOME/gtk>.
   a tap. (This does not fully stop a pinch from leaking a tap to selectable text
   under the fingers — see Known issues.)
 
-### Desktop touchpad
+### Desktop
 
 - **Horizontal two-finger swipe scrolls instead of navigating** — the browser's
   back/forward history gesture is suppressed (a non-passive standard `wheel`
@@ -109,14 +109,27 @@ via `gtk4-broadwayd`). Upstream GTK docs: <https://gitlab.gnome.org/GNOME/gtk>.
   strip so the now-active tab is fully in view. Pixel-scroll (Broadway top/bottom)
   strips only; off Broadway, stock scroll-to-switch is unchanged
   (`gtk/gtknotebook.c`).
+- **No white background on load / zoom-out** — the page fills unpainted areas
+  (page load, disconnect, the margins around a zoomed-out surface) with a
+  theme-ish background following the browser's light/dark preference, instead of
+  white (`client.html`).
+- **New windows open centered** — a new toplevel is centered on the monitor
+  instead of landing at the top-left (0,0) default. First map only (re-present
+  keeps the user's position) and never for the maximized main window
+  (`gdk/broadway/gdksurface-broadway.c`). Open windows are re-centered when the
+  screen size changes (e.g. a zoom), so a centered window can't be stranded
+  off-screen (`gdk/broadway/gdkdisplay-broadway.c`).
+- **Drags survive the cursor leaving the widget** — while a mouse button is held
+  (implicit pointer grab), surface-crossing enter/leave events are suppressed so
+  the pointer stays confined to the grabbed surface, like an X11/GDK implicit
+  grab. Fixes a scrollbar (or any) drag being interrupted when the cursor wanders
+  off the widget. Explicit grabs (menus/popovers) are unaffected (`broadway.js`).
 
 ## Known issues
 
 - WONTFIX: desktop: browsers expose no JS API for the X11/Wayland PRIMARY selection.
 - WONTFIX: touch: pinch gesture leaks first tap. No solution found without introducing a single tap delay.
 - Touch: emoji widget is ugly and slow
-- Desktop: white background when zooming out
-- New windows appear top left
 
 ## Tested configurations
 
