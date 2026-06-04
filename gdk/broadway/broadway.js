@@ -3506,13 +3506,36 @@ function onMouseWheel(ev)
     updateForEvent(ev);
     ev = ev ? ev : window.event;
 
+    /* Ctrl+wheel (and trackpad pinch, which the browser reports as ctrlKey) is
+     * the browser's native page-zoom on desktop - leave it entirely alone (no
+     * preventDefault, no forward) so zooming keeps working. */
+    if (ev.ctrlKey)
+        return;
+
     var id = getSurfaceId(ev);
     var pos = getPositionsFromEvent(ev, id);
 
-    var offset = ev.detail ? ev.detail : -ev.wheelDelta;
-    var dir = 0;
-    if (offset > 0)
-        dir = 1;
+    /* Standard 'wheel' carries signed deltaX/deltaY; fall back to legacy
+     * DOMMouseScroll (detail) / mousewheel (wheelDelta) for old browsers. */
+    var dx = ev.deltaX;
+    var dy = ev.deltaY;
+    if (dx === undefined && dy === undefined) {
+        dy = ev.detail ? ev.detail : -ev.wheelDelta;
+        dx = 0;
+    }
+
+    /* Pick the dominant axis and forward one discrete GTK scroll in it. A
+     * horizontal touchpad swipe goes through as left/right scroll (dir 2/3)
+     * rather than letting Firefox turn it into a back/forward navigation
+     * gesture - which the preventDefault in cancelEvent suppresses. */
+    var dir;
+    if (Math.abs(dx) > Math.abs(dy))
+        dir = dx > 0 ? 3 : 2;        /* right : left */
+    else if (dy != 0)
+        dir = dy > 0 ? 1 : 0;        /* down : up */
+    else
+        return cancelEvent(ev);
+
     sendInput (BROADWAY_EVENT_SCROLL, [realSurfaceWithMouse, id, pos.rootX, pos.rootY, pos.winX, pos.winY, lastState, dir]);
 
     return cancelEvent(ev);
@@ -3751,8 +3774,10 @@ function setupDocument(document)
     document.onkeyup = onKeyUp;
 
     if (document.addEventListener) {
-      document.addEventListener('DOMMouseScroll', onMouseWheel, passiveSupported ? { passive: false, capture: false } : false);
-      document.addEventListener('mousewheel', onMouseWheel, passiveSupported ? { passive: false, capture: false } : false);
+      /* Standard wheel event (covers vertical + horizontal). passive:false so
+       * preventDefault() actually fires - needed to stop Firefox turning a
+       * horizontal touchpad swipe into a back/forward navigation gesture. */
+      document.addEventListener('wheel', onMouseWheel, {passive: false});
       /* passive:false is required or the browser ignores preventDefault() in
        * the handlers (touch listeners on the document default to passive), and
        * Firefox/Android then cancels the touch on the slightest move - turning
