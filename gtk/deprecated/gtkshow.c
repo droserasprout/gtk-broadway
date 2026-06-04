@@ -22,6 +22,10 @@
 
 #include <gdk/gdk.h>
 
+#ifdef GDK_WINDOWING_BROADWAY
+#include "broadway/gdkbroadway.h"
+#endif
+
 #include "gtkshow.h"
 #include "gtkwindowprivate.h"
 #include "gtkalertdialog.h"
@@ -126,6 +130,23 @@ gtk_show_uri_full (GtkWindow           *parent,
     display = gtk_widget_get_display (GTK_WIDGET (parent));
   else
     display = gdk_display_get_default ();
+
+#ifdef GDK_WINDOWING_BROADWAY
+  if (GDK_IS_BROADWAY_DISPLAY (display))
+    {
+      /* A headless Broadway session has no system URI handler, so launching
+       * the default app fails. Ask the browser viewing the session to open
+       * the link in a new tab instead, and report success right away. */
+      GTask *task = g_task_new (parent, cancellable, callback, user_data);
+      g_task_set_source_tag (task, gtk_show_uri_full);
+
+      gdk_broadway_display_show_uri (GDK_BROADWAY_DISPLAY (display), uri);
+
+      g_task_return_boolean (task, TRUE);
+      g_object_unref (task);
+      return;
+    }
+#endif
 
   context = gdk_display_get_app_launch_context (display);
   gdk_app_launch_context_set_timestamp (context, timestamp);

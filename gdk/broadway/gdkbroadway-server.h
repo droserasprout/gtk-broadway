@@ -59,6 +59,8 @@ void               _gdk_broadway_server_surface_set_transient_for (GdkBroadwaySe
 								  int                 parent);
 void               _gdk_broadway_server_set_show_keyboard        (GdkBroadwayServer  *server,
 								  gboolean            show_keyboard);
+void               _gdk_broadway_server_open_uri                 (GdkBroadwayServer  *server,
+								  const char         *uri);
 gboolean           _gdk_broadway_server_surface_translate         (GdkBroadwayServer  *server,
 								  int                 id,
 								  cairo_region_t     *area,

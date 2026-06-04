@@ -42,6 +42,7 @@ const BROADWAY_OP_SET_CLIPBOARD = 17;
 const BROADWAY_OP_REQUEST_CLIPBOARD = 18;
 const BROADWAY_OP_SET_INPUT_REGION = 19;
 const BROADWAY_OP_REASSERT_POINTER = 20;
+const BROADWAY_OP_OPEN_URI = 21;
 
 /* Latin 'v'/'V' keysyms, used to recognise the paste shortcut (Ctrl+V and
  * Ctrl+Shift+V) so the browser's native 'paste' event is allowed to fire. */
@@ -1359,6 +1360,17 @@ function handleCommands(cmd, display_commands, new_textures, modified_trees)
             var _cbdata = cmd.get_data();
             var _cbtext = new TextDecoder("utf-8").decode(_cbdata);
             setHostClipboard(_cbtext);
+            break;
+
+        case BROADWAY_OP_OPEN_URI:
+            /* No system URI handler in a headless Broadway session, so the app
+             * routes link clicks here. Open them in a new browser tab. The
+             * call runs inside the WebSocket message handler (not a user
+             * gesture), so a popup blocker may catch it; 'noopener' keeps the
+             * new tab from reaching back into this page. */
+            var _uridata = cmd.get_data();
+            var _uri = new TextDecoder("utf-8").decode(_uridata);
+            window.open(_uri, "_blank", "noopener");
             break;
 
         case BROADWAY_OP_REQUEST_CLIPBOARD:
