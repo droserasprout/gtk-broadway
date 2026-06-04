@@ -307,6 +307,16 @@ broadway_output_request_clipboard (BroadwayOutput *output,
 }
 
 void
+broadway_output_open_uri (BroadwayOutput *output,
+                          const char     *uri,
+                          gsize           len)
+{
+  write_header (output, BROADWAY_OP_OPEN_URI);
+  append_uint32 (output, (guint32) len);
+  g_string_append_len (output->buf, uri, len);
+}
+
+void
 broadway_output_move_resize_surface (BroadwayOutput *output,
                                      int             id,
                                      gboolean        has_pos,

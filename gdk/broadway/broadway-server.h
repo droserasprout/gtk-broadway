@@ -94,6 +94,9 @@ void                broadway_server_set_clipboard             (BroadwayServer  *
                                                                gsize            len);
 void                broadway_server_request_clipboard         (BroadwayServer  *server,
                                                                guint32          id);
+void                broadway_server_open_uri                  (BroadwayServer  *server,
+                                                               const char      *uri,
+                                                               gsize            len);
 guint32             broadway_server_new_surface               (BroadwayServer  *server,
                                                                guint32          client,
                                                                int              x,

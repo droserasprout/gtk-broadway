@@ -446,6 +446,16 @@ client_handle_request (BroadwayClient *client,
         broadway_server_set_clipboard (server, request->set_clipboard.text, len);
       }
       break;
+    case BROADWAY_REQUEST_OPEN_URI:
+      {
+        /* Clamp the wire len to the framed request, same as SET_CLIPBOARD. */
+        gsize max = request->base.size -
+                    G_STRUCT_OFFSET (BroadwayRequestOpenUri, uri);
+        guint32 len = request->open_uri.len > max
+                      ? (guint32) max : request->open_uri.len;
+        broadway_server_open_uri (server, request->open_uri.uri, len);
+      }
+      break;
     case BROADWAY_REQUEST_REQUEST_CLIPBOARD:
       {
         PendingClipboardRequest *pending = g_new (PendingClipboardRequest, 1);

@@ -1895,6 +1895,18 @@ broadway_server_request_clipboard (BroadwayServer *server,
 }
 
 void
+broadway_server_open_uri (BroadwayServer *server,
+                          const char     *uri,
+                          gsize           len)
+{
+  if (server->output)
+    {
+      broadway_output_open_uri (server->output, uri, len);
+      broadway_server_flush (server);
+    }
+}
+
+void
 broadway_server_surface_lower (BroadwayServer *server,
                                int id)
 {

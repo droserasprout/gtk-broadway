@@ -338,6 +338,25 @@ gdk_broadway_display_hide_keyboard (GdkBroadwayDisplay *display)
   _gdk_broadway_server_set_show_keyboard (display->server, FALSE);
 }
 
+/*
+ * gdk_broadway_display_show_uri:
+ * @display: a broadway display
+ * @uri: the URI to open
+ *
+ * Asks the browser viewing the Broadway session to open @uri in a new tab.
+ * There is no system URI handler in a headless Broadway/container session, so
+ * this routes the URI over the protocol to the browser instead.
+ */
+void
+gdk_broadway_display_show_uri (GdkBroadwayDisplay *display,
+                               const char         *uri)
+{
+  g_return_if_fail (GDK_IS_BROADWAY_DISPLAY (display));
+  g_return_if_fail (uri != NULL);
+
+  _gdk_broadway_server_open_uri (display->server, uri);
+}
+
 /**
  * gdk_broadway_display_set_surface_scale:
  * @display: (type GdkBroadwayDisplay): the display
