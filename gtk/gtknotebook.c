@@ -36,6 +36,8 @@
 #include "gtkdropcontrollermotion.h"
 #include "gtkeventcontrollermotion.h"
 #include "gtkgestureclick.h"
+#include "gtkgesturedrag.h"
+#include "gtkeventcontrollerscroll.h"
 #include "gtkgizmoprivate.h"
 #include "gtkbuiltiniconprivate.h"
 #include <glib/gi18n-lib.h>
@@ -50,9 +52,14 @@
 #include "gtkstack.h"
 #include "gtktypebuiltins.h"
 #include "gtkwidgetprivate.h"
+#include "gtksnapshot.h"
 #include "gtkdragsourceprivate.h"
 #include "gtkwidgetpaintable.h"
 #include "gtknative.h"
+
+#ifdef GDK_WINDOWING_BROADWAY
+#include "broadway/gdkbroadway.h"
+#endif
 
 #include <stdio.h>
 #include <string.h>
@@ -165,6 +172,14 @@
 #define SCROLL_THRESHOLD      12
 #define DND_THRESHOLD_MULTIPLIER 4
 
+/* Touch: pan the tab strip by dragging it. TAB_SCROLL_THRESHOLD is the directional
+ * drag (px) along the tab axis before a press is treated as a pan instead of a tap.
+ * The pan itself follows the finger pixel-for-pixel (see touch_pan_px). */
+#define TAB_SCROLL_THRESHOLD  8
+
+/* Pixels the pixel-scroll strip pans per discrete wheel notch (horizontal scroll). */
+#define TAB_WHEEL_STEP        48
+
 #define TIMEOUT_INITIAL  500
 #define TIMEOUT_REPEAT    50
 #define TIMEOUT_EXPAND   500
@@ -264,6 +279,11 @@ struct _GtkNotebook
   double         mouse_y;
   int            pressed_button;
 
+  GList         *touch_press_tab;       /* touch: tab under the finger, selection deferred to release */
+  double         touch_pan_px;          /* touch: current pixel scroll offset of the strip (>= 0) */
+  double         touch_pan_start;       /* touch: touch_pan_px at drag-begin */
+  int            touch_pan_max;         /* touch: max scroll offset, refreshed during allocation */
+
   GQuark         group;
 
   guint          dnd_timer;
@@ -277,6 +297,7 @@ struct _GtkNotebook
   guint          remove_in_detach   : 1;
   guint          focus_out          : 1; /* Flag used by ::move-focus-out implementation */
   guint          has_scrolled       : 1;
+  guint          touch_scrolling    : 1; /* touch: a tab-strip pan is in progress */
   guint          need_timer         : 1;
   guint          show_border        : 1;
   guint          show_tabs          : 1;
@@ -962,6 +983,22 @@ static void gtk_notebook_gesture_released (GtkGestureClick *gesture,
 static void gtk_notebook_gesture_cancel   (GtkGestureClick  *gesture,
                                            GdkEventSequence *sequence,
                                            GtkNotebook      *notebook);
+static void gtk_notebook_tab_scroll_begin  (GtkGestureDrag *gesture,
+                                            double          start_x,
+                                            double          start_y,
+                                            gpointer        user_data);
+static void gtk_notebook_tab_scroll_update (GtkGestureDrag *gesture,
+                                            double          offset_x,
+                                            double          offset_y,
+                                            gpointer        user_data);
+static void gtk_notebook_tab_scroll_end    (GtkGestureDrag *gesture,
+                                            double          offset_x,
+                                            double          offset_y,
+                                            gpointer        user_data);
+static gboolean gtk_notebook_tab_wheel     (GtkEventControllerScroll *controller,
+                                            double          dx,
+                                            double          dy,
+                                            gpointer        user_data);
 
 static guint notebook_signals[LAST_SIGNAL] = { 0 };
 
@@ -1486,6 +1523,10 @@ gtk_notebook_init (GtkNotebook *notebook)
                                                    (GtkGizmoFocusFunc)gtk_widget_focus_self,
                                                    (GtkGizmoGrabFocusFunc)gtk_widget_grab_focus_self);
   gtk_widget_set_hexpand (notebook->tabs_widget, TRUE);
+  /* Clip the strip so pixel-scrolled tabs panned off either end don't draw outside
+   * it (gtk_notebook_tab_pixel_scroll). Harmless off Broadway: stock windowing never
+   * lays tabs beyond the strip. */
+  gtk_widget_set_overflow (notebook->tabs_widget, GTK_OVERFLOW_HIDDEN);
   gtk_box_append (GTK_BOX (notebook->header_widget), notebook->tabs_widget);
 
   notebook->stack_widget = gtk_stack_new ();
@@ -1510,6 +1551,25 @@ gtk_notebook_init (GtkNotebook *notebook)
   controller = gtk_event_controller_motion_new ();
   g_signal_connect (controller, "motion", G_CALLBACK (gtk_notebook_motion), notebook);
   gtk_widget_add_controller (GTK_WIDGET (notebook), controller);
+
+  /* Touch: drag the tab strip to pan between tabs without changing the page.
+   * Touch-only, so mouse/reorder behaviour is unchanged. */
+  gesture = gtk_gesture_drag_new ();
+  gtk_gesture_single_set_touch_only (GTK_GESTURE_SINGLE (gesture), TRUE);
+  gtk_gesture_single_set_button (GTK_GESTURE_SINGLE (gesture), 0);
+  g_signal_connect (gesture, "drag-begin", G_CALLBACK (gtk_notebook_tab_scroll_begin), notebook);
+  g_signal_connect (gesture, "drag-update", G_CALLBACK (gtk_notebook_tab_scroll_update), notebook);
+  g_signal_connect (gesture, "drag-end", G_CALLBACK (gtk_notebook_tab_scroll_end), notebook);
+  gtk_widget_add_controller (GTK_WIDGET (notebook), GTK_EVENT_CONTROLLER (gesture));
+
+  /* Wheel over the tab strip: horizontal scroll pans it (no page switch);
+   * vertical scroll propagates to the app's scroll-to-switch handler, after
+   * which gtk_notebook_real_switch_page reveals the new tab. Capture phase so it
+   * pre-empts that bubble-phase handler. Pixel-scroll (Broadway) strips only. */
+  controller = gtk_event_controller_scroll_new (GTK_EVENT_CONTROLLER_SCROLL_BOTH_AXES);
+  gtk_event_controller_set_propagation_phase (controller, GTK_PHASE_CAPTURE);
+  g_signal_connect (controller, "scroll", G_CALLBACK (gtk_notebook_tab_wheel), notebook);
+  gtk_widget_add_controller (notebook->header_widget, controller);
 
   gtk_widget_add_css_class (GTK_WIDGET (notebook), "frame");
 
@@ -2539,6 +2599,204 @@ get_tab_at_pos (GtkNotebook *notebook,
   return NULL;
 }
 
+static gboolean
+event_is_touch (GdkEvent *event)
+{
+  GdkDevice *device;
+
+  if (!event)
+    return FALSE;
+
+  device = gdk_event_get_device (event);
+
+  return device != NULL &&
+         gdk_device_get_source (device) == GDK_SOURCE_TOUCHSCREEN;
+}
+
+/* Broadway tab strips use a single pixel-scrolled model instead of GtkNotebook's
+ * tab windowing + scroll arrows: all tabs are laid out in one clipped row at natural
+ * width, scrolled by a persistent pixel offset (touch_pan_px) that the finger drags,
+ * with edge fades (not arrows) hinting more content. TOP/BOTTOM LTR only; off Broadway
+ * (e.g. a desktop dev build) this is FALSE and stock windowing/arrows are used. */
+static gboolean
+gtk_notebook_tab_pixel_scroll (GtkNotebook *notebook)
+{
+#ifdef GDK_WINDOWING_BROADWAY
+  GtkPositionType tab_pos = get_effective_tab_pos (notebook);
+
+  return notebook->scrollable &&
+         (tab_pos == GTK_POS_TOP || tab_pos == GTK_POS_BOTTOM) &&
+         gtk_widget_get_direction (GTK_WIDGET (notebook)) != GTK_TEXT_DIR_RTL &&
+         GDK_IS_BROADWAY_DISPLAY (gtk_widget_get_display (GTK_WIDGET (notebook)));
+#else
+  return FALSE;
+#endif
+}
+
+/* Furthest the strip can be panned: total natural width of all tabs minus the width
+ * the strip shows at once. TOP/BOTTOM only (gated by gtk_notebook_tab_pixel_scroll). */
+static int
+gtk_notebook_tab_pan_max (GtkNotebook *notebook)
+{
+  GList *children;
+  int total = 0;
+
+  for (children = notebook->children; children; children = children->next)
+    {
+      GtkNotebookPage *page = children->data;
+
+      if (NOTEBOOK_IS_TAB_LABEL_PARENT (notebook, page) &&
+          gtk_widget_get_visible (page->child))
+        total += page->requisition.width;
+    }
+
+  return MAX (0, total - gtk_widget_get_width (notebook->tabs_widget));
+}
+
+/* Pan a pixel-scroll strip just enough to bring the active tab fully into view
+ * after a page switch (vertical wheel scroll, keyboard, or a click on a partly
+ * off-screen tab). No-op until the strip has a width (before first allocation). */
+static void
+gtk_notebook_reveal_focus_tab (GtkNotebook *notebook)
+{
+  GList *children;
+  int left = 0;
+  int width = 0;
+  int viewport;
+  int max;
+
+  if (!gtk_notebook_tab_pixel_scroll (notebook) || notebook->cur_page == NULL)
+    return;
+
+  viewport = gtk_widget_get_width (notebook->tabs_widget);
+  if (viewport <= 0)
+    return;
+
+  for (children = notebook->children; children; children = children->next)
+    {
+      GtkNotebookPage *page = children->data;
+
+      if (!NOTEBOOK_IS_TAB_LABEL_PARENT (notebook, page) ||
+          !gtk_widget_get_visible (page->child))
+        continue;
+
+      if (page == notebook->cur_page)
+        {
+          width = page->requisition.width;
+          break;
+        }
+
+      left += page->requisition.width;
+    }
+
+  if (width <= 0)
+    return;
+
+  /* Scroll only as far as needed to expose the tab's near or far edge. */
+  if (left < notebook->touch_pan_px)
+    notebook->touch_pan_px = left;
+  else if (left + width > notebook->touch_pan_px + viewport)
+    notebook->touch_pan_px = left + width - viewport;
+
+  max = gtk_notebook_tab_pan_max (notebook);
+  notebook->touch_pan_max = max;
+  notebook->touch_pan_px = CLAMP (notebook->touch_pan_px, 0, max);
+  gtk_widget_queue_allocate (notebook->tabs_widget);
+}
+
+static void
+gtk_notebook_tab_scroll_begin (GtkGestureDrag *gesture,
+                               double          start_x,
+                               double          start_y,
+                               gpointer        user_data)
+{
+  GtkNotebook *notebook = user_data;
+
+  notebook->touch_scrolling = FALSE;
+
+  /* Pan only a pixel-scroll (Broadway top/bottom LTR) strip that actually overflows,
+   * when the drag starts on the strip and no reorder/detach is under way. Otherwise
+   * deny so the press falls through to the click gesture (tap to select). The strip
+   * keeps its scroll position (touch_pan_px) between drags -- no reset here. */
+  if (!gtk_notebook_tab_pixel_scroll (notebook) ||
+      notebook->operation != DRAG_OPERATION_NONE ||
+      !in_tabs (notebook, start_x, start_y) ||
+      gtk_notebook_tab_pan_max (notebook) <= 0)
+    {
+      gtk_gesture_set_state (GTK_GESTURE (gesture), GTK_EVENT_SEQUENCE_DENIED);
+      return;
+    }
+
+  notebook->touch_pan_max = gtk_notebook_tab_pan_max (notebook);
+  notebook->touch_pan_start = notebook->touch_pan_px;
+}
+
+static void
+gtk_notebook_tab_scroll_update (GtkGestureDrag *gesture,
+                                double          offset_x,
+                                double          offset_y,
+                                gpointer        user_data)
+{
+  GtkNotebook *notebook = user_data;
+  double px;
+
+  if (!notebook->touch_scrolling)
+    {
+      /* Require a clearly horizontal drag before claiming, so a plain tap still
+       * selects the tab on release (pan is gated to top/bottom strips in begin). */
+      if (ABS (offset_x) < TAB_SCROLL_THRESHOLD || ABS (offset_x) <= ABS (offset_y))
+        return;
+
+      notebook->touch_scrolling = TRUE;
+      gtk_gesture_set_state (GTK_GESTURE (gesture), GTK_EVENT_SEQUENCE_CLAIMED);
+    }
+
+  /* Follow the finger pixel-for-pixel: dragging right (offset_x > 0) moves the strip
+   * right, revealing earlier tabs (smaller offset); dragging left reveals later ones. */
+  px = notebook->touch_pan_start - offset_x;
+  notebook->touch_pan_px = CLAMP (px, 0, notebook->touch_pan_max);
+  gtk_widget_queue_allocate (notebook->tabs_widget);
+}
+
+static void
+gtk_notebook_tab_scroll_end (GtkGestureDrag *gesture,
+                             double          offset_x,
+                             double          offset_y,
+                             gpointer        user_data)
+{
+  GtkNotebook *notebook = user_data;
+
+  /* No snapping: the strip stays exactly where the finger left it (touch_pan_px is
+   * persistent). Just clear the in-progress flag. Fires on normal release AND on
+   * cancel (base GtkGesture emits END -> drag-end). A plain tap never set
+   * touch_scrolling, so its select is left to gtk_notebook_gesture_released. */
+  notebook->touch_scrolling = FALSE;
+}
+
+/* Wheel over the tab strip. Horizontal-dominant scroll pans the pixel-scroll
+ * strip one notch and is consumed, so the page never switches; vertical scroll
+ * is left to propagate to the application's scroll-to-switch handler (the new
+ * tab is then revealed in gtk_notebook_real_switch_page). Off a pixel-scroll
+ * strip this does nothing and stock scroll behaviour is unchanged. */
+static gboolean
+gtk_notebook_tab_wheel (GtkEventControllerScroll *controller,
+                        double                    dx,
+                        double                    dy,
+                        gpointer                  user_data)
+{
+  GtkNotebook *notebook = user_data;
+
+  if (!gtk_notebook_tab_pixel_scroll (notebook) || ABS (dx) <= ABS (dy))
+    return GDK_EVENT_PROPAGATE;
+
+  notebook->touch_pan_max = gtk_notebook_tab_pan_max (notebook);
+  notebook->touch_pan_px = CLAMP (notebook->touch_pan_px + dx * TAB_WHEEL_STEP,
+                                  0, notebook->touch_pan_max);
+  gtk_widget_queue_allocate (notebook->tabs_widget);
+
+  return GDK_EVENT_STOP;
+}
+
 static void
 gtk_notebook_gesture_pressed (GtkGestureClick *gesture,
                               int                   n_press,
@@ -2562,6 +2820,10 @@ gtk_notebook_gesture_pressed (GtkGestureClick *gesture,
   if (!notebook->children)
     return;
 
+  /* Clear any stale deferred touch tap; only a press that lands on a tab below
+   * re-arms it (an arrow / context-menu press returns before that point). */
+  notebook->touch_press_tab = NULL;
+
   arrow = gtk_notebook_get_arrow (notebook, x, y);
   if (arrow != ARROW_NONE)
     {
@@ -2580,6 +2842,16 @@ gtk_notebook_gesture_pressed (GtkGestureClick *gesture,
       rect.height = 1;
       gtk_popover_set_pointing_to (GTK_POPOVER (notebook->menu), &rect);
       gtk_popover_popup (GTK_POPOVER (notebook->menu));
+      return;
+    }
+
+  /* Touch: defer selecting the tab to release, so a drag along the tab strip can
+   * pan between tabs (gtk_notebook_tab_scroll_*) instead of switching the page.
+   * A plain tap selects the recorded tab in gtk_notebook_tab_scroll_end(). */
+  if (event_is_touch (event))
+    {
+      notebook->touch_press_tab = get_tab_at_pos (notebook, x, y);
+      notebook->touch_scrolling = FALSE;
       return;
     }
 
@@ -2812,6 +3084,29 @@ gtk_notebook_gesture_released (GtkGestureClick *gesture,
   if (!event)
     return;
 
+  /* Touch: a press on a tab deferred its selection (see gtk_notebook_gesture_pressed).
+   * Commit it now on release -- unless the gesture became a tab-strip pan, which
+   * claims the sequence and cancels this gesture instead of releasing it. */
+  if (event_is_touch (event))
+    {
+      GList *tab = notebook->touch_press_tab;
+
+      notebook->touch_press_tab = NULL;
+
+      if (tab && !notebook->touch_scrolling &&
+          g_list_position (notebook->children, tab) >= 0)
+        {
+          gtk_notebook_switch_focus_tab (notebook, tab);
+          gtk_widget_grab_focus (GTK_WIDGET (notebook));
+        }
+
+      /* Stop any scroll-arrow auto-repeat timer started on press, otherwise the
+       * touch release (which returns here) leaves it running and the page
+       * auto-advances to the first/last tab. */
+      stop_scrolling (notebook);
+      return;
+    }
+
   if (notebook->pressed_button != button)
     return;
 
@@ -2828,6 +3123,10 @@ gtk_notebook_gesture_cancel (GtkGestureClick  *gesture,
                              GdkEventSequence *sequence,
                              GtkNotebook      *notebook)
 {
+  /* A tab-strip pan claims the touch sequence, which cancels this click gesture;
+   * drop the deferred tap so it is not selected (it became a pan, not a tap). */
+  notebook->touch_press_tab = NULL;
+
   gtk_notebook_stop_reorder (notebook);
   stop_scrolling (notebook);
 }
@@ -4433,6 +4732,7 @@ gtk_notebook_snapshot_tabs (GtkGizmo    *gizmo,
   int step = STEP_PREV;
   gboolean is_rtl;
   GtkPositionType tab_pos;
+  gboolean masked = FALSE;
   guint i;
 
   is_rtl = gtk_widget_get_direction (widget) == GTK_TEXT_DIR_RTL;
@@ -4444,6 +4744,36 @@ gtk_notebook_snapshot_tabs (GtkGizmo    *gizmo,
 
   if (!notebook->first_tab)
     notebook->first_tab = notebook->children;
+
+  /* Pixel-scroll mode: instead of scroll arrows, fade the tab strip itself to
+   * transparent at whichever edge has more tabs to reveal, so it dissolves into the
+   * background (theme-independent -- no overlay colour). Done with an alpha mask
+   * wrapping all the tab drawing below; the matching pop is after the current tab. */
+  if (gtk_notebook_tab_pixel_scroll (notebook))
+    {
+      int w = gtk_widget_get_width (GTK_WIDGET (gizmo));
+      int h = gtk_widget_get_height (GTK_WIDGET (gizmo));
+      gboolean fade_left = notebook->touch_pan_px > 0;
+      gboolean fade_right = notebook->touch_pan_px < notebook->touch_pan_max;
+      const float fade = 48;
+
+      if ((fade_left || fade_right) && w > 2 * fade)
+        {
+          masked = TRUE;
+          gtk_snapshot_push_mask (snapshot, GSK_MASK_MODE_ALPHA);
+          gtk_snapshot_append_linear_gradient (snapshot,
+                                               &GRAPHENE_RECT_INIT (0, 0, w, h),
+                                               &GRAPHENE_POINT_INIT (0, 0),
+                                               &GRAPHENE_POINT_INIT (w, 0),
+                                               (GskColorStop[4]) {
+                                                   { 0,            { 1, 1, 1, fade_left ? 0 : 1 } },
+                                                   { fade / w,     { 1, 1, 1, 1 } },
+                                                   { 1 - fade / w, { 1, 1, 1, 1 } },
+                                                   { 1,            { 1, 1, 1, fade_right ? 0 : 1 } },
+                                               }, 4);
+          gtk_snapshot_pop (snapshot);   /* end mask; the tab drawing below is the source */
+        }
+    }
 
   if (!NOTEBOOK_IS_TAB_LABEL_PARENT (notebook, notebook->cur_page) ||
       !gtk_widget_get_mapped (notebook->cur_page->tab_label))
@@ -4538,6 +4868,9 @@ gtk_notebook_snapshot_tabs (GtkGizmo    *gizmo,
 
   if (notebook->operation != DRAG_OPERATION_DETACH)
     gtk_widget_snapshot_child (GTK_WIDGET (gizmo), notebook->cur_page->tab_widget, snapshot);
+
+  if (masked)
+    gtk_snapshot_pop (snapshot);   /* apply the edge-fade mask to the tab strip */
 }
 
 /* Private GtkNotebook Size Allocate Functions:
@@ -4699,7 +5032,9 @@ gtk_notebook_tab_space (GtkNotebook   *notebook,
       break;
     }
 
-  if (!notebook->scrollable)
+  if (!notebook->scrollable || gtk_notebook_tab_pixel_scroll (notebook))
+    /* Pixel-scroll mode draws edge fades instead of arrows and clips the full-width
+     * strip itself, so leave show_arrows FALSE and don't reserve arrow gutters. */
     *show_arrows = FALSE;
   else
     {
@@ -4746,6 +5081,29 @@ gtk_notebook_calculate_shown_tabs (GtkNotebook          *notebook,
 {
   GList *children;
   GtkNotebookPage *page;
+
+  /* Pixel-scroll mode: lay out every tab in one continuous row (no windowing) so
+   * calculate_tabs_allocation can shift the whole row by the persistent pixel offset
+   * and the clipped strip scrolls smoothly. Used in both the settled and dragging
+   * states (one model, no jumps), so the row is always present. */
+  if (gtk_notebook_tab_pixel_scroll (notebook))
+    {
+      for (children = notebook->children; children; children = children->next)
+        {
+          page = children->data;
+
+          if (page->tab_label &&
+              NOTEBOOK_IS_TAB_LABEL_PARENT (notebook, page) &&
+              gtk_widget_get_visible (page->child))
+            gtk_widget_set_child_visible (page->tab_widget, TRUE);
+        }
+
+      notebook->first_tab = gtk_notebook_search_page (notebook, NULL, STEP_NEXT, TRUE);
+      *last_child = NULL;       /* lay out to the end */
+      *n = 0;                   /* expanded_tabs: no stretching, natural widths */
+      *remaining_space = 0;
+      return;
+    }
 
   if (show_arrows) /* first_tab <- focus_tab */
     {
@@ -4980,12 +5338,25 @@ gtk_notebook_calculate_tabs_allocation (GtkNotebook          *notebook,
   GtkAllocation child_allocation;
   GtkOrientation tab_expand_orientation;
   graphene_rect_t drag_bounds;
+  gboolean pixel_scroll;
 
   g_assert (notebook->cur_page != NULL);
 
   widget = GTK_WIDGET (notebook);
   tab_pos = get_effective_tab_pos (notebook);
   allocate_at_bottom = get_allocate_at_bottom (widget, direction);
+
+  /* Pixel-scroll mode: shift the whole tab row by the persistent scroll offset. The
+   * show-all branch of calculate_shown_tabs lays out every tab at natural width, so
+   * there is no expansion (expanded_tabs == 0) and the row width is the true total.
+   * Never while a reorder/detach is fixing tab positions. */
+  pixel_scroll = gtk_notebook_tab_pixel_scroll (notebook) &&
+                 notebook->operation == DRAG_OPERATION_NONE;
+  if (pixel_scroll)
+    {
+      notebook->touch_pan_max = gtk_notebook_tab_pan_max (notebook);
+      notebook->touch_pan_px = CLAMP (notebook->touch_pan_px, 0, notebook->touch_pan_max);
+    }
 
   child_allocation = *allocation;
 
@@ -4996,6 +5367,8 @@ gtk_notebook_calculate_tabs_allocation (GtkNotebook          *notebook,
       if (allocate_at_bottom)
         child_allocation.x += allocation->width;
       anchor = child_allocation.x;
+      if (pixel_scroll)
+        anchor -= (int) notebook->touch_pan_px;
       break;
 
     case GTK_POS_RIGHT:
@@ -5458,6 +5831,10 @@ gtk_notebook_real_switch_page (GtkNotebook     *notebook,
 
   gtk_widget_queue_resize (GTK_WIDGET (notebook));
   gtk_widget_queue_resize (notebook->tabs_widget);
+
+  /* Keep the pixel-scroll strip showing the tab we just switched to. */
+  gtk_notebook_reveal_focus_tab (notebook);
+
   g_object_notify_by_pspec (G_OBJECT (notebook), properties[PROP_PAGE]);
 }
 
