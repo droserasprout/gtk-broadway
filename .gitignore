@@ -1,3 +1,2 @@
-/subprojects/*
 /subprojects/*/
 .flatpak-builder/
