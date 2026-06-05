@@ -1,0 +1,184 @@
+# Build the Broadway clipboard/touch fork for every supported GTK base and collect
+# all artifacts into ONE GitHub Release.
+#
+# Lives on the orphan `ci` branch (just this file). Orchestrates across the per-version
+# fork branches: each (target x arch) job checks out its fork branch and builds natively
+# (amd64 on ubuntu-24.04, arm64 on ubuntu-24.04-arm) inside the target's `container:` so
+# the binary stays ABI-compatible with that Ubuntu's apt GTK. The SONAME is read from the
+# built .so, not hardcoded.
+#
+# Assets (one release holds all of them), per base x arch:
+#   latest release : gtk4-broadway-fork_<gtk>_<arch>.deb            (rolling, unversioned)
+#   vN tag release : gtk4-broadway-fork_<gtk>-<N>_<arch>.deb        (immutable, e.g. ..._4.22.2-123_amd64.deb)
+#
+# Triggers: push a vN tag (on this branch) -> cut release `vN` AND refresh `latest`.
+#           manual dispatch                -> refresh `latest` only.
+name: Release Broadway GTK .debs
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  RUNTIME_PKGS: "libgtk-4-1, libgtk-4-bin"
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - { ref: "4.14.5-fork", gtk: "4.14.5", container: "ubuntu:24.04", demos: "-Ddemos=false" }
+          - { ref: "4.22.2-fork", gtk: "4.22.2", container: "ubuntu:26.04", demos: "-Dbuild-demos=false" }
+        arch: [amd64, arm64]
+        include:
+          - { arch: amd64, runner: ubuntu-24.04,     multiarch: x86_64-linux-gnu }
+          - { arch: arm64, runner: ubuntu-24.04-arm, multiarch: aarch64-linux-gnu }
+    runs-on: ${{ matrix.runner }}
+    container: ${{ matrix.target.container }}
+    env:
+      DEBIAN_FRONTEND: noninteractive
+      ARCH: ${{ matrix.arch }}
+      MULTIARCH: ${{ matrix.multiarch }}
+      GTK_VERSION: ${{ matrix.target.gtk }}
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
+      CCACHE_MAXSIZE: "1G"
+    steps:
+      - name: Install build dependencies
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            build-essential ccache meson ninja-build pkg-config gettext python3 git ca-certificates zstd \
+            libglib2.0-dev libglib2.0-dev-bin libgraphene-1.0-dev libcairo2-dev libpango1.0-dev \
+            libgdk-pixbuf-2.0-dev libepoxy-dev libxkbcommon-dev libfribidi-dev libharfbuzz-dev \
+            libjpeg-dev libpng-dev libtiff-dev libdrm-dev
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ matrix.target.ref }}
+
+      # ccache persists across runs so unchanged .c files relink without recompiling.
+      # Keyed per (gtk, arch); the SHA suffix + prefix restore-keys give each run the
+      # latest cache and save a new one.
+      - name: Restore ccache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ccache-${{ matrix.target.gtk }}-${{ matrix.arch }}-${{ github.sha }}
+          restore-keys: |
+            ccache-${{ matrix.target.gtk }}-${{ matrix.arch }}-
+
+      - name: Build (broadway-only)
+        run: |
+          ccache --zero-stats
+          rm -rf _build
+          # meson auto-detects ccache in PATH and uses it as the compiler launcher.
+          # ${{ matrix.target.demos }} is per-version: -Ddemos (4.14) / -Dbuild-demos (4.22+).
+          meson setup _build \
+            -Dbroadway-backend=true \
+            -Dx11-backend=false -Dwayland-backend=false -Dwin32-backend=false -Dmacos-backend=false \
+            -Dvulkan=disabled -Dintrospection=disabled -Ddocumentation=false -Dman-pages=false \
+            -Dbuild-testsuite=false -Dbuild-tests=false -Dbuild-examples=false ${{ matrix.target.demos }} \
+            -Dmedia-gstreamer=disabled -Dprint-cups=disabled \
+            -Dbuildtype=release
+          ninja -C _build
+          ccache --show-stats
+
+      - name: Assemble .deb
+        run: |
+          # Revision: vN tag -> N (e.g. 123); otherwise the run number (rolling builds).
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            REV="${GITHUB_REF_NAME#v}"
+          else
+            REV="0+r${GITHUB_RUN_NUMBER}"
+          fi
+          DEB_VERSION="${GTK_VERSION}-${REV}"
+          # SONAME read from the actual build output (e.g. libgtk-4.so.1.2200.2), so a
+          # GTK version bump needs no edit here.
+          SO_NAME="$(basename "$(find _build/gtk -maxdepth 1 -type f -name 'libgtk-4.so.1.*.*' | head -n1)")"
+          test -n "${SO_NAME}"
+          rm -rf pkgroot
+          install -d pkgroot/DEBIAN "pkgroot/usr/lib/${MULTIARCH}" pkgroot/usr/bin
+          install -m644 "_build/gtk/${SO_NAME}" "pkgroot/usr/lib/${MULTIARCH}/${SO_NAME}"
+          ln -sf "${SO_NAME}" "pkgroot/usr/lib/${MULTIARCH}/libgtk-4.so.1"
+          install -m755 _build/gdk/broadway/gtk4-broadwayd pkgroot/usr/bin/gtk4-broadwayd
+          cat > pkgroot/DEBIAN/control <<EOF
+          Package: gtk4-broadway-fork
+          Version: ${DEB_VERSION}
+          Architecture: ${ARCH}
+          Maintainer: Lev Gorodetskii <github@drsr.io>
+          Section: libs
+          Priority: optional
+          Homepage: https://github.com/droserasprout/gtk-broadway
+          Depends: ${RUNTIME_PKGS}
+          Replaces: ${RUNTIME_PKGS}
+          Description: GTK ${GTK_VERSION} Broadway backend (clipboard + touch fork)
+           Patched libgtk-4 shared object plus the gtk4-broadwayd daemon for the
+           Broadway backend, adding bi-directional clipboard and touch/Android input
+           fixes and repointing the libgtk-4.so.1 SONAME link at them. Overlays
+           libgtk-4-1 / libgtk-4-bin (Depends + Replaces), leaving the rest of apt's
+           GTK (gir, common, ...) untouched.
+          EOF
+          printf '#!/bin/sh\nset -e\nldconfig\n' > pkgroot/DEBIAN/postinst
+          chmod 755 pkgroot/DEBIAN/postinst
+          # Stable, unversioned per-base name (the 'latest' release asset). The release
+          # job derives the version-stamped name for vN tags.
+          DEB_FILE="gtk4-broadway-fork_${GTK_VERSION}_${ARCH}.deb"
+          dpkg-deb --root-owner-group --build pkgroot "${DEB_FILE}"
+          dpkg-deb --info "${DEB_FILE}"
+          echo "DEB_FILE=${DEB_FILE}" >> "${GITHUB_ENV}"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: deb-${{ matrix.target.gtk }}-${{ matrix.arch }}
+          path: ${{ env.DEB_FILE }}
+          if-no-files-found: error
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Download all .deb artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: deb-*
+          merge-multiple: true
+
+      - name: Publish release(s)
+        run: |
+          set -eux
+          ls -l ./*.deb
+
+          ensure_release() { # tag title notes
+            gh release view "$1" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 \
+              || gh release create "$1" --repo "$GITHUB_REPOSITORY" --prerelease --title "$2" --notes "$3"
+          }
+
+          # Always (re)publish the rolling 'latest' with the unversioned per-base names.
+          ensure_release "latest" "Broadway GTK fork (rolling)" \
+            "Rolling multi-base (4.14.5, 4.22.2) multi-arch (amd64, arm64) Broadway GTK fork. Assets overwritten on each run."
+          gh release upload "latest" ./*.deb --repo "$GITHUB_REPOSITORY" --clobber
+
+          # On a vN tag, also cut an immutable release with version-stamped names.
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            TAG="${GITHUB_REF_NAME}"; REV="${TAG#v}"
+            mkdir -p versioned
+            for f in ./*.deb; do
+              b="$(basename "${f%.deb}")"      # gtk4-broadway-fork_<gtk>_<arch>
+              arch="${b##*_}"; rest="${b%_*}"  # <arch> ; gtk4-broadway-fork_<gtk>
+              cp "$f" "versioned/${rest}-${REV}_${arch}.deb"
+            done
+            ls -l ./versioned/*.deb
+            ensure_release "$TAG" "Broadway GTK fork ${TAG}" \
+              "Multi-base (4.14.5, 4.22.2) multi-arch (amd64, arm64) Broadway GTK fork, revision ${REV}."
+            gh release upload "$TAG" ./versioned/*.deb --repo "$GITHUB_REPOSITORY" --clobber
+          fi
