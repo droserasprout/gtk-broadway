@@ -88,6 +88,7 @@ _gdk_broadway_display_size_changed (GdkDisplay                      *display,
   GdkMonitor *monitor;
   GdkRectangle current_size;
   GList *toplevels, *l;
+  gboolean scale_changed;
 
   monitor = broadway_display->monitor;
   gdk_monitor_get_geometry (monitor, &current_size);
@@ -97,6 +98,9 @@ _gdk_broadway_display_size_changed (GdkDisplay                      *display,
       (msg->scale == broadway_display->scale_factor ||
        broadway_display->fixed_scale))
     return;
+
+  scale_changed = !broadway_display->fixed_scale &&
+                  msg->scale != broadway_display->scale_factor;
 
   if (!broadway_display->fixed_scale)
     broadway_display->scale_factor = msg->scale;
@@ -126,6 +130,12 @@ _gdk_broadway_display_size_changed (GdkDisplay                      *display,
           gdk_broadway_surface_move_resize (surface, MAX (0, x), MAX (0, y),
                                             surface->width, surface->height);
         }
+
+      /* Scale changed: force full redraw so the renderer re-rasterizes cached
+       * textures at the new scale (pairs with the cache-drop in
+       * gskbroadwayrenderer.c). Else static surfaces stay blurry. */
+      if (scale_changed)
+        gdk_surface_invalidate_rect (surface, NULL);
     }
 }
 
