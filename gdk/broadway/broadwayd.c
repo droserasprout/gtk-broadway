@@ -706,6 +706,9 @@ main (int argc, char *argv[])
       return 1;
     }
 
+  /* So the daemon can spawn the debug-menu client on our own display. */
+  broadway_server_set_display (server, display);
+
   listener = g_socket_service_new ();
   if (!g_socket_listener_add_address (G_SOCKET_LISTENER (listener),
                                       address,

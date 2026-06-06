@@ -11,6 +11,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <signal.h>
 
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
@@ -48,6 +49,7 @@ struct _BroadwayServer {
 
   char *address;
   int port;
+  char *display;    /* ":N" passed to the debug-menu client we spawn */
   char *ssl_cert;
   char *ssl_key;
   GSocketService *service;
@@ -63,6 +65,8 @@ struct _BroadwayServer {
   GList *surfaces;
   BroadwaySurface *root;
   gint32 focused_surface_id; /* -1 => none */
+  gint32 keep_on_top_surface_id; /* -1 => none; pinned above all others */
+  gboolean expecting_menu_surface; /* tag the next toplevel as the debug menu */
   int show_keyboard;
 
   guint32 next_texture_id;
@@ -282,6 +286,7 @@ broadway_server_init (BroadwayServer *server)
 
   server->service = g_socket_service_new ();
   server->pointer_grab_surface_id = -1;
+  server->keep_on_top_surface_id = -1;
   server->saved_serial = 1;
   server->last_seen_time = 1;
   server->surface_id_hash = g_hash_table_new (NULL, NULL);
@@ -324,6 +329,7 @@ broadway_server_finalize (GObject *object)
   g_slist_free (server->deferred_enters);
 
   g_free (server->address);
+  g_free (server->display);
   g_free (server->ssl_cert);
   g_free (server->ssl_key);
   g_hash_table_destroy (server->textures);
@@ -774,6 +780,80 @@ queue_input_message (BroadwayServer *server, BroadwayInputMsg *msg)
   server->input_messages = g_list_append (server->input_messages, g_memdup2 (msg, sizeof (BroadwayInputMsg)));
 }
 
+/* ---- Debug menu (spawn-on-demand) -------------------------------------
+ * On BROADWAY_EVENT_MENU from the browser we spawn a small native GTK4 client
+ * (gtk4-broadway-debugmenu) pointed at our own display, so its window composites
+ * into the same view every connected browser sees. A second trigger while it is
+ * up closes it (toggle). */
+
+static GPid menu_pid = 0;
+
+static void
+menu_child_exited (GPid pid, gint status, gpointer user_data)
+{
+  BroadwayServer *server = user_data;
+
+  g_spawn_close_pid (pid);
+  if (pid == menu_pid)
+    menu_pid = 0;
+  /* If it died before ever mapping a toplevel, don't mis-tag the next one. */
+  server->expecting_menu_surface = FALSE;
+}
+
+static void
+broadway_server_summon_menu (BroadwayServer *server)
+{
+  const char *cmd;
+  char *argv[2];
+  char **envp;
+  GError *error = NULL;
+
+  /* Toggle: a second summon while it is running closes it. */
+  if (menu_pid != 0)
+    {
+      kill (menu_pid, SIGTERM);
+      return;
+    }
+
+  cmd = g_getenv ("BROADWAY_DEBUGMENU");
+  if (cmd == NULL)
+    cmd = "gtk4-broadway-debugmenu";
+
+  argv[0] = (char *) cmd;
+  argv[1] = NULL;
+
+  envp = g_get_environ ();
+  envp = g_environ_setenv (envp, "GDK_BACKEND", "broadway", TRUE);
+  if (server->display != NULL)
+    envp = g_environ_setenv (envp, "BROADWAY_DISPLAY", server->display, TRUE);
+
+  if (!g_spawn_async (NULL, argv, envp,
+                      G_SPAWN_SEARCH_PATH | G_SPAWN_DO_NOT_REAP_CHILD,
+                      NULL, NULL, &menu_pid, &error))
+    {
+      g_warning ("broadway: failed to spawn debug menu '%s': %s",
+                 cmd, error->message);
+      g_clear_error (&error);
+      menu_pid = 0;
+    }
+  else
+    {
+      /* The next non-popup surface to appear is the menu: pin it on top. */
+      server->expecting_menu_surface = TRUE;
+      g_child_watch_add (menu_pid, menu_child_exited, server);
+    }
+
+  g_strfreev (envp);
+}
+
+void
+broadway_server_set_display (BroadwayServer *server,
+                             const char     *display)
+{
+  g_free (server->display);
+  server->display = g_strdup (display);
+}
+
 static void
 parse_input_message (BroadwayInput *input, const unsigned char *message, gsize payload_len)
 {
@@ -921,6 +1001,11 @@ parse_input_message (BroadwayInput *input, const unsigned char *message, gsize p
         broadway_output_pong_msg (server->output);
         broadway_server_flush (server);
       }
+    return;
+
+  case BROADWAY_EVENT_MENU:
+    /* Daemon-intercepted: spawn/toggle the menu, never forward to clients. */
+    broadway_server_summon_menu (server);
     return;
 
   default:
@@ -1824,6 +1909,9 @@ broadway_server_destroy_surface (BroadwayServer *server,
   if (server->pointer_grab_surface_id == id)
     server->pointer_grab_surface_id = -1;
 
+  if (server->keep_on_top_surface_id == id)
+    server->keep_on_top_surface_id = -1;
+
   if (server->output)
     broadway_output_destroy_surface (server->output, id);
 
@@ -1909,6 +1997,33 @@ broadway_server_surface_hide (BroadwayServer *server,
   return sent;
 }
 
+/* Re-raise the pinned (always-on-top) surface so it stays above everything.
+ * No-op if nothing is pinned or it is already topmost. */
+static void
+restack_kept_on_top (BroadwayServer *server)
+{
+  BroadwaySurface *surface;
+
+  if (server->keep_on_top_surface_id == -1)
+    return;
+
+  surface = broadway_server_lookup_surface (server, server->keep_on_top_surface_id);
+  if (surface == NULL)
+    {
+      server->keep_on_top_surface_id = -1;
+      return;
+    }
+
+  if (server->surfaces != NULL && g_list_last (server->surfaces)->data == surface)
+    return; /* already on top */
+
+  server->surfaces = g_list_remove (server->surfaces, surface);
+  server->surfaces = g_list_append (server->surfaces, surface);
+
+  if (server->output)
+    broadway_output_raise_surface (server->output, surface->id);
+}
+
 void
 broadway_server_surface_raise (BroadwayServer *server,
                                int id)
@@ -1924,6 +2039,10 @@ broadway_server_surface_raise (BroadwayServer *server,
 
   if (server->output)
     broadway_output_raise_surface (server->output, surface->id);
+
+  /* Keep the pinned surface above the one just raised. */
+  if (id != server->keep_on_top_surface_id)
+    restack_kept_on_top (server);
 }
 
 void
@@ -2433,6 +2552,18 @@ broadway_server_new_surface (BroadwayServer *server,
                                  surface->height);
   else
     fake_configure_notify (server, surface);
+
+  if (server->expecting_menu_surface && !is_popup)
+    {
+      /* The toplevel the spawned debug menu just mapped: pin it on top. */
+      server->expecting_menu_surface = FALSE;
+      server->keep_on_top_surface_id = surface->id;
+    }
+  else
+    {
+      /* A new surface lands on top; keep the pinned one above it. */
+      restack_kept_on_top (server);
+    }
 
   return surface->id;
 }
