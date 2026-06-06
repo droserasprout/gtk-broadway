@@ -43,6 +43,8 @@ const BROADWAY_OP_REQUEST_CLIPBOARD = 18;
 const BROADWAY_OP_SET_INPUT_REGION = 19;
 const BROADWAY_OP_REASSERT_POINTER = 20;
 const BROADWAY_OP_OPEN_URI = 21;
+const BROADWAY_OP_SESSION = 22;
+const BROADWAY_OP_PONG = 23;
 
 /* Latin 'v'/'V' keysyms, used to recognise the paste shortcut (Ctrl+V and
  * Ctrl+Shift+V) so the browser's native 'paste' event is allowed to fire. */
@@ -65,6 +67,7 @@ const BROADWAY_EVENT_SCREEN_SIZE_CHANGED = 12;
 const BROADWAY_EVENT_FOCUS = 13;
 const BROADWAY_EVENT_ROUNDTRIP_NOTIFY = 14;
 const BROADWAY_EVENT_CLIPBOARD_CONTENTS = 15;
+const BROADWAY_EVENT_PING = 16;
 
 const DISPLAY_OP_REPLACE_CHILD = 0;
 const DISPLAY_OP_APPEND_CHILD = 1;
@@ -246,6 +249,25 @@ var outstandingDisplayCommands = null;
 var inputSocket = null;
 var debugDecoding = false;
 var fakeInput = null;
+
+/* Auto-reconnect + session liveness (see the block above connect()). */
+var ws = null;
+var sessionToken = null;       /* daemon id from BROADWAY_OP_SESSION; null until first seen */
+var clientId = 0;              /* server-assigned id; sent back as ?cid= on reconnect */
+var sessionInvalidated = false;/* true => give up, show disconnected until manual refresh */
+var reconnecting = false;      /* true while the dim+spinner overlay is up */
+var reconnectTimer = null;
+var reconnectDelay = 0;        /* backoff in ms */
+var awaitFirstFrame = false;   /* drop the overlay once the resync repaints */
+var resumeSafetyTimer = null;  /* fallback to drop the overlay if no frame arrives */
+var overlayEl = null;
+
+/* Heartbeat: catches a half-open socket that never fires onclose (wi-fi off on
+ * a foreground tab, cellular handover). Any inbound message counts as a PONG. */
+var HEARTBEAT_MS = 2500;
+var HEARTBEAT_TIMEOUT_MS = 7000;
+var heartbeatTimer = null;
+var lastPongTime = 0;
 /* Clipboard paste capture: a hidden, focused textarea receives the browser's
  * native 'paste' event (Ctrl+V). Unlike navigator.clipboard.readText(), that
  * event needs no permission/user-activation popup, so we cache the pasted text
@@ -1172,9 +1194,19 @@ function handleCommands(cmd, display_commands, new_textures, modified_trees)
         var command = cmd.get_uint8();
         lastSerial = cmd.get_32();
         switch (command) {
+        case BROADWAY_OP_SESSION:
+            var token = cmd.get_32();
+            var cid = cmd.get_32();
+            onSessionToken(token, cid);
+            break;
+
+        case BROADWAY_OP_PONG:
+            /* handleMessage already bumped lastPongTime. */
+            break;
+
         case BROADWAY_OP_DISCONNECTED:
-            alert ("disconnected");
-            inputSocket = null;
+            /* Another client took the display: unrecoverable. */
+            invalidateSession();
             break;
 
         case BROADWAY_OP_NEW_SURFACE:
@@ -1415,6 +1447,17 @@ function handleOutstandingDisplayCommands()
                 handleDisplayCommands(outstandingDisplayCommands);
                 outstandingDisplayCommands = null;
 
+                /* First repaint after a resume: drop the dim+spinner overlay. */
+                if (awaitFirstFrame) {
+                    awaitFirstFrame = false;
+                    reconnecting = false;
+                    if (resumeSafetyTimer) {
+                        clearTimeout(resumeSafetyTimer);
+                        resumeSafetyTimer = null;
+                    }
+                    hideOverlay();
+                }
+
                 if (outstandingCommands.length > 0)
                     setTimeout(handleOutstanding);
             });
@@ -1517,6 +1560,11 @@ BinCommands.prototype.get_data = function() {
 var active = false;
 function handleMessage(message)
 {
+    if (sessionInvalidated)
+        return;
+
+    lastPongTime = Date.now();     /* any inbound data proves the link is alive */
+
     if (!active) {
         start();
         active = true;
@@ -3772,6 +3820,17 @@ function start()
 
     setupDocument(document);
 
+    /* Recovery triggers: visibility/pageshow reconnect if down, online forces
+     * it, offline shows the overlay. Heartbeat covers what fires none of these. */
+    document.addEventListener("visibilitychange", function () {
+        if (document.visibilityState === "visible")
+            onVisible();
+    });
+    window.addEventListener("pageshow", onVisible);
+    window.addEventListener("online", reconnectNow);
+    window.addEventListener("offline", handleConnectionLost);
+    startHeartbeat();
+
     window.onresize = function(ev) {
         sendScreenSizeChanged();
     };
@@ -3786,6 +3845,238 @@ function start()
                         }
                     });
     sendScreenSizeChanged();
+}
+
+/* ---- Auto-reconnect + session liveness --------------------------------
+ * Mobile browsers suspend the WebSocket on screen-off / network change. We
+ * reconnect in place (no reload), keeping the last frame dimmed under a spinner
+ * until the resync repaints. The daemon's SESSION token tells us whether it is
+ * the same session (resume) or restarted; an unchanged token resumes, a changed
+ * token or DISCONNECTED shows the disconnected icon until refresh. */
+
+var RECONNECT_SPINNER_SVG =
+    '<svg width="64" height="64" viewBox="0 0 50 50" aria-label="reconnecting">' +
+    '<circle cx="25" cy="25" r="20" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="5"/>' +
+    '<path d="M25 5 a20 20 0 0 1 0 40" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round">' +
+    '<animateTransform attributeName="transform" type="rotate" from="0 25 25" to="360 25 25" dur="0.9s" repeatCount="indefinite"/>' +
+    '</path></svg>';
+
+var DISCONNECTED_SVG =
+    '<svg width="64" height="64" viewBox="0 0 50 50" aria-label="disconnected">' +
+    '<circle cx="25" cy="25" r="20" fill="none" stroke="#fff" stroke-width="5"/>' +
+    '<line x1="12" y1="12" x2="38" y2="38" stroke="#fff" stroke-width="5" stroke-linecap="round"/>' +
+    '</svg>';
+
+function showOverlay(kind)
+{
+    if (!overlayEl) {
+        overlayEl = document.createElement("div");
+        var s = overlayEl.style;
+        s.position = "fixed";
+        s.left = s.top = s.right = s.bottom = "0";
+        s.width = "100vw";
+        s.height = "100vh";
+        s.background = "rgba(0,0,0,0.66)";
+        s.zIndex = "2147483647";
+        s.display = "flex";
+        s.alignItems = "center";
+        s.justifyContent = "center";
+        s.pointerEvents = "auto";   /* swallow input while overlaid */
+        document.body.appendChild(overlayEl);
+    }
+    overlayEl.innerHTML = (kind === "disconnected") ? DISCONNECTED_SVG : RECONNECT_SPINNER_SVG;
+}
+
+function hideOverlay()
+{
+    if (overlayEl && overlayEl.parentNode)
+        overlayEl.parentNode.removeChild(overlayEl);
+    overlayEl = null;
+}
+
+/* Drop all surfaces/textures so the daemon's resync can rebuild from scratch.
+ * cmdCreateSurface is not idempotent, so we must clear before NEW_SURFACE. */
+function resetClientState()
+{
+    for (var id in surfaces) {
+        var s = surfaces[id];
+        if (s && s.div && s.div.parentNode)
+            s.div.parentNode.removeChild(s.div);
+    }
+    surfaces = {};
+    stackingOrder = [];
+    for (var tid in textures) {
+        var t = textures[tid];
+        if (t && t.url && t.url.indexOf("blob") == 0)
+            window.URL.revokeObjectURL(t.url);
+    }
+    textures = {};
+    surfaceWithMouse = 0;
+    realSurfaceWithMouse = 0;
+    firstTouchDownId = null;
+    activeTouches = {};
+}
+
+function onSessionToken(token, cid)
+{
+    clientId = cid;
+
+    var firstTime = (sessionToken === null);
+    if (firstTime)
+        sessionToken = token;
+
+    if (firstTime || token === sessionToken) {
+        /* Same session (or first connect): resume in place. */
+        if (reconnecting) {
+            if (!firstTime)
+                resetClientState();
+            awaitFirstFrame = true;    /* overlay drops on the first repaint */
+            /* Keep a single timer so a stale resume can't strand the spinner. */
+            if (resumeSafetyTimer)
+                clearTimeout(resumeSafetyTimer);
+            resumeSafetyTimer = setTimeout(function () {
+                resumeSafetyTimer = null;
+                if (reconnecting) {
+                    reconnecting = false;
+                    awaitFirstFrame = false;
+                    hideOverlay();
+                }
+            }, 3000);
+        }
+        return;
+    }
+
+    invalidateSession();               /* token changed -> daemon restarted */
+}
+
+function invalidateSession()
+{
+    sessionInvalidated = true;
+    reconnecting = false;
+    awaitFirstFrame = false;
+    inputSocket = null;
+    if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+    }
+    if (resumeSafetyTimer) {
+        clearTimeout(resumeSafetyTimer);
+        resumeSafetyTimer = null;
+    }
+    /* Close the socket so we don't linger on the daemon. */
+    if (ws) {
+        try {
+            ws.onopen = ws.onclose = ws.onerror = ws.onmessage = null;
+            ws.close();
+        } catch (e) { }
+        ws = null;
+    }
+    /* Drop queued messages; the pending rAF nulls outstandingDisplayCommands. */
+    outstandingCommands.length = 0;
+    showOverlay("disconnected");
+}
+
+function scheduleReconnect()
+{
+    if (sessionInvalidated || reconnectTimer)
+        return;
+    reconnectDelay = reconnectDelay ? Math.min(reconnectDelay * 2, 4000) : 250;
+    reconnectTimer = setTimeout(function () {
+        reconnectTimer = null;
+        connect();
+    }, reconnectDelay);
+}
+
+/* Link is (probably) gone: show the overlay and start retrying. Covers onclose,
+ * the offline event, and a stale heartbeat (socket may still report OPEN). */
+function handleConnectionLost()
+{
+    if (sessionInvalidated)
+        return;
+    inputSocket = null;
+    if (!reconnecting) {
+        reconnecting = true;
+        showOverlay("reconnecting");
+    }
+    /* Drop the possibly half-open socket so the next connect() is clean. */
+    if (ws) {
+        try {
+            ws.onopen = ws.onclose = ws.onerror = ws.onmessage = null;
+            ws.close();
+        } catch (e) { }
+        ws = null;
+    }
+    scheduleReconnect();
+}
+
+/* Force an immediate attempt now (network came back / tab foregrounded). */
+function reconnectNow()
+{
+    if (sessionInvalidated)
+        return;
+    if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+    }
+    reconnectDelay = 0;
+    if (!reconnecting) {
+        reconnecting = true;
+        showOverlay("reconnecting");
+    }
+    connect();   /* connect() tears down any existing socket first */
+}
+
+/* Tab visible again: reset lastPongTime so a stale background value doesn't trip
+ * the heartbeat, then reconnect only if the link looks down. */
+function onVisible()
+{
+    lastPongTime = Date.now();
+    reconnectIfDown();
+}
+
+/* Reconnect only if the link looks down, so a tab switch on a healthy socket
+ * doesn't force a needless resync. */
+function reconnectIfDown()
+{
+    if (sessionInvalidated)
+        return;
+    if (!navigator.onLine) {
+        handleConnectionLost();
+        return;
+    }
+    if (!ws || ws.readyState !== WebSocket.OPEN || inputSocket == null)
+        reconnectNow();
+}
+
+function startHeartbeat()
+{
+    if (heartbeatTimer)
+        return;
+    lastPongTime = Date.now();
+    heartbeatTimer = setInterval(heartbeatTick, HEARTBEAT_MS);
+}
+
+function heartbeatTick()
+{
+    if (sessionInvalidated)
+        return;
+    if (document.hidden)           /* screen off: timers freeze anyway */
+        return;
+    if (reconnecting && (!ws || ws.readyState !== WebSocket.OPEN))
+        return;                    /* still reopening: let the retry loop drive */
+    if (!navigator.onLine ||
+        !ws || ws.readyState !== WebSocket.OPEN || inputSocket == null) {
+        handleConnectionLost();
+        return;
+    }
+    /* No PONG in a while: dead link, or a socket that opened but never got its
+     * SESSION (data path wedged with no onclose). */
+    if (Date.now() - lastPongTime > HEARTBEAT_TIMEOUT_MS) {
+        handleConnectionLost();
+        return;
+    }
+    if (!reconnecting)
+        sendInput(BROADWAY_EVENT_PING, []);
 }
 
 function connect()
@@ -3804,16 +4095,38 @@ function connect()
 
     var loc = window.location.toString().replace("http:", "ws:").replace("https:", "wss:");
     loc = loc.substr(0, loc.lastIndexOf('/')) + "/socket";
+    /* cid lets the daemon resume us if we still own the display; a fresh load
+     * (clientId 0) omits it and takes over. */
+    if (clientId)
+        loc += (loc.indexOf("?") < 0 ? "?" : "&") + "cid=" + clientId;
+
+    /* Drop any previous socket without letting its onclose drive a second
+     * reconnect (e.g. reconnectNow() pre-empting a suspended one). */
+    if (ws) {
+        try {
+            ws.onopen = ws.onclose = ws.onerror = ws.onmessage = null;
+            ws.close();
+        } catch (e) { }
+    }
+
     ws = new WebSocket(loc, "broadway");
     ws.binaryType = "arraybuffer";
 
     ws.onopen = function() {
         inputSocket = ws;
+        reconnectDelay = 0;        /* reset backoff on a successful open */
+        lastPongTime = Date.now(); /* fresh socket: don't immediately time out */
+    };
+    ws.onerror = function() {
+        /* onclose follows and drives the reconnect. */
     };
     ws.onclose = function() {
-        if (inputSocket != null)
-            alert ("disconnected");
         inputSocket = null;
+        if (sessionInvalidated)
+            return;
+        reconnecting = true;
+        showOverlay("reconnecting");
+        scheduleReconnect();
     };
     ws.onmessage = function(event) {
         handleMessage(event.data);
@@ -3821,8 +4134,9 @@ function connect()
 
     /* On touch devices, summon the on-screen keyboard by focusing this hidden
      * input when GTK asks for keyboard input (see updateKeyboardStatus). Not
-     * iOS-only: Android needs it too, or the OSK never appears. */
-    if (isTouchDevice()) {
+     * iOS-only: Android needs it too, or the OSK never appears.
+     * Guarded against reconnects creating a second input. */
+    if (isTouchDevice() && fakeInput == null) {
         fakeInput = document.createElement("input");
         fakeInput.type = "text";
         fakeInput.setAttribute("autocapitalize", "off");
