@@ -19,6 +19,8 @@ struct BroadwayOutput {
   GString *buf;
   int error;
   guint32 serial;
+  guint64 bytes_sent;   /* payload bytes flushed to the browser (this connection) */
+  guint32 frames;       /* non-empty flushes ~ display pushes (this connection) */
 };
 
 static void
@@ -68,6 +70,9 @@ broadway_output_flush (BroadwayOutput *output)
   broadway_output_send_cmd (output, TRUE, BROADWAY_WS_BINARY,
                             output->buf->str, output->buf->len);
 
+  output->bytes_sent += output->buf->len;
+  output->frames++;
+
   g_string_set_size (output->buf, 0);
 
   return !output->error;
@@ -100,6 +105,18 @@ guint32
 broadway_output_get_next_serial (BroadwayOutput *output)
 {
   return output->serial;
+}
+
+guint64
+broadway_output_get_bytes_sent (BroadwayOutput *output)
+{
+  return output->bytes_sent;
+}
+
+guint32
+broadway_output_get_frames (BroadwayOutput *output)
+{
+  return output->frames;
 }
 
 void
