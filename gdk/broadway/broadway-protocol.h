@@ -72,6 +72,7 @@ typedef enum {
   BROADWAY_EVENT_ROUNDTRIP_NOTIFY = 14,
   BROADWAY_EVENT_CLIPBOARD_CONTENTS = 15,
   BROADWAY_EVENT_PING = 16,
+  BROADWAY_EVENT_MENU = 17, /* daemon-intercepted: summon the debug menu */
 } BroadwayEventType;
 
 typedef enum {

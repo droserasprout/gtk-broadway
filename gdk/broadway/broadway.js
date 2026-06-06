@@ -68,6 +68,9 @@ const BROADWAY_EVENT_FOCUS = 13;
 const BROADWAY_EVENT_ROUNDTRIP_NOTIFY = 14;
 const BROADWAY_EVENT_CLIPBOARD_CONTENTS = 15;
 const BROADWAY_EVENT_PING = 16;
+/* Browser->daemon "summon the debug menu". The daemon intercepts it (like
+ * CLIPBOARD_CONTENTS) and never forwards it to GTK clients. */
+const BROADWAY_EVENT_MENU = 17;
 
 const DISPLAY_OP_REPLACE_CHILD = 0;
 const DISPLAY_OP_APPEND_CHILD = 1;
@@ -3420,6 +3423,8 @@ function ignoreKeyEvent(ev) {
 function handleKeyDown(e) {
     var fev = null, ev = (e ? e : window.event), keysym = null, suppress = false;
 
+    noteShiftTaps(ev);
+
     fev = copyKeyEvent(ev);
 
     keysym = getKeysymSpecial(ev);
@@ -3672,6 +3677,7 @@ function onTouchStart(ev) {
     if (activeTouchCount() >= 2) {
         if (!pinchActive)
             beginPinch();
+        armHoldMenu();   /* (re)start the two-finger press-and-hold timer */
         return;
     }
     /* A finger left over from a just-ended pinch is never forwarded, so it can't
@@ -3744,6 +3750,7 @@ function onTouchMove(ev) {
             zoomFactor = clampZoom(pinchStartZoom * (dist / pinchStartDist));
             applyPinchPreview();
         }
+        holdMenuCheckDrift();   /* finger movement = real pinch/pan, abort hold */
         return;
     }
     if (suppressTouchForward)
@@ -3783,6 +3790,10 @@ function onTouchEnd(ev) {
         var t = ev.changedTouches.item(i);
         delete activeTouches[t.identifier];
     }
+
+    /* A lifted finger breaks the two-finger hold. */
+    if (activeTouchCount() < 2)
+        cancelHoldMenu();
 
     if (pinchActive) {
         if (activeTouchCount() < 2)
@@ -3825,6 +3836,88 @@ function onTouchEnd(ev) {
 
         sendInput (BROADWAY_EVENT_TOUCH, [touchType, id, touch.identifier, isEmulated, pos.rootX, pos.rootY, pos.winX, pos.winY, lastState]);
     }
+}
+
+/* ---- Debug menu summon triggers ----------------------------------------
+ * Two ways to summon the debug menu, both chosen to be inert to any GTK app and
+ * safe in any browser:
+ *   - keyboard: triple-tap Shift (nothing else between the taps)
+ *   - touch:    two-finger press-and-hold for HOLD_MENU_MS
+ * Neither costs input latency. A bare Shift is a no-op modifier, so we observe
+ * the taps while still forwarding each Shift to GTK as usual. On this backend
+ * 2+ fingers already drive pinch-zoom client-side and are never forwarded to
+ * GTK, so the hold layers onto the existing pinch path: real pinches/pans move
+ * the fingers and trip the slop check (aborting the hold), while single-finger
+ * drags never reach here at all.
+ *
+ * onSummonMenu() is the single fire point: it sends BROADWAY_EVENT_MENU to the
+ * daemon, which spawns (or toggles) a native GTK4 menu window on demand. The
+ * menu is purely server-side - it composites into the same display, so any
+ * connected browser (desktop or mobile) sees it. */
+
+var SHIFT_TAP_MS = 600;        /* max gap between Shift taps */
+var shiftTapCount = 0;
+var shiftLastTap = 0;
+
+/* Observer only - does not consume the Shift, so no latency and no swallowed
+ * modifier. Any non-Shift key, or auto-repeat from a held Shift, breaks the run. */
+function noteShiftTaps(ev) {
+    if (ev.keyCode !== 16) { shiftTapCount = 0; return; }   /* 16 = Shift (L/R) */
+    if (ev.repeat) return;                                  /* ignore held-key repeat */
+    var now = Date.now();
+    shiftTapCount = (now - shiftLastTap <= SHIFT_TAP_MS) ? shiftTapCount + 1 : 1;
+    shiftLastTap = now;
+    if (shiftTapCount >= 3) {
+        shiftTapCount = 0;
+        onSummonMenu();
+    }
+}
+
+var HOLD_MENU_MS = 2500;       /* "several seconds" of stillness to summon */
+var HOLD_MENU_SLOP = 16;       /* px a finger may drift before it counts as a gesture */
+var holdMenuTimer = null;
+var holdMenuAnchors = null;    /* {identifier: {x,y}} captured when the hold armed */
+
+/* Armed when a second finger lands (alongside beginPinch). We never withhold the
+ * fingers from the pinch path, so the common pinch/pan case is unchanged. */
+function armHoldMenu() {
+    cancelHoldMenu();
+    holdMenuAnchors = {};
+    for (var id in activeTouches)
+        holdMenuAnchors[id] = { x: activeTouches[id].x, y: activeTouches[id].y };
+    holdMenuTimer = setTimeout(function () {
+        holdMenuTimer = null;
+        holdMenuAnchors = null;
+        onSummonMenu();
+    }, HOLD_MENU_MS);
+}
+
+function cancelHoldMenu() {
+    if (holdMenuTimer) {
+        clearTimeout(holdMenuTimer);
+        holdMenuTimer = null;
+    }
+    holdMenuAnchors = null;
+}
+
+/* Any finger drifting past the slop means a real pinch/pan, not a hold: abort. */
+function holdMenuCheckDrift() {
+    if (!holdMenuAnchors)
+        return;
+    for (var id in activeTouches) {
+        var a = holdMenuAnchors[id];
+        if (!a) { cancelHoldMenu(); return; }   /* finger set changed */
+        var dx = activeTouches[id].x - a.x;
+        var dy = activeTouches[id].y - a.y;
+        if (dx * dx + dy * dy > HOLD_MENU_SLOP * HOLD_MENU_SLOP) {
+            cancelHoldMenu();
+            return;
+        }
+    }
+}
+
+function onSummonMenu() {
+    sendInput(BROADWAY_EVENT_MENU, []);
 }
 
 /* Heuristic for phones/tablets, where focusing an offscreen input summons the
