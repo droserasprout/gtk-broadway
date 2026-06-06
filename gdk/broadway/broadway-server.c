@@ -68,6 +68,15 @@ struct _BroadwayServer {
   guint32 next_texture_id;
   GHashTable *textures;
 
+  /* Random per-daemon id sent on connect; lets a client tell a live session
+   * apart from a restarted daemon. */
+  guint32 session_token;
+
+  /* Single-display arbitration: owner_id holds the display, next_client_id
+   * mints fresh ids. */
+  guint32 owner_id;
+  guint32 next_client_id;
+
   guint32 screen_scale;
 
   gint32 mouse_in_surface_id;
@@ -114,6 +123,7 @@ struct BroadwayInput {
   gboolean seen_time;
   gint64 time_base;
   gboolean active;
+  guint32 client_id;   /* from the ?cid= query; 0 == fresh page load */
 };
 
 struct BroadwaySurface {
@@ -276,6 +286,10 @@ broadway_server_init (BroadwayServer *server)
   server->last_seen_time = 1;
   server->surface_id_hash = g_hash_table_new (NULL, NULL);
   server->id_counter = 0;
+  /* Non-zero so the client can treat 0 as "no token seen yet". */
+  do
+    server->session_token = g_random_int ();
+  while (server->session_token == 0);
   server->textures = g_hash_table_new_full (g_direct_hash, g_direct_equal, NULL,
                                             (GDestroyNotify)broadway_texture_free);
 
@@ -343,7 +357,7 @@ broadway_server_lookup_surface (BroadwayServer   *server,
                               GINT_TO_POINTER (id));
 }
 
-static void start (BroadwayInput *input);
+static gboolean start (BroadwayInput *input);
 
 static void
 http_request_free (HttpRequest *request)
@@ -900,6 +914,15 @@ parse_input_message (BroadwayInput *input, const unsigned char *message, gsize p
     }
     return;
 
+  case BROADWAY_EVENT_PING:
+    /* Liveness probe: reply, don't forward to the app. */
+    if (server->output)
+      {
+        broadway_output_pong_msg (server->output);
+        broadway_server_flush (server);
+      }
+    return;
+
   default:
     g_printerr ("parse_input_message - Unknown input command %c (%s)\n", msg.base.type, message);
     break;
@@ -1015,7 +1038,8 @@ parse_input (BroadwayInput *input)
           }
         break;
       case BROADWAY_WS_CNX_PING:
-        broadway_output_pong (input->output);
+        if (input->output)
+          broadway_output_pong (input->output);
         break;
       case BROADWAY_WS_CNX_PONG:
         break; /* we never send pings, but tolerate pongs */
@@ -1257,7 +1281,7 @@ generate_handshake_response_wsietf_v7 (const char *key)
 }
 
 static void
-start_input (HttpRequest *request)
+start_input (HttpRequest *request, const char *query)
 {
   char **lines;
   const char *p;
@@ -1337,6 +1361,25 @@ start_input (HttpRequest *request)
   input->server = request->server;
   input->connection = g_object_ref (request->connection);
 
+  /* ?cid=<n> identifies a reconnecting client; absent/0 means a fresh load.
+   * Match at a param boundary so "mycid=" doesn't. */
+  if (query)
+    {
+      const char *p = query;
+      while (*p)
+        {
+          if (strncmp (p, "cid=", 4) == 0)
+            {
+              input->client_id = (guint32) strtoul (p + 4, NULL, 10);
+              break;
+            }
+          p = strchr (p, '&');
+          if (!p)
+            break;
+          p++;
+        }
+    }
+
   data_buffer = g_buffered_input_stream_peek_buffer (G_BUFFERED_INPUT_STREAM (request->data), &data_buffer_size);
   input->buffer = g_byte_array_sized_new (data_buffer_size);
   g_byte_array_append (input->buffer, data_buffer, data_buffer_size);
@@ -1353,10 +1396,9 @@ start_input (HttpRequest *request)
   g_source_set_callback (input->source, (GSourceFunc)input_data_cb, input, NULL);
   g_source_attach (input->source, NULL);
 
-  start (input);
-
-  /* Process any data in the pipe already */
-  parse_input (input);
+  /* A rejected client frees `input` and returns FALSE; don't touch it after. */
+  if (start (input))
+    parse_input (input);   /* process any data already in the pipe */
 
   g_strfreev (lines);
 }
@@ -1376,14 +1418,34 @@ send_outstanding_roundtrips (BroadwayServer *server)
   server->outstanding_roundtrips = NULL;
 }
 
-static void
+static gboolean
 start (BroadwayInput *input)
 {
   BroadwayServer *server;
+  guint32 req;
 
   input->active = TRUE;
 
   server = BROADWAY_SERVER (input->server);
+
+  /* Single-display arbitration: a fresh load (or any connect when nobody owns
+   * the display) takes over; a reconnect resumes only if it still owns it. */
+  req = input->client_id;
+  if (req != 0 && req == server->owner_id)
+    ; /* owner resume */
+  else if (server->owner_id == 0 || req == 0)
+    server->owner_id = ++server->next_client_id; /* fresh: new owner */
+  else
+    {
+      /* Superseded by a newer load. Reject on its own connection (no race with
+       * the owner's teardown) and free it fully so no zombie lingers. */
+      broadway_output_disconnected (input->output);
+      broadway_output_flush (input->output);
+      broadway_output_free (input->output);
+      input->output = NULL;
+      broadway_input_free (input);
+      return FALSE;
+    }
 
   if (server->output)
     {
@@ -1411,6 +1473,10 @@ start (BroadwayInput *input)
   broadway_output_set_next_serial (server->output, server->saved_serial);
   broadway_output_flush (server->output);
 
+  /* Send the session token before the resync, so the client can reset its
+   * cache before surfaces are rebuilt. */
+  broadway_output_session (server->output, server->session_token, server->owner_id);
+
   broadway_server_resync_surfaces (server);
 
   if (server->pointer_grab_surface_id != -1)
@@ -1419,6 +1485,8 @@ start (BroadwayInput *input)
                                   server->pointer_grab_owner_events);
 
   process_input_messages (server);
+
+  return TRUE;
 }
 
 static void
@@ -1485,7 +1553,7 @@ got_request (HttpRequest *request)
   else if (strcmp (escaped, "/broadway.js") == 0)
     send_data (request, "text/javascript", broadway_js, G_N_ELEMENTS(broadway_js) - 1);
   else if (strcmp (escaped, "/socket") == 0)
-    start_input (request);
+    start_input (request, query ? query + 1 : NULL);
   else
     send_error (request, 404, "File not found");
 
