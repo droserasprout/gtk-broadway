@@ -69,6 +69,13 @@ struct _BroadwayServer {
   gboolean expecting_menu_surface; /* tag the next toplevel as the debug menu */
   int show_keyboard;
 
+  /* Debug-menu stats. session_id identifies this daemon run; the byte/frame
+   * totals are cumulative across browser reconnects (the live output's own
+   * counters are added in on read, and folded in here when an output is freed). */
+  guint32 session_id;
+  guint64 session_bytes;
+  guint32 session_frames;
+
   guint32 next_texture_id;
   GHashTable *textures;
 
@@ -287,6 +294,9 @@ broadway_server_init (BroadwayServer *server)
   server->service = g_socket_service_new ();
   server->pointer_grab_surface_id = -1;
   server->keep_on_top_surface_id = -1;
+  do
+    server->session_id = g_random_int ();
+  while (server->session_id == 0);
   server->saved_serial = 1;
   server->last_seen_time = 1;
   server->surface_id_hash = g_hash_table_new (NULL, NULL);
@@ -786,7 +796,95 @@ queue_input_message (BroadwayServer *server, BroadwayInputMsg *msg)
  * into the same view every connected browser sees. A second trigger while it is
  * up closes it (toggle). */
 
-static GPid menu_pid = 0;
+/* Control channel to the spawned menu: a socketpair whose child end is passed
+ * by fd number (BROADWAY_DEBUGMENU_FD). The daemon pushes a "stats ..." line
+ * every MENU_STATS_INTERVAL_MS and reads back action commands ("open-uri"). */
+#define MENU_STATS_INTERVAL_MS 500
+
+static GPid     menu_pid = 0;
+static GSocket *menu_sock = NULL;        /* daemon end of the control socketpair */
+static guint    menu_stats_timer = 0;
+static GSource *menu_read_source = NULL;
+
+static void
+menu_control_teardown (void)
+{
+  if (menu_stats_timer != 0)
+    {
+      g_source_remove (menu_stats_timer);
+      menu_stats_timer = 0;
+    }
+  if (menu_read_source != NULL)
+    {
+      g_source_destroy (menu_read_source);
+      g_source_unref (menu_read_source);
+      menu_read_source = NULL;
+    }
+  g_clear_object (&menu_sock);
+}
+
+/* Cumulative totals = folded-in past outputs + the live one. */
+static void
+menu_current_traffic (BroadwayServer *server, guint64 *bytes, guint32 *frames)
+{
+  *bytes = server->session_bytes;
+  *frames = server->session_frames;
+  if (server->output)
+    {
+      *bytes += broadway_output_get_bytes_sent (server->output);
+      *frames += broadway_output_get_frames (server->output);
+    }
+}
+
+static gboolean
+menu_push_stats (gpointer user_data)
+{
+  BroadwayServer *server = user_data;
+  static guint32 last_frames = 0;
+  static gint64 last_time = 0;
+  guint64 bytes;
+  guint32 frames;
+  gint64 now;
+  double fps = 0;
+  char line[128];
+  int len;
+
+  if (menu_sock == NULL)
+    return G_SOURCE_REMOVE;
+
+  menu_current_traffic (server, &bytes, &frames);
+
+  now = g_get_monotonic_time ();
+  if (last_time != 0 && now > last_time)
+    fps = (frames - last_frames) * (double) G_USEC_PER_SEC / (now - last_time);
+  last_time = now;
+  last_frames = frames;
+
+  len = g_snprintf (line, sizeof line, "stats %08x %" G_GUINT64_FORMAT " %.1f\n",
+                    server->session_id, bytes, fps);
+  g_socket_send (menu_sock, line, len, NULL, NULL); /* best-effort */
+  return G_SOURCE_CONTINUE;
+}
+
+static gboolean
+menu_on_readable (GSocket *sock, GIOCondition cond, gpointer user_data)
+{
+  BroadwayServer *server = user_data;
+  char buf[256];
+  gssize n;
+
+  n = g_socket_receive (sock, buf, sizeof buf - 1, NULL, NULL);
+  if (n <= 0)
+    return G_SOURCE_REMOVE; /* peer closed; child-exit drives teardown */
+
+  buf[n] = '\0';
+  if (strncmp (buf, "open-uri", 8) == 0)
+    {
+      const char *url = "https://nicotine-plus.org/";
+      broadway_server_open_uri (server, url, strlen (url));
+    }
+  return G_SOURCE_CONTINUE;
+}
 
 static void
 menu_child_exited (GPid pid, gint status, gpointer user_data)
@@ -798,6 +896,7 @@ menu_child_exited (GPid pid, gint status, gpointer user_data)
     menu_pid = 0;
   /* If it died before ever mapping a toplevel, don't mis-tag the next one. */
   server->expecting_menu_surface = FALSE;
+  menu_control_teardown ();
 }
 
 static void
@@ -806,6 +905,8 @@ broadway_server_summon_menu (BroadwayServer *server)
   const char *cmd;
   char *argv[2];
   char **envp;
+  char fdstr[16];
+  int sv[2];
   GError *error = NULL;
 
   /* Toggle: a second summon while it is running closes it. */
@@ -814,6 +915,16 @@ broadway_server_summon_menu (BroadwayServer *server)
       kill (menu_pid, SIGTERM);
       return;
     }
+
+  if (socketpair (AF_UNIX, SOCK_STREAM, 0, sv) != 0)
+    {
+      g_warning ("broadway: debug menu socketpair failed: %s", g_strerror (errno));
+      return;
+    }
+  /* sv[0] = daemon end (close-on-exec, never leaks to the child).
+   * sv[1] = child end (left inheritable so it survives exec). */
+  fcntl (sv[0], F_SETFD, FD_CLOEXEC);
+  g_snprintf (fdstr, sizeof fdstr, "%d", sv[1]);
 
   cmd = g_getenv ("BROADWAY_DEBUGMENU");
   if (cmd == NULL)
@@ -826,23 +937,43 @@ broadway_server_summon_menu (BroadwayServer *server)
   envp = g_environ_setenv (envp, "GDK_BACKEND", "broadway", TRUE);
   if (server->display != NULL)
     envp = g_environ_setenv (envp, "BROADWAY_DISPLAY", server->display, TRUE);
+  envp = g_environ_setenv (envp, "BROADWAY_DEBUGMENU_FD", fdstr, TRUE);
 
+  /* LEAVE_DESCRIPTORS_OPEN keeps sv[1] across exec; the daemon's own fds are
+   * close-on-exec (GIO sets that), so only the control fd passes through. */
   if (!g_spawn_async (NULL, argv, envp,
-                      G_SPAWN_SEARCH_PATH | G_SPAWN_DO_NOT_REAP_CHILD,
+                      G_SPAWN_SEARCH_PATH | G_SPAWN_DO_NOT_REAP_CHILD |
+                      G_SPAWN_LEAVE_DESCRIPTORS_OPEN,
                       NULL, NULL, &menu_pid, &error))
     {
       g_warning ("broadway: failed to spawn debug menu '%s': %s",
                  cmd, error->message);
       g_clear_error (&error);
       menu_pid = 0;
+      close (sv[0]);
     }
   else
     {
       /* The next non-popup surface to appear is the menu: pin it on top. */
       server->expecting_menu_surface = TRUE;
       g_child_watch_add (menu_pid, menu_child_exited, server);
+
+      menu_sock = g_socket_new_from_fd (sv[0], NULL); /* takes ownership of sv[0] */
+      if (menu_sock != NULL)
+        {
+          g_socket_set_blocking (menu_sock, FALSE);
+          menu_read_source = g_socket_create_source (menu_sock, G_IO_IN, NULL);
+          g_source_set_callback (menu_read_source, (GSourceFunc) menu_on_readable,
+                                 server, NULL);
+          g_source_attach (menu_read_source, NULL);
+          menu_stats_timer = g_timeout_add (MENU_STATS_INTERVAL_MS,
+                                            menu_push_stats, server);
+        }
+      else
+        close (sv[0]);
     }
 
+  close (sv[1]); /* the child holds its own copy now */
   g_strfreev (envp);
 }
 
@@ -1276,6 +1407,8 @@ broadway_server_flush (BroadwayServer *server)
       !broadway_output_flush (server->output))
     {
       server->saved_serial = broadway_output_get_next_serial (server->output);
+      server->session_bytes += broadway_output_get_bytes_sent (server->output);
+      server->session_frames += broadway_output_get_frames (server->output);
       broadway_output_free (server->output);
       server->output = NULL;
       send_outstanding_roundtrips (server);
@@ -1551,6 +1684,8 @@ start (BroadwayInput *input)
   if (server->output)
     {
       server->saved_serial = broadway_output_get_next_serial (server->output);
+      server->session_bytes += broadway_output_get_bytes_sent (server->output);
+      server->session_frames += broadway_output_get_frames (server->output);
       broadway_output_free (server->output);
     }
   server->output = input->output;
