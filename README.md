@@ -1,8 +1,8 @@
 # GTK Broadway fork
 
-A fork of GTK adding missing features to the **Broadway** backend - GTK's HTML5 renderer that serves an app to a web browser over a WebSocket.
+A fork of GTK adding missing features to the **Broadway** backend - HTML5 renderer that serves GTK4 app to a web browser over a WebSocket.
 
-Broadway was [deprecated](https://www.phoronix.com/news/GTK-X11-Now-Deprecated) by GTK maintainers in 4.18 release (alongside X11) due to lack of maintenance. The goal of this fork is to keep it in shape during GTK4 lifecycle as a thin layer without pushing patches to upstream.
+Broadway backend was [deprecated](https://www.phoronix.com/news/GTK-X11-Now-Deprecated) by GTK maintainers in 4.18 release (alongside X11) due to lack of maintenance. The goal of this fork is to **keep it in shape** during GTK4 lifecycle as a thin layer without pushing patches to upstream.
 
 - [Supported versions](#supported-versions)
 - [Installation](#installation)

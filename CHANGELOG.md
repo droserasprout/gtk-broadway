@@ -2,6 +2,12 @@
 
 All notable changes to the GTK Broadway fork. Format based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased]
+
+### Fixed
+
+- HiDPI scaling issues on 4.22
+
 ## [v1] - 2026-06-05
 
 ### Added
