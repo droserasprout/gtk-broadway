@@ -51,9 +51,22 @@ broadway_output_send_cmd (BroadwayOutput *output,
       p += 8;
     }
   // FIXME: if we are paranoid we should 'mask' the data
-  // FIXME: we should really emit these as a single write
-  g_output_stream_write_all (output->out, header, p, NULL, NULL, NULL);
-  g_output_stream_write_all (output->out, buf, count, NULL, NULL, NULL);
+  /* One vectored write instead of two syscalls, and no payload copy. */
+  if (count > 0)
+    {
+      GOutputVector vectors[2];
+
+      vectors[0].buffer = header;
+      vectors[0].size = p;
+      vectors[1].buffer = buf;
+      vectors[1].size = count;
+
+      g_output_stream_writev_all (output->out, vectors, 2, NULL, NULL, NULL);
+    }
+  else
+    {
+      g_output_stream_write_all (output->out, header, p, NULL, NULL, NULL);
+    }
 }
 
 void broadway_output_pong (BroadwayOutput *output)
