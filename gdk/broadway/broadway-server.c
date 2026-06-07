@@ -75,6 +75,8 @@ struct _BroadwayServer {
   guint32 session_id;
   guint64 session_bytes;
   guint32 session_frames;
+  guint32 last_latency_ms;  /* client-measured ping round-trip, reported on EVENT_PING */
+  gboolean paint_flash;     /* debug-menu: flash redrawn nodes pink in the browser */
 
   guint32 next_texture_id;
   GHashTable *textures;
@@ -860,10 +862,42 @@ menu_push_stats (gpointer user_data)
   last_time = now;
   last_frames = frames;
 
-  len = g_snprintf (line, sizeof line, "stats %08x %" G_GUINT64_FORMAT " %.1f\n",
-                    server->session_id, bytes, fps);
+  len = g_snprintf (line, sizeof line, "stats %08x %" G_GUINT64_FORMAT " %.1f %u %d\n",
+                    server->session_id, bytes, fps, server->last_latency_ms,
+                    server->paint_flash ? 1 : 0);
   g_socket_send (menu_sock, line, len, NULL, NULL); /* best-effort */
   return G_SOURCE_CONTINUE;
+}
+
+/* Debug-menu actions. "reconnect" closes the browser's socket so its auto-reconnect
+ * resumes in place (session_token unchanged). "drop-session" first rolls the token,
+ * so the reconnecting client sees a new session and hard-resets. Closing the stream
+ * routes through the normal EOF cleanup (broadway_input_read frees the input). */
+static void
+broadway_server_drop_client (BroadwayServer *server, gboolean new_session)
+{
+  if (new_session)
+    {
+      do
+        server->session_token = g_random_int ();
+      while (server->session_token == 0);
+    }
+
+  if (server->input != NULL && server->input->connection != NULL)
+    g_io_stream_close (server->input->connection, NULL, NULL);
+}
+
+/* Toggle the browser's paint-flash overlay. Remembered so it survives reconnects
+ * (re-sent in the connect handler). */
+static void
+broadway_server_set_paint_flash (BroadwayServer *server, gboolean on)
+{
+  server->paint_flash = on;
+  if (server->output)
+    {
+      broadway_output_debug_flash (server->output, on);
+      broadway_server_flush (server);
+    }
 }
 
 static gboolean
@@ -883,6 +917,12 @@ menu_on_readable (GSocket *sock, GIOCondition cond, gpointer user_data)
       const char *url = "https://nicotine-plus.org/";
       broadway_server_open_uri (server, url, strlen (url));
     }
+  else if (strncmp (buf, "drop-session", 12) == 0)
+    broadway_server_drop_client (server, TRUE);
+  else if (strncmp (buf, "reconnect", 9) == 0)
+    broadway_server_drop_client (server, FALSE);
+  else if (strncmp (buf, "paint-flash ", 12) == 0)
+    broadway_server_set_paint_flash (server, buf[12] != '0');
   return G_SOURCE_CONTINUE;
 }
 
@@ -1126,7 +1166,9 @@ parse_input_message (BroadwayInput *input, const unsigned char *message, gsize p
     return;
 
   case BROADWAY_EVENT_PING:
-    /* Liveness probe: reply, don't forward to the app. */
+    /* Liveness probe: reply, don't forward to the app. The payload carries the
+     * client's last measured round-trip (ms), surfaced in the debug menu. */
+    server->last_latency_ms = ntohl (*p++);
     if (server->output)
       {
         broadway_output_pong_msg (server->output);
@@ -1696,6 +1738,10 @@ start (BroadwayInput *input)
   /* Send the session token before the resync, so the client can reset its
    * cache before surfaces are rebuilt. */
   broadway_output_session (server->output, server->session_token, server->owner_id);
+
+  /* Restore the paint-flash debug state for a (re)connecting client. */
+  if (server->paint_flash)
+    broadway_output_debug_flash (server->output, TRUE);
 
   broadway_server_resync_surfaces (server);
 

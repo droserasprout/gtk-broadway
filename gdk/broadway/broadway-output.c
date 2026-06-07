@@ -251,6 +251,13 @@ broadway_output_pong_msg (BroadwayOutput *output)
 }
 
 void
+broadway_output_debug_flash (BroadwayOutput *output, gboolean enabled)
+{
+  write_header (output, BROADWAY_OP_DEBUG_FLASH);
+  append_uint8 (output, enabled ? 1 : 0);
+}
+
+void
 broadway_output_show_surface(BroadwayOutput *output,  int id)
 {
   write_header (output, BROADWAY_OP_SHOW_SURFACE);

@@ -37,6 +37,8 @@ void            broadway_output_session             (BroadwayOutput *output,
                                                      guint32         token,
                                                      guint32         client_id);
 void            broadway_output_pong_msg            (BroadwayOutput *output);
+void            broadway_output_debug_flash         (BroadwayOutput *output,
+                                                     gboolean        enabled);
 void            broadway_output_show_surface        (BroadwayOutput *output,
                                                      int             id);
 void            broadway_output_hide_surface        (BroadwayOutput *output,

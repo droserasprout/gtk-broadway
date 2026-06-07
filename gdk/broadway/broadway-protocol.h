@@ -100,6 +100,7 @@ typedef enum {
   BROADWAY_OP_OPEN_URI = 21,
   BROADWAY_OP_SESSION = 22,
   BROADWAY_OP_PONG = 23,
+  BROADWAY_OP_DEBUG_FLASH = 24,  /* daemon->client: toggle the paint-flash overlay */
 } BroadwayOpType;
 
 typedef struct {
