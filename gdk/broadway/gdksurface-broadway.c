@@ -1043,7 +1043,7 @@ _gdk_broadway_moveresize_configure_done (GdkDisplay *display,
   return TRUE;
 }
 
-static GdkSurface *
+GdkSurface *
 gdk_broadway_drag_surface_new (GdkDisplay *display)
 {
   return g_object_new (GDK_TYPE_BROADWAY_DRAG_SURFACE,

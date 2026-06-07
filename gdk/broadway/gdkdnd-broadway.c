@@ -50,6 +50,7 @@ GType     gdk_broadway_drag_get_type (void);
 
 struct _GdkBroadwayDrag {
   GdkDrag context;
+  GdkSurface *drag_surface;
 };
 
 struct _GdkBroadwayDragClass
@@ -72,11 +73,14 @@ gdk_broadway_drag_init (GdkBroadwayDrag *dragcontext)
 static void
 gdk_broadway_drag_finalize (GObject *object)
 {
-  GdkDrag *context = GDK_DRAG (object);
+  GdkSurface *drag_surface = GDK_BROADWAY_DRAG (object)->drag_surface;
 
-  contexts = g_list_remove (contexts, context);
+  contexts = g_list_remove (contexts, GDK_DRAG (object));
 
   G_OBJECT_CLASS (gdk_broadway_drag_parent_class)->finalize (object);
+
+  if (drag_surface)
+    gdk_surface_destroy (drag_surface);
 }
 
 /* Drag Contexts */
@@ -99,13 +103,29 @@ _gdk_broadway_surface_drag_begin (GdkSurface         *surface,
                               "content", content,
                               NULL);
 
+  /* Broadway has no real drag surface, but GtkDragIcon still needs one to
+   * realize onto; without it gdk_drag_get_drag_surface() returns NULL and the
+   * icon realize crashes. Hand it the same drag-surface type used for
+   * move/resize. */
+  GDK_BROADWAY_DRAG (new_context)->drag_surface =
+    gdk_broadway_drag_surface_new (gdk_surface_get_display (surface));
+
   return new_context;
+}
+
+static GdkSurface *
+gdk_broadway_drag_get_drag_surface (GdkDrag *drag)
+{
+  return GDK_BROADWAY_DRAG (drag)->drag_surface;
 }
 
 static void
 gdk_broadway_drag_class_init (GdkBroadwayDragClass *klass)
 {
   GObjectClass *object_class = G_OBJECT_CLASS (klass);
+  GdkDragClass *drag_class = GDK_DRAG_CLASS (klass);
 
   object_class->finalize = gdk_broadway_drag_finalize;
+
+  drag_class->get_drag_surface = gdk_broadway_drag_get_drag_surface;
 }
