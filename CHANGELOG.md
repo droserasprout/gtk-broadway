@@ -2,6 +2,26 @@
 
 All notable changes to the GTK Broadway fork. Format based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased]
+
+### Added
+
+- **Connection management** - auto-reconnect after screen-off or network change, sessions token, ping-pong heartbeat, single-display arbitration.
+- **Label touch selection** - read-only labels get selection handles and a Copy/Select-all bubble like entries; tap outside or use the mouse to dismiss.
+- **Debug menu** - Triple-Shift opens a server-side overlay: live stats (traffic, framerate, latency, texture buffer), a paint-flash profiler that visualizes what re-renders and re-uploads, and reconnect / drop-session actions.
+
+### Changed
+
+- **Less browser traffic** - re-rendered-but-identical content (text scrolled into view, re-hovered rows, repeated icons) is reused instead of re-uploaded; notebook tab edge-fades now draw as native gradients instead of a mask rasterized every scroll frame.
+
+### Fixed
+
+- Icons stay crisp under scale transforms and HiDPI.
+- Fixed crash when starting a drag from a text selection.
+- Touch: long pressing multiple selected rows doesn't clear selection.
+- Desktop: clicking empty space in a list clears the selection.
+- Rendering no longer freezes under heavy scrolling (e.g. the About dialog); a stale node/texture reference now degrades gracefully instead of wedging the page until a refresh.
+
 ## [v1] - 2026-06-05
 
 ### Added
@@ -22,7 +42,10 @@ All notable changes to the GTK Broadway fork. Format based on [Keep a Changelog]
 - Touch: dropdowns select the tapped row, not the first.
 - Touch: no crash when reopening the selection bubble.
 - Touch: Copy reappears after Select-All.
+- Touch: pressing a selected row keeps the whole multi-selection, not just that row.
+- Clicking empty space in a list clears the selection.
 - Desktop: horizontal two-finger swipe scrolls instead of browser back/forward.
 - Desktop: drags survive the cursor leaving the widget.
 
 [v1]: https://github.com/droserasprout/gtk-broadway/releases/tag/v1
+
