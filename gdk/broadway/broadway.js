@@ -835,14 +835,23 @@ TransformNodes.prototype.insertNode = function(parent, previousSibling, is_tople
             image.height = rect.height;
             image.style["position"] = "absolute";
             set_rect_style(image, rect);
-            var texture = textures[texture_id].ref();
-            image.src = texture.url;
-            // Unref blob url when loaded
-            image.onload = function() { texture.unref(); };
-            image.__content = true;  /* drawn pixels */
-            /* 3 = texture uploaded this batch (real traffic), 1 = node re-sent but
-             * the texture was cached (cheap). */
-            image.__flashKind = (texture.batch === textureBatch) ? 3 : 1;
+            /* A texture id can be stale if it was released before this node is
+             * processed (a lifecycle race; the daemon then remaps it to 0). Skip
+             * gracefully - throwing here would wedge the whole render loop until a
+             * page refresh. Mirrors the unknown-node handling in execute(). */
+            var texture = textures[texture_id];
+            if (texture) {
+                texture.ref();
+                image.src = texture.url;
+                // Unref blob url when loaded
+                image.onload = function() { texture.unref(); };
+                image.__content = true;  /* drawn pixels */
+                /* 3 = texture uploaded this batch (real traffic), 1 = node re-sent but
+                 * the texture was cached (cheap). */
+                image.__flashKind = (texture.batch === textureBatch) ? 3 : 1;
+            } else {
+                console.warn("broadway: NODE_TEXTURE references unknown texture " + texture_id);
+            }
             newNode = image;
         }
         break;
@@ -1117,8 +1126,8 @@ TransformNodes.prototype.execute = function(display_commands)
             delete this.nodes[removeId];
             if (remove == null)
                 console.log("Wanted to delete node " + removeId + " but it is unknown");
-
-            this.display_commands.push([DISPLAY_OP_DELETE_NODE, remove]);
+            else
+                this.display_commands.push([DISPLAY_OP_DELETE_NODE, remove]);
             break;
         case BROADWAY_NODE_OP_MOVE_AFTER_CHILD:
             parentId = this.decode_uint32();
@@ -1138,8 +1147,13 @@ TransformNodes.prototype.execute = function(display_commands)
             var textureNodeId = this.decode_uint32();
             var textureNode = this.nodes[textureNodeId];
             var textureId = this.decode_uint32();
-            var texture = textures[textureId].ref();
-            this.display_commands.push([DISPLAY_OP_CHANGE_TEXTURE, textureNode, texture]);
+            var texture = textures[textureId];
+            if (texture) {
+                texture.ref();
+                this.display_commands.push([DISPLAY_OP_CHANGE_TEXTURE, textureNode, texture]);
+            } else {
+                console.warn("broadway: PATCH_TEXTURE references unknown texture " + textureId);
+            }
             break;
         case BROADWAY_NODE_OP_PATCH_TRANSFORM:
             var transformNodeId = this.decode_uint32();
@@ -1180,62 +1194,86 @@ function getFlashDiv() {
 
 function handleDisplayCommands(display_commands)
 {
+    /* A double-scheduled requestAnimationFrame can fire after a prior frame
+     * already applied and cleared outstandingDisplayCommands, so the arg is
+     * null - nothing left to apply. */
+    if (!display_commands)
+        return;
     var div, parent;
     var flashed = paintFlashing ? [] : null;
     var len = display_commands.length;
     for (var i = 0; i < len; i++) {
         var cmd = display_commands[i];
 
+        /* A node/texture id can be stale (a lifecycle race during heavy scroll
+         * leaves the renderer referencing a node the browser no longer has).
+         * Guard each deref and keep a per-command try/catch backstop so one bad
+         * command degrades gracefully instead of wedging the render loop until a
+         * page refresh. */
+        try {
         switch (cmd[0]) {
         case DISPLAY_OP_REPLACE_CHILD:
-            cmd[1].replaceChild(cmd[2], cmd[3]);
-            if (flashed && cmd[2].__flashKind) flashed.push(cmd[2]);
+            if (cmd[1] && cmd[2] && cmd[3]) {
+                cmd[1].replaceChild(cmd[2], cmd[3]);
+                if (flashed && cmd[2].__flashKind) flashed.push(cmd[2]);
+            }
             break;
         case DISPLAY_OP_APPEND_CHILD:
-            cmd[1].appendChild(cmd[2]);
-            if (flashed && cmd[2].__flashKind) flashed.push(cmd[2]);
+            if (cmd[1] && cmd[2]) {
+                cmd[1].appendChild(cmd[2]);
+                if (flashed && cmd[2].__flashKind) flashed.push(cmd[2]);
+            }
             break;
         case DISPLAY_OP_INSERT_AFTER_CHILD:
             parent = cmd[1];
             var afterThis = cmd[2];
             div = cmd[3];
-            if (afterThis == null) // First
-                parent.insertBefore(div, parent.firstChild);
-            else
-                parent.insertBefore(div, afterThis.nextSibling);
-            if (flashed && div.__flashKind) flashed.push(div);
+            if (parent && div) {
+                if (afterThis == null) // First
+                    parent.insertBefore(div, parent.firstChild);
+                else
+                    parent.insertBefore(div, afterThis.nextSibling);
+                if (flashed && div.__flashKind) flashed.push(div);
+            }
             break;
         case DISPLAY_OP_APPEND_ROOT:
             /* Into the zoom wrapper, not document.body, so the pinch-zoom
              * transform magnifies all surfaces (the offscreen clipboard/OSK
              * helpers stay on document.body and unscaled). */
-            (zoomRoot || document.body).appendChild(cmd[1]);
+            if (cmd[1])
+                (zoomRoot || document.body).appendChild(cmd[1]);
             break;
         case DISPLAY_OP_SHOW_SURFACE:
             div = cmd[1];
-            var xOffset = cmd[2];
-            var yOffset = cmd[3];
-            div.style["left"] = xOffset + "px";
-            div.style["top"] = yOffset + "px";
-            div.style["visibility"] = "visible";
+            if (div) {
+                div.style["left"] = cmd[2] + "px";
+                div.style["top"] = cmd[3] + "px";
+                div.style["visibility"] = "visible";
+            }
             break;
         case DISPLAY_OP_HIDE_SURFACE:
             div = cmd[1];
-            div.style["visibility"] = "hidden";
+            if (div)
+                div.style["visibility"] = "hidden";
             break;
         case DISPLAY_OP_DELETE_NODE:
             div = cmd[1];
-            div.parentNode.removeChild(div);
+            if (div && div.parentNode)
+                div.parentNode.removeChild(div);
             break;
         case DISPLAY_OP_MOVE_NODE:
             div = cmd[1];
-            div.style["left"] = cmd[2] + "px";
-            div.style["top"] = cmd[3] + "px";
+            if (div) {
+                div.style["left"] = cmd[2] + "px";
+                div.style["top"] = cmd[3] + "px";
+            }
             break;
         case DISPLAY_OP_RESIZE_NODE:
             div = cmd[1];
-            div.style["width"] = cmd[2] + "px";
-            div.style["height"] = cmd[3] + "px";
+            if (div) {
+                div.style["width"] = cmd[2] + "px";
+                div.style["height"] = cmd[3] + "px";
+            }
             break;
 
         case DISPLAY_OP_RESTACK_SURFACES:
@@ -1255,22 +1293,27 @@ function handleDisplayCommands(display_commands)
         case DISPLAY_OP_CHANGE_TEXTURE:
             var image = cmd[1];
             var texture = cmd[2];
-            // We need a new closure here to have a separate copy of "texture" for each iteration in the onload callback...
-            var block = function(t) {
-                image.src = t.url;
-                // Unref blob url when loaded
-                image.onload = function() { t.unref(); };
-            };
-            block(texture);
-            if (flashed) { image.__content = true; image.__flashKind = (texture.batch === textureBatch) ? 3 : 1; flashed.push(image); }
+            if (image && texture) {
+                // We need a new closure here to have a separate copy of "texture" for each iteration in the onload callback...
+                var block = function(t) {
+                    image.src = t.url;
+                    // Unref blob url when loaded
+                    image.onload = function() { t.unref(); };
+                };
+                block(texture);
+                if (flashed) { image.__content = true; image.__flashKind = (texture.batch === textureBatch) ? 3 : 1; flashed.push(image); }
+            }
             break;
         case DISPLAY_OP_CHANGE_TRANSFORM:
             var div = cmd[1];
-            var transform_string = cmd[2];
-            div.style["transform"] = transform_string;
+            if (div)
+                div.style["transform"] = cmd[2];
             break;
         default:
-            alert("Unknown display op " + command);
+            console.warn("broadway: unknown display op " + cmd[0]);
+        }
+        } catch (e) {
+            console.warn("broadway: display op " + (cmd && cmd[0]) + " failed:", e);
         }
     }
 
@@ -1589,7 +1632,11 @@ function handleOutstandingDisplayCommands()
     if (outstandingDisplayCommands) {
         window.requestAnimationFrame(
             function () {
-                handleDisplayCommands(outstandingDisplayCommands);
+                try {
+                    handleDisplayCommands(outstandingDisplayCommands);
+                } catch (e) {
+                    console.warn("broadway: handleDisplayCommands failed:", e);
+                }
                 outstandingDisplayCommands = null;
 
                 /* First repaint after a resume: drop the dim+spinner overlay. */
