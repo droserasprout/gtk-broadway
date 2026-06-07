@@ -2729,6 +2729,20 @@ get_current_selection_modifiers (GtkEventController *controller,
   *extend = (state & GDK_SHIFT_MASK) != 0;
 }
 
+static gboolean
+event_is_touch (GdkEvent *event)
+{
+  GdkDevice *device;
+
+  if (!event)
+    return FALSE;
+
+  device = gdk_event_get_device (event);
+
+  return device != NULL &&
+         gdk_device_get_source (device) == GDK_SOURCE_TOUCHSCREEN;
+}
+
 static void
 gtk_tree_view_click_gesture_pressed (GtkGestureClick *gesture,
                                      int              n_press,
@@ -2815,7 +2829,16 @@ gtk_tree_view_click_gesture_pressed (GtkGestureClick *gesture,
 
   if (node == NULL)
     {
-      /* We clicked in dead space */
+      /* Dead space below the last row. A plain primary press drops the
+       * selection: empty-space clicks clear it, and a rubber-band started
+       * here then replaces rather than extends. Modifiers/other buttons keep it. */
+      gboolean modify, extend;
+
+      get_current_selection_modifiers (GTK_EVENT_CONTROLLER (gesture), &modify, &extend);
+      if (button == GDK_BUTTON_PRIMARY && !modify && !extend &&
+          gtk_tree_selection_get_mode (priv->selection) == GTK_SELECTION_MULTIPLE)
+        gtk_tree_selection_unselect_all (priv->selection);
+
       grab_focus_and_unset_draw_keyfocus (tree_view);
       return;
     }
@@ -2974,6 +2997,15 @@ gtk_tree_view_click_gesture_pressed (GtkGestureClick *gesture,
         {
           gtk_tree_view_real_set_cursor (tree_view, path, CLAMP_NODE);
           gtk_tree_view_real_select_cursor_row (tree_view, FALSE);
+        }
+      else if (event_is_touch (event)
+               && GTK_TREE_RBNODE_FLAG_SET (node, GTK_TREE_RBNODE_IS_SELECTED)
+               && gtk_tree_selection_get_mode (priv->selection) == GTK_SELECTION_MULTIPLE)
+        {
+          /* Touch: don't collapse a multi-row selection when pressing an
+           * already-selected row. Long-press is the only context-menu trigger
+           * on touch and must act on the whole selection; the collapse would
+           * otherwise fire here at touch-down, before the long-press does. */
         }
       else
         {
