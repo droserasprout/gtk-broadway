@@ -92,6 +92,7 @@ void
 broadway_output_free (BroadwayOutput *output)
 {
   g_object_unref (output->out);
+  g_string_free (output->buf, TRUE);
   free (output);
 }
 
@@ -214,6 +215,22 @@ void
 broadway_output_disconnected (BroadwayOutput *output)
 {
   write_header (output, BROADWAY_OP_DISCONNECTED);
+}
+
+void
+broadway_output_session (BroadwayOutput *output, guint32 token, guint32 client_id)
+{
+  write_header (output, BROADWAY_OP_SESSION);
+  append_uint32 (output, token);
+  append_uint32 (output, client_id);
+}
+
+/* Reply to a client heartbeat over the data channel; a WebSocket control pong
+ * is invisible to the page's onmessage handler. */
+void
+broadway_output_pong_msg (BroadwayOutput *output)
+{
+  write_header (output, BROADWAY_OP_PONG);
 }
 
 void
