@@ -72,6 +72,7 @@ typedef enum {
   BROADWAY_EVENT_ROUNDTRIP_NOTIFY = 14,
   BROADWAY_EVENT_CLIPBOARD_CONTENTS = 15,
   BROADWAY_EVENT_PING = 16,
+  BROADWAY_EVENT_MENU = 17, /* daemon-intercepted: summon the debug menu */
 } BroadwayEventType;
 
 typedef enum {
@@ -99,6 +100,7 @@ typedef enum {
   BROADWAY_OP_OPEN_URI = 21,
   BROADWAY_OP_SESSION = 22,
   BROADWAY_OP_PONG = 23,
+  BROADWAY_OP_DEBUG_FLASH = 24,  /* daemon->client: toggle the paint-flash overlay */
 } BroadwayOpType;
 
 typedef struct {
