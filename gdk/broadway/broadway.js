@@ -1774,12 +1774,15 @@ function rawSendInput(cmd, args)
     if (inputSocket == null)
         return;
 
-    var fullArgs = [cmd, lastSerial, lastTimeStamp].concat(args);
-    var buffer = new ArrayBuffer(fullArgs.length * 4);
+    /* Pack fields straight into the buffer; avoids the per-event concat()/
+     * forEach() closure on the move/wheel hot path. */
+    var buffer = new ArrayBuffer((args.length + 3) * 4);
     var view = new DataView(buffer);
-    fullArgs.forEach(function(arg, i) {
-        view.setInt32(i*4, arg, false);
-    });
+    view.setInt32(0, cmd, false);
+    view.setInt32(4, lastSerial, false);
+    view.setInt32(8, lastTimeStamp, false);
+    for (var i = 0; i < args.length; i++)
+        view.setInt32((i + 3) * 4, args[i], false);
 
     inputSocket.send(buffer);
 }
