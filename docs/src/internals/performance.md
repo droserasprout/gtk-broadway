@@ -1,7 +1,5 @@
 # Performance
 
-*New in v2*
-
 Broadway sends rasterized content to the browser as PNG uploads, so the dominant cost is uploading
 the same pixels twice. The [paint-flash profiler](debug-menu.md) made this visible: scrolling or
 hovering a list flashed **red** (real uploads) almost everywhere, because identical content was
@@ -10,6 +8,8 @@ traffic.
 
 ## Tier 1 - content node reuse
 
+*New in v2*
+
 `gskbroadwayrenderer.c` already reused nodes by `GskRenderNode` *pointer* identity across frames
 (emitting `BROADWAY_NODE_REUSE`). But widgets like `GtkTreeView` rebuild **all** their cell nodes
 every snapshot, so pointer identity always missed and every cell re-rasterized. The fork adds a
@@ -17,6 +17,8 @@ second key: a content hash (FNV-1a over glyphs/colour/font/bounds/offset) compar
 frame's, so a re-snapshotted-but-identical node reuses last frame's id without re-rasterizing.
 
 ## Tier 2 - cross-time texture dedup
+
+*New in v2*
 
 When tier 1 misses (the node genuinely moved, e.g. scroll), the texture is re-rasterized into a new
 `GdkTexture`. Textures were deduped only by `GdkTexture` *object* identity, so the fresh object got a
@@ -41,7 +43,9 @@ reuses (magenta/green) and the Traffic counter climbs far more slowly.
 
 ## Native notebook edge-fade
 
-The [notebook](notebook.md) tab-scroll edge-fade used `gtk_snapshot_push_mask`, which Broadway
+*New in v2*
+
+The [notebook](../features/notebook.md) tab-scroll edge-fade used `gtk_snapshot_push_mask`, which Broadway
 rasterizes (no `GskMaskNode` renderer) into a texture re-uploaded every scroll frame. It is now drawn
 as themed CSS `undershoot` nodes - native `GSK_LINEAR_GRADIENT_NODE`s fading into the header
 `$dark_fill` - so it costs zero texture traffic and stays theme-correct.

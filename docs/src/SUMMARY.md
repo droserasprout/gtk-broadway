@@ -2,27 +2,30 @@
 
 [Introduction](introduction.md)
 
-# User Guide
+# Users
 
-- [Supported versions](user/versions.md)
-- [Installation](user/installation.md)
-- [Running broadwayd](user/running.md)
-- [Known issues](user/known-issues.md)
+- [Supported versions](users/versions.md)
+- [Installation](users/installation.md)
+- [Running broadwayd](users/running.md)
+- [Known issues](users/known-issues.md)
 
-# Feature Reference
+# Features
 
-- [Architecture](reference/architecture.md)
-- [Wire protocol](reference/protocol.md)
-- [Clipboard](reference/clipboard.md)
-- [Touch interface](reference/touch.md)
-- [Connection management](reference/connection.md)
-- [Scaling & HiDPI](reference/scaling.md)
-- [Performance](reference/performance.md)
-- [Pinch to zoom](reference/zoom.md)
-- [Notebook tabs](reference/notebook.md)
-- [Opening links](reference/open-uri.md)
-- [Input region & pointer](reference/input-region.md)
-- [Debug menu](reference/debug-menu.md)
+- [Clipboard](features/clipboard.md)
+- [Touch interface](features/touch.md)
+- [Pinch to zoom](features/zoom.md)
+- [Notebook tabs](features/notebook.md)
+- [Opening links](features/open-uri.md)
+- [Connection management](features/connection.md)
+- [Scaling & HiDPI](features/scaling.md)
+
+# Internals
+
+- [Architecture](internals/architecture.md)
+- [Wire protocol](internals/protocol.md)
+- [Performance](internals/performance.md)
+- [Input region & pointer](internals/input-region.md)
+- [Debug menu](internals/debug-menu.md)
 
 # Building & Releasing
 

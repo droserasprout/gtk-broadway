@@ -20,7 +20,7 @@ GTK4 window composited into the same display every connected browser sees, not b
 ## Performance section
 
 Session id, Traffic (total bytes), Framerate, Latency, and Textures. **Latency** is the real
-browser-to-daemon round-trip: the client times its [heartbeat](connection.md) PING/PONG and reports
+browser-to-daemon round-trip: the client times its [heartbeat](../features/connection.md) PING/PONG and reports
 the last RTT in the next PING payload (`server->last_latency_ms`). **Textures** is the live texture
 buffer the browser holds (count + summed PNG bytes across `server->textures`) - the footprint kept
 warm by the [content texture cache](performance.md).
@@ -31,7 +31,7 @@ warm by the [content texture cache](performance.md).
   unchanged).
 - **Drop session** - rolls the session token first, so the reconnecting client sees a new session
   and hard-resets.
-- **Open test URL** - exercises the [open-uri](open-uri.md) path.
+- **Open test URL** - exercises the [open-uri](../features/open-uri.md) path.
 - **Paint flashing** - toggles the profiler below.
 - **Debug logging** - placeholder (no-op for now).
 

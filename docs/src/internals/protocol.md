@@ -13,24 +13,24 @@ Stock ops are `0`-`16` (`GRAB_POINTER` ... `ROUNDTRIP`). The fork appends:
 
 | Op | # | Direction | Purpose |
 |----|---|-----------|---------|
-| `BROADWAY_OP_SET_CLIPBOARD`     | 17 | daemon -> browser | push app-copied text to the browser clipboard ([Clipboard](clipboard.md)) |
+| `BROADWAY_OP_SET_CLIPBOARD`     | 17 | daemon -> browser | push app-copied text to the browser clipboard ([Clipboard](../features/clipboard.md)) |
 | `BROADWAY_OP_REQUEST_CLIPBOARD` | 18 | daemon -> browser | ask the browser for its clipboard (reply comes back as the `CLIPBOARD_CONTENTS` event) |
 | `BROADWAY_OP_SET_INPUT_REGION`  | 19 | daemon -> browser | mark a surface's input region empty (click-through) ([Input region](input-region.md)) |
 | `BROADWAY_OP_REASSERT_POINTER`  | 20 | daemon -> browser | tell the browser to re-send pointer-focus crossings ([Input region](input-region.md)) |
-| `BROADWAY_OP_OPEN_URI`          | 21 | daemon -> browser | open a URI in a new browser tab ([Opening links](open-uri.md)) |
-| `BROADWAY_OP_SESSION`           | 22 | daemon -> browser | per-daemon session token for reconnect ([Connection management](connection.md)) |
-| `BROADWAY_OP_PONG`              | 23 | daemon -> browser | heartbeat reply ([Connection management](connection.md)) |
+| `BROADWAY_OP_OPEN_URI`          | 21 | daemon -> browser | open a URI in a new browser tab ([Opening links](../features/open-uri.md)) |
+| `BROADWAY_OP_SESSION`           | 22 | daemon -> browser | per-daemon session token for reconnect ([Connection management](../features/connection.md)) |
+| `BROADWAY_OP_PONG`              | 23 | daemon -> browser | heartbeat reply ([Connection management](../features/connection.md)) |
 | `BROADWAY_OP_DEBUG_FLASH`       | 24 | daemon -> browser | toggle the paint-flash profiler overlay ([Debug menu](debug-menu.md)) |
 
 ## Input events - browser to app (`BROADWAY_EVENT_*`)
 
 Stock events are `0`-`14` (`ENTER` ... `ROUNDTRIP_NOTIFY`); `TOUCH` (5) already existed but was
-[never sourced as a touchscreen](touch.md). The fork appends:
+[never sourced as a touchscreen](../features/touch.md). The fork appends:
 
 | Event | # | Purpose |
 |-------|---|---------|
-| `BROADWAY_EVENT_CLIPBOARD_CONTENTS` | 15 | browser's reply to `REQUEST_CLIPBOARD`, routed to the one client that asked ([Clipboard](clipboard.md)) |
-| `BROADWAY_EVENT_PING`               | 16 | heartbeat from the browser; the app answers with `PONG` ([Connection management](connection.md)) |
+| `BROADWAY_EVENT_CLIPBOARD_CONTENTS` | 15 | browser's reply to `REQUEST_CLIPBOARD`, routed to the one client that asked ([Clipboard](../features/clipboard.md)) |
+| `BROADWAY_EVENT_PING`               | 16 | heartbeat from the browser; the app answers with `PONG` ([Connection management](../features/connection.md)) |
 | `BROADWAY_EVENT_MENU`               | 17 | Triple-Shift; the daemon intercepts it to spawn the debug menu, so it never reaches the app ([Debug menu](debug-menu.md)) |
 
 ## Requests - app to daemon (`BROADWAY_REQUEST_*`)
@@ -59,7 +59,7 @@ typedef struct {
 `BroadwaySurface`. It replaced an earlier `transient_for`-based heuristic that misclassified
 transient **dialogs** as popups. It now gates two touch behaviours: which surfaces get raised and
 focused on a tap, and which surfaces count for pointer-recovery (`any_popup_visible`). See
-[Touch interface](touch.md).
+[Touch interface](../features/touch.md).
 
 ## Size limits
 

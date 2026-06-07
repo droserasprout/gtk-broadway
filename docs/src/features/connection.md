@@ -33,11 +33,3 @@ Broadway is a single-display server, so two browsers must not fight over it.
   (shown disconnected), so it never races with the live client.
 
 `offline` / `online` / `visibilitychange` events drive the overlay and the recovery attempt.
-
-## Critical correctness fix (from review)
-
-A rejected (superseded) reconnect must be fully torn down. `start()` returns a boolean and, on
-rejection, frees both the output and input handlers. Otherwise the rejected connection lingers as a
-zombie: it crashes the daemon on a WebSocket ping (NULL deref) and injects stale input.
-`invalidateSession()` closes the WebSocket, and a single variable tracks the resume safety-timer so
-it can't leak.

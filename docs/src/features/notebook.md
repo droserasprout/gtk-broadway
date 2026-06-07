@@ -27,7 +27,7 @@ to jump between. Off Broadway it is false and stock behaviour is unchanged.
   `gtk_snapshot_push_mask(GSK_MASK_MODE_ALPHA)` alpha mask, but `GskMaskNode` has no Broadway
   renderer and [fell back to a cairo texture](scaling.md) re-uploaded every scroll frame. The
   CSS-undershoot version stays theme-correct (fades to the real header colour) and adds zero texture
-  traffic - see [Performance](performance.md).
+  traffic - see [Performance](../internals/performance.md).
 - **No snapping.** `tab_scroll_end` just clears the scrolling flag; the strip stays where the finger
   left it and the next drag resumes from `touch_pan_px`.
 - **Tap vs pan (deferred selection).** GtkNotebook selects on *press*, so a drag-from-a-tab would

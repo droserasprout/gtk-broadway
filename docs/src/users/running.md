@@ -33,7 +33,7 @@ browser sends input (pointer, touch, keyboard) back over the same socket.
 
 The page the daemon serves is `client.html` + `broadway.js`, both embedded in the daemon binary
 (generated into `broadwayjs.h` / `clienthtml.h` at build time). All the fork's browser-side logic
-- touch delivery, the clipboard bridge, pinch-zoom, reconnect, the [debug menu](../reference/debug-menu.md)
+- touch delivery, the clipboard bridge, pinch-zoom, reconnect, the [debug menu](../internals/debug-menu.md)
 + paint-flash overlay - lives in `broadway.js`. Both assets are served `Cache-Control: no-store`, so
 a plain reload always picks up a rebuilt+restarted `gtk4-broadwayd` - no hard-refresh needed.
 

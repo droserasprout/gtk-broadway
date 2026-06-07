@@ -64,7 +64,7 @@ events). Fix: drop the hover crossings from the touch path (keep `surfaceWithMou
 ## Popovers, menus, and the selection bubble
 
 These turn on the popup/toplevel distinction, carried by the
-[`is_popup` wire flag](protocol.md#changed-stock-struct-is_popup-on-new_surface).
+[`is_popup` wire flag](../internals/protocol.md#changed-stock-struct-is_popup-on-new_surface).
 
 - **Tap outside dismisses a popover.** `check_autohide` looks up the grab on the event's device
   (now the touchscreen), but the popover grab is on the logical pointer. Fix: fall back to
@@ -94,4 +94,4 @@ These turn on the popup/toplevel distinction, carried by the
   Broadway-specific. *(libgtk, `gtk/gtkdropdown.c`.)*
 - **Menu-item tap froze all touch.** Activating a popup item that destroys the popup left the
   logical pointer's focus stale, so later taps landed on dead focus. The fix routes a pointer
-  re-assertion through the browser - see [Input region & pointer](input-region.md).
+  re-assertion through the browser - see [Input region & pointer](../internals/input-region.md).

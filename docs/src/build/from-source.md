@@ -32,7 +32,7 @@ This is the only build-config difference between the bases; CI passes it in as a
 
 `ninja -C _build` also regenerates `broadwayjs.h` / `clienthtml.h` from `broadway.js` /
 `client.html`, so a client-side change is picked up by an incremental rebuild + a daemon restart.
-See [Running broadwayd](../user/running.md) for which changes need only the daemon vs. the full
+See [Running broadwayd](../users/running.md) for which changes need only the daemon vs. the full
 library.
 
 ## Build dependencies

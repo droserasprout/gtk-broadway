@@ -10,10 +10,6 @@ All notable changes to the GTK Broadway fork. Format based on [Keep a Changelog]
 - **Label touch selection** - read-only labels get selection handles and a Copy/Select-all bubble like entries; tap outside or use the mouse to dismiss.
 - **Debug menu** - Triple-Shift opens a server-side overlay: live stats (traffic, framerate, latency, texture buffer), a paint-flash profiler that visualizes what re-renders and re-uploads, and reconnect / drop-session actions.
 
-### Changed
-
-- **Less browser traffic** - re-rendered-but-identical content (text scrolled into view, re-hovered rows, repeated icons) is reused instead of re-uploaded; notebook tab edge-fades now draw as native gradients instead of a mask rasterized every scroll frame.
-
 ### Fixed
 
 - Icons stay crisp under scale transforms and HiDPI.
@@ -21,6 +17,10 @@ All notable changes to the GTK Broadway fork. Format based on [Keep a Changelog]
 - Touch: long pressing multiple selected rows doesn't clear selection.
 - Desktop: clicking empty space in a list clears the selection.
 - Rendering no longer freezes under heavy scrolling (e.g. the About dialog); a stale node/texture reference now degrades gracefully instead of wedging the page until a refresh.
+
+### Performance
+
+- Reuse re-rendered-but-identical content (text scrolled into view, re-hovered rows, repeated icons).
 
 ## [v1] - 2026-06-05
 

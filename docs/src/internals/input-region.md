@@ -24,7 +24,7 @@ that fills a field and pops down) froze all subsequent touch until a container r
 focus ends up on the popup surface, which the activation then destroys. GDK clears
 `surface_under_pointer` to NULL on destroy but never re-points it, and Broadway delivers **no
 leave/enter crossing on destroy** (a real compositor would; and the touch path deliberately
-[removed crossings](touch.md#no-spurious-hover) to kill `:hover`/tooltips). The logical pointer's
+[removed crossings](../features/touch.md#no-spurious-hover) to kill `:hover`/tooltips). The logical pointer's
 focus is left stale with nothing to reset it, so every later tap is delivered against dead focus and
 dropped. It is **not** a grab - Broadway emits only a `GdkTouchEvent`, so the button-press
 implicit-grab path never runs.
