@@ -18,10 +18,12 @@
 - [Touch interface](reference/touch.md)
 - [Connection management](reference/connection.md)
 - [Scaling & HiDPI](reference/scaling.md)
+- [Performance](reference/performance.md)
 - [Pinch to zoom](reference/zoom.md)
 - [Notebook tabs](reference/notebook.md)
 - [Opening links](reference/open-uri.md)
 - [Input region & pointer](reference/input-region.md)
+- [Debug menu](reference/debug-menu.md)
 
 # Building & Releasing
 

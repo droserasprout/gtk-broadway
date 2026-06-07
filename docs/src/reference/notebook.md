@@ -20,12 +20,14 @@ between. Off Broadway it is false and stock behaviour is unchanged.
   `anchor -= touch_pan_px`. The `tabs_widget` gizmo is `GTK_OVERFLOW_HIDDEN` permanently so off-edge
   tabs clip. `touch_pan_px` is the **persistent** scroll offset, clamped to `[0, touch_pan_max]`
   each allocation so it self-corrects as tabs are added/removed.
-- **Edge fades, not arrows.** With arrows suppressed, `snapshot_tabs` fades the tab strip itself to
-  transparent at whichever edge has more tabs, via `gtk_snapshot_push_mask(GSK_MASK_MODE_ALPHA)`
-  with a 4-stop horizontal alpha gradient (48px fade). A **mask** (not a colour overlay) is used so
-  it reveals the real background and reads as "fade to bg" on any theme - important under the dark
-  theme, where a black overlay was invisible and left a bright sliver. Broadway has no `GskMaskNode`
-  renderer but [falls back to a cairo texture](scaling.md).
+- **Edge fades, not arrows.** With arrows suppressed, `snapshot_tabs` fades the tab strip into the
+  header background at whichever edge has more tabs. Drawn as themed CSS `undershoot` nodes (one per
+  edge, parented under the `tabs` gizmo) whose gradient fades the header `$dark_fill` into
+  transparent - native `GSK_LINEAR_GRADIENT_NODE`s, no rasterized texture. Originally a
+  `gtk_snapshot_push_mask(GSK_MASK_MODE_ALPHA)` alpha mask, but `GskMaskNode` has no Broadway
+  renderer and [fell back to a cairo texture](scaling.md) re-uploaded every scroll frame; the
+  CSS-undershoot rewrite is still theme-correct (fades to the real header colour) and adds zero
+  texture traffic - see [Performance](performance.md).
 - **No snapping.** `tab_scroll_end` just clears the scrolling flag; the strip stays where the finger
   left it and the next drag resumes from `touch_pan_px`.
 - **Tap vs pan (deferred selection).** GtkNotebook selects on *press*, so a drag-from-a-tab would

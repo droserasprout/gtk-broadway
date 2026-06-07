@@ -20,6 +20,7 @@ Stock ops are `0`-`16` (`GRAB_POINTER` ... `ROUNDTRIP`). The fork appends:
 | `BROADWAY_OP_OPEN_URI`          | 21 | daemon -> browser | open a URI in a new browser tab ([Opening links](open-uri.md)) |
 | `BROADWAY_OP_SESSION`           | 22 | daemon -> browser | per-daemon session token for reconnect ([Connection management](connection.md)) |
 | `BROADWAY_OP_PONG`              | 23 | daemon -> browser | heartbeat reply ([Connection management](connection.md)) |
+| `BROADWAY_OP_DEBUG_FLASH`       | 24 | daemon -> browser | toggle the paint-flash profiler overlay ([Debug menu](debug-menu.md)) |
 
 ## Input events - browser to app (`BROADWAY_EVENT_*`)
 
@@ -30,6 +31,7 @@ Stock events are `0`-`14` (`ENTER` ... `ROUNDTRIP_NOTIFY`); `TOUCH` (5) already 
 |-------|---|---------|
 | `BROADWAY_EVENT_CLIPBOARD_CONTENTS` | 15 | browser's reply to `REQUEST_CLIPBOARD`, routed to the one client that asked ([Clipboard](clipboard.md)) |
 | `BROADWAY_EVENT_PING`               | 16 | heartbeat from the browser; the app answers with `PONG` ([Connection management](connection.md)) |
+| `BROADWAY_EVENT_MENU`               | 17 | Triple-Shift; the daemon intercepts it to spawn the debug menu, so it never reaches the app ([Debug menu](debug-menu.md)) |
 
 ## Requests - app to daemon (`BROADWAY_REQUEST_*`)
 

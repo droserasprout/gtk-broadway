@@ -33,12 +33,12 @@ browser sends input (pointer, touch, keyboard) back over the same socket.
 
 The page the daemon serves is `client.html` + `broadway.js`, both embedded in the daemon binary
 (generated into `broadwayjs.h` / `clienthtml.h` at build time). All the fork's browser-side logic
-- touch delivery, the clipboard bridge, pinch-zoom, reconnect - lives in `broadway.js`. There is
-nothing to deploy separately: rebuilding and restarting `gtk4-broadwayd`, then hard-reloading the
-browser, picks up any client change.
+- touch delivery, the clipboard bridge, pinch-zoom, reconnect, the [debug menu](../reference/debug-menu.md)
++ paint-flash overlay - lives in `broadway.js`. Both assets are served `Cache-Control: no-store`, so
+a plain reload always picks up a rebuilt+restarted `gtk4-broadwayd` - no hard-refresh needed.
 
-> A change confined to `broadway.js` / `client.html` only needs a **broadwayd restart** (plus a
-> browser hard-reload). A change in `libgtk` (a widget or GDK fix) needs the library rebuilt and
+> A change confined to `broadway.js` / `client.html` only needs a **broadwayd restart** then a
+> normal browser reload. A change in `libgtk` (a widget or GDK fix) needs the library rebuilt and
 > the **app** restarted. Each feature chapter notes which kind of change it is.
 
 ## Secure context note
