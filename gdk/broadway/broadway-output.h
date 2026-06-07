@@ -24,6 +24,8 @@ int             broadway_output_has_error           (BroadwayOutput *output);
 void            broadway_output_set_next_serial     (BroadwayOutput *output,
                                                      guint32         serial);
 guint32         broadway_output_get_next_serial     (BroadwayOutput *output);
+guint64         broadway_output_get_bytes_sent      (BroadwayOutput *output);
+guint32         broadway_output_get_frames          (BroadwayOutput *output);
 void            broadway_output_new_surface         (BroadwayOutput *output,
                                                      int             id,
                                                      int             x,
@@ -35,6 +37,8 @@ void            broadway_output_session             (BroadwayOutput *output,
                                                      guint32         token,
                                                      guint32         client_id);
 void            broadway_output_pong_msg            (BroadwayOutput *output);
+void            broadway_output_debug_flash         (BroadwayOutput *output,
+                                                     gboolean        enabled);
 void            broadway_output_show_surface        (BroadwayOutput *output,
                                                      int             id);
 void            broadway_output_hide_surface        (BroadwayOutput *output,
