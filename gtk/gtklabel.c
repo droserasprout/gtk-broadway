@@ -27,16 +27,20 @@
 #include "gtklabelprivate.h"
 
 #include "gtkaccessibletextprivate.h"
+#include "gtkbox.h"
 #include "gtkbuildable.h"
+#include "gtkbutton.h"
 #include "gtkcsscolorvalueprivate.h"
 #include "gtkdragsourceprivate.h"
 #include "gtkdragicon.h"
 #include "gtkeventcontrollermotion.h"
 #include "gtkeventcontrollerfocus.h"
+#include "gtkeventcontrollerlegacy.h"
 #include "gtkfilelauncher.h"
 #include "gtkgesturedrag.h"
 #include "gtkgestureclick.h"
 #include "gtkgesturesingle.h"
+#include "gtkimage.h"
 #include "gtkjoinedmenuprivate.h"
 #include "gtkmarshalers.h"
 #include "gtknative.h"
@@ -51,6 +55,7 @@
 #include "gtkshortcutcontroller.h"
 #include "gtkshortcuttrigger.h"
 #include "gtksnapshot.h"
+#include "gtktexthandleprivate.h"
 #include "gtktextutilprivate.h"
 #include "gtktooltip.h"
 #include "gtktypebuiltins.h"
@@ -366,10 +371,21 @@ struct _GtkLabelSelectionInfo
   int drag_start_x;
   int drag_start_y;
 
-  guint in_drag      : 1;
-  guint select_words : 1;
-  guint selectable   : 1;
-  guint link_clicked : 1;
+  GtkWidget *selection_bubble;
+  guint selection_bubble_timeout_id;
+
+  /* [0] = selection start handle, [1] = selection end handle */
+  GtkTextHandle *text_handles[2];
+
+  /* Capture-phase observer on the window root: dismisses the touch selection
+   * UI on a press outside this label (weak-pointer tracked). */
+  GtkEventController *dismiss_controller;
+
+  guint in_drag             : 1;
+  guint select_words        : 1;
+  guint selectable          : 1;
+  guint link_clicked        : 1;
+  guint text_handles_enabled : 1;
 };
 
 enum {
@@ -425,6 +441,8 @@ static void gtk_label_ensure_layout       (GtkLabel *self);
 static void gtk_label_select_region_index (GtkLabel *self,
                                            int       anchor_index,
                                            int       end_index);
+static void gtk_label_update_handles      (GtkLabel *self);
+static void gtk_label_clear_dismiss_controller (GtkLabel *self);
 static void gtk_label_update_active_link  (GtkWidget *widget,
                                            double     x,
                                            double     y);
@@ -1378,6 +1396,19 @@ gtk_label_size_allocate (GtkWidget *widget,
 
   if (self->popup_menu)
     gtk_popover_present (GTK_POPOVER (self->popup_menu));
+
+  /* Keep the touch selection bubble + handles attached to the (re)allocated text. */
+  if (self->select_info)
+    {
+      gtk_label_update_handles (self);
+
+      if (self->select_info->selection_bubble)
+        gtk_popover_present (GTK_POPOVER (self->select_info->selection_bubble));
+      if (self->select_info->text_handles[0])
+        gtk_text_handle_present (self->select_info->text_handles[0]);
+      if (self->select_info->text_handles[1])
+        gtk_text_handle_present (self->select_info->text_handles[1]);
+    }
 }
 
 
@@ -1564,6 +1595,16 @@ gtk_label_finalize (GObject *object)
 
   if (self->select_info)
     g_object_unref (self->select_info->provider);
+
+  if (self->select_info)
+    {
+      if (self->select_info->selection_bubble_timeout_id)
+        g_source_remove (self->select_info->selection_bubble_timeout_id);
+      g_clear_pointer (&self->select_info->selection_bubble, gtk_widget_unparent);
+      g_clear_pointer ((GtkWidget **) &self->select_info->text_handles[0], gtk_widget_unparent);
+      g_clear_pointer ((GtkWidget **) &self->select_info->text_handles[1], gtk_widget_unparent);
+      gtk_label_clear_dismiss_controller (self);
+    }
 
   gtk_label_clear_links (self);
   g_free (self->select_info);
@@ -4355,6 +4396,351 @@ gtk_label_select_word (GtkLabel *self)
   gtk_label_select_region_index (self, min, max);
 }
 
+static gboolean
+event_is_touch (GdkEvent *event)
+{
+  GdkDevice *device;
+
+  if (event == NULL)
+    return FALSE;
+
+  device = gdk_event_get_device (event);
+
+  return device != NULL && gdk_device_get_source (device) == GDK_SOURCE_TOUCHSCREEN;
+}
+
+/* Bounding rectangle of the current selection, in widget coordinates, used to
+ * anchor the touch selection bubble. */
+static void
+gtk_label_get_selection_rect (GtkLabel              *self,
+                              cairo_rectangle_int_t *rect)
+{
+  GtkLabelSelectionInfo *info = self->select_info;
+  PangoRectangle start_pos, end_pos;
+  float lx, ly;
+  int start, end, x1, x2;
+
+  start = MIN (info->selection_anchor, info->selection_end);
+  end = MAX (info->selection_anchor, info->selection_end);
+
+  gtk_label_ensure_layout (self);
+  get_layout_location (self, &lx, &ly);
+
+  pango_layout_index_to_pos (self->layout, start, &start_pos);
+  pango_layout_index_to_pos (self->layout, end, &end_pos);
+
+  x1 = start_pos.x / PANGO_SCALE;
+  x2 = end_pos.x / PANGO_SCALE;
+
+  rect->x = (int) lx + MIN (x1, x2);
+  rect->y = (int) ly + MIN (start_pos.y, end_pos.y) / PANGO_SCALE;
+  rect->width = ABS (x2 - x1);
+  rect->height = MAX (start_pos.height, end_pos.height) / PANGO_SCALE;
+}
+
+static void
+gtk_label_selection_bubble_popup_unset (GtkLabel *self)
+{
+  GtkLabelSelectionInfo *info = self->select_info;
+
+  if (info == NULL)
+    return;
+
+  if (info->selection_bubble)
+    gtk_widget_set_visible (info->selection_bubble, FALSE);
+
+  if (info->selection_bubble_timeout_id)
+    {
+      g_source_remove (info->selection_bubble_timeout_id);
+      info->selection_bubble_timeout_id = 0;
+    }
+}
+
+static void
+bubble_action_clicked (GtkButton *button,
+                       GtkLabel  *self)
+{
+  const char *action = g_object_get_data (G_OBJECT (button), "action");
+
+  if (action)
+    gtk_widget_activate_action (GTK_WIDGET (self), action, NULL);
+
+  gtk_label_selection_bubble_popup_unset (self);
+}
+
+static void
+append_bubble_button (GtkLabel   *self,
+                      GtkWidget  *toolbar,
+                      const char *icon_name,
+                      const char *action_name)
+{
+  GtkWidget *button = gtk_button_new ();
+
+  gtk_widget_set_focus_on_click (button, FALSE);
+  gtk_button_set_child (GTK_BUTTON (button), gtk_image_new_from_icon_name (icon_name));
+  gtk_widget_add_css_class (button, "image-button");
+  g_object_set_data_full (G_OBJECT (button), "action", g_strdup (action_name), g_free);
+  g_signal_connect (button, "clicked", G_CALLBACK (bubble_action_clicked), self);
+  gtk_box_append (GTK_BOX (toolbar), button);
+}
+
+/* Touch Copy/Select-all popover for read-only labels, mirroring GtkText. Pairs
+ * with the selection handles below as the label's touch text-selection UI. */
+static gboolean
+gtk_label_selection_bubble_popup_show (gpointer user_data)
+{
+  GtkLabel *self = user_data;
+  GtkLabelSelectionInfo *info = self->select_info;
+  cairo_rectangle_int_t rect;
+  GtkWidget *box, *toolbar;
+
+  if (info == NULL || info->selection_anchor == info->selection_end)
+    {
+      if (info)
+        info->selection_bubble_timeout_id = 0;
+      return G_SOURCE_REMOVE;
+    }
+
+  g_clear_pointer (&info->selection_bubble, gtk_widget_unparent);
+
+  info->selection_bubble = gtk_popover_new ();
+  gtk_widget_set_parent (info->selection_bubble, GTK_WIDGET (self));
+  gtk_widget_add_css_class (info->selection_bubble, "touch-selection");
+  gtk_popover_set_position (GTK_POPOVER (info->selection_bubble), GTK_POS_BOTTOM);
+  gtk_popover_set_autohide (GTK_POPOVER (info->selection_bubble), FALSE);
+
+  box = gtk_box_new (GTK_ORIENTATION_VERTICAL, 5);
+  gtk_widget_set_margin_start (box, 10);
+  gtk_widget_set_margin_end (box, 10);
+  gtk_widget_set_margin_top (box, 10);
+  gtk_widget_set_margin_bottom (box, 10);
+  toolbar = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 0);
+  gtk_widget_add_css_class (toolbar, "linked");
+  gtk_popover_set_child (GTK_POPOVER (info->selection_bubble), box);
+  gtk_box_append (GTK_BOX (box), toolbar);
+
+  append_bubble_button (self, toolbar, "edit-copy-symbolic", "clipboard.copy");
+  append_bubble_button (self, toolbar, "edit-select-all-symbolic", "selection.select-all");
+
+  gtk_label_get_selection_rect (self, &rect);
+  gtk_popover_set_pointing_to (GTK_POPOVER (info->selection_bubble), &rect);
+  gtk_popover_popup (GTK_POPOVER (info->selection_bubble));
+
+  info->selection_bubble_timeout_id = 0;
+  return G_SOURCE_REMOVE;
+}
+
+static void
+gtk_label_selection_bubble_popup_set (GtkLabel *self)
+{
+  GtkLabelSelectionInfo *info = self->select_info;
+
+  if (info->selection_bubble_timeout_id)
+    g_source_remove (info->selection_bubble_timeout_id);
+
+  info->selection_bubble_timeout_id =
+    g_timeout_add (50, gtk_label_selection_bubble_popup_show, self);
+}
+
+/* --- Touch selection handles for read-only labels, mirroring GtkText. The two
+ * GtkTextHandle widgets (GtkNative, own surface) sit at the selection ends and
+ * drag to adjust it; they only show on touch (text_handles_enabled). --- */
+
+static void
+gtk_label_handle_dragged (GtkTextHandle *handle,
+                          int            x,
+                          int            y,
+                          GtkLabel      *self)
+{
+  GtkLabelSelectionInfo *info = self->select_info;
+  int index, min, max;
+
+  if (info == NULL)
+    return;
+
+  gtk_label_selection_bubble_popup_unset (self);
+  get_layout_index (self, x, y, &index);
+
+  min = MIN (info->selection_anchor, info->selection_end);
+  max = MAX (info->selection_anchor, info->selection_end);
+
+  if (handle == info->text_handles[0])
+    gtk_label_select_region_index (self, MIN (index, max), max);  /* move start */
+  else
+    gtk_label_select_region_index (self, min, MAX (index, min));  /* move end */
+}
+
+static void
+gtk_label_handle_drag_finished (GtkTextHandle *handle,
+                                GtkLabel      *self)
+{
+  GtkLabelSelectionInfo *info = self->select_info;
+
+  if (info && info->selection_anchor != info->selection_end)
+    gtk_label_selection_bubble_popup_set (self);
+}
+
+static void
+gtk_label_ensure_text_handles (GtkLabel *self)
+{
+  GtkLabelSelectionInfo *info = self->select_info;
+  int i;
+
+  for (i = 0; i < 2; i++)
+    {
+      if (info->text_handles[i])
+        continue;
+      info->text_handles[i] = gtk_text_handle_new (GTK_WIDGET (self));
+      g_signal_connect (info->text_handles[i], "handle-dragged",
+                        G_CALLBACK (gtk_label_handle_dragged), self);
+      g_signal_connect (info->text_handles[i], "drag-finished",
+                        G_CALLBACK (gtk_label_handle_drag_finished), self);
+    }
+}
+
+static void
+gtk_label_move_handle (GtkLabel          *self,
+                       GtkTextHandle     *handle,
+                       int                index,
+                       GtkTextHandleRole  role)
+{
+  PangoRectangle pos;
+  GdkRectangle rect;
+  float lx, ly;
+  int width;
+
+  width = gtk_widget_get_width (GTK_WIDGET (self));
+
+  gtk_label_ensure_layout (self);
+  get_layout_location (self, &lx, &ly);
+  pango_layout_index_to_pos (self->layout, index, &pos);
+
+  rect.x = (int) lx + pos.x / PANGO_SCALE;
+  rect.y = (int) ly + pos.y / PANGO_SCALE;
+  rect.width = 1;
+  rect.height = pos.height / PANGO_SCALE;
+
+  /* Hide a handle that fell outside the visible area unless it's being dragged. */
+  if (!gtk_text_handle_get_is_dragged (handle) && (rect.x < 0 || rect.x > width))
+    {
+      gtk_widget_set_visible (GTK_WIDGET (handle), FALSE);
+      return;
+    }
+
+  gtk_text_handle_set_role (handle, role);
+  gtk_text_handle_set_position (handle, &rect);
+  gtk_widget_set_direction (GTK_WIDGET (handle), gtk_widget_get_direction (GTK_WIDGET (self)));
+  gtk_widget_set_visible (GTK_WIDGET (handle), TRUE);
+}
+
+/* Capture-phase observer on the window root: while the touch UI is up, a press
+ * outside this label (empty space, another widget, or a mouse) drops the
+ * selection + handles + bubble. Handle/bubble presses hit their own GtkNative
+ * surfaces, so they never reach here. */
+static gboolean
+gtk_label_dismiss_event (GtkEventControllerLegacy *controller,
+                         GdkEvent                 *event,
+                         GtkLabel                 *self)
+{
+  GtkLabelSelectionInfo *info = self->select_info;
+  GdkEventType type;
+  GtkWidget *root, *picked;
+  double sx, sy, tx, ty;
+
+  type = gdk_event_get_event_type (event);
+  if (type != GDK_BUTTON_PRESS && type != GDK_TOUCH_BEGIN)
+    return FALSE;
+
+  if (info == NULL || !info->text_handles_enabled ||
+      info->selection_anchor == info->selection_end)
+    return FALSE;
+
+  root = gtk_event_controller_get_widget (GTK_EVENT_CONTROLLER (controller));
+  gdk_event_get_position (event, &sx, &sy);
+  gtk_native_get_surface_transform (GTK_NATIVE (root), &tx, &ty);
+  picked = gtk_widget_pick (root, sx - tx, sy - ty, GTK_PICK_DEFAULT);
+
+  if (picked == GTK_WIDGET (self) ||
+      (picked != NULL && gtk_widget_is_ancestor (picked, GTK_WIDGET (self))))
+    return FALSE;  /* on the label itself - let its own handlers run */
+
+  gtk_label_selection_bubble_popup_unset (self);
+  info->text_handles_enabled = FALSE;
+  gtk_label_select_region_index (self, info->selection_end, info->selection_end);
+  return FALSE;
+}
+
+static void
+gtk_label_ensure_dismiss_controller (GtkLabel *self)
+{
+  GtkLabelSelectionInfo *info = self->select_info;
+  GtkRoot *root = gtk_widget_get_root (GTK_WIDGET (self));
+  GtkEventController *controller;
+
+  if (root == NULL)
+    return;
+
+  if (info->dismiss_controller != NULL)
+    {
+      if (gtk_event_controller_get_widget (info->dismiss_controller) == GTK_WIDGET (root))
+        return;
+      /* Re-parented to a different root: drop the stale controller (the weak
+       * pointer nulls info->dismiss_controller). */
+      gtk_widget_remove_controller (gtk_event_controller_get_widget (info->dismiss_controller),
+                                    info->dismiss_controller);
+    }
+
+  controller = gtk_event_controller_legacy_new ();
+  gtk_event_controller_set_propagation_phase (controller, GTK_PHASE_CAPTURE);
+  g_signal_connect (controller, "event", G_CALLBACK (gtk_label_dismiss_event), self);
+  gtk_widget_add_controller (GTK_WIDGET (root), controller);
+  info->dismiss_controller = controller;
+  g_object_add_weak_pointer (G_OBJECT (controller), (gpointer *) &info->dismiss_controller);
+}
+
+static void
+gtk_label_clear_dismiss_controller (GtkLabel *self)
+{
+  GtkLabelSelectionInfo *info = self->select_info;
+
+  if (info == NULL || info->dismiss_controller == NULL)
+    return;
+
+  g_object_remove_weak_pointer (G_OBJECT (info->dismiss_controller),
+                                (gpointer *) &info->dismiss_controller);
+  gtk_widget_remove_controller (gtk_event_controller_get_widget (info->dismiss_controller),
+                                info->dismiss_controller);
+  info->dismiss_controller = NULL;
+}
+
+static void
+gtk_label_update_handles (GtkLabel *self)
+{
+  GtkLabelSelectionInfo *info = self->select_info;
+
+  if (info == NULL)
+    return;
+
+  if (!info->text_handles_enabled ||
+      info->selection_anchor == info->selection_end)
+    {
+      if (info->text_handles[0])
+        gtk_widget_set_visible (GTK_WIDGET (info->text_handles[0]), FALSE);
+      if (info->text_handles[1])
+        gtk_widget_set_visible (GTK_WIDGET (info->text_handles[1]), FALSE);
+      return;
+    }
+
+  gtk_label_ensure_text_handles (self);
+  gtk_label_ensure_dismiss_controller (self);
+  gtk_label_move_handle (self, info->text_handles[0],
+                         MIN (info->selection_anchor, info->selection_end),
+                         GTK_TEXT_HANDLE_ROLE_SELECTION_START);
+  gtk_label_move_handle (self, info->text_handles[1],
+                         MAX (info->selection_anchor, info->selection_end),
+                         GTK_TEXT_HANDLE_ROLE_SELECTION_END);
+}
+
 static void
 gtk_label_click_gesture_pressed (GtkGestureClick *gesture,
                                  int              n_press,
@@ -4371,6 +4757,13 @@ gtk_label_click_gesture_pressed (GtkGestureClick *gesture,
   button = gtk_gesture_single_get_current_button (GTK_GESTURE_SINGLE (gesture));
   sequence = gtk_gesture_single_get_current_sequence (GTK_GESTURE_SINGLE (gesture));
   event = gtk_gesture_get_last_event (GTK_GESTURE (gesture), sequence);
+  /* Selection handles are a touch affordance; a mouse press deactivates them. */
+  info->text_handles_enabled = event_is_touch (event);
+  if (!info->text_handles_enabled)
+    {
+      gtk_label_selection_bubble_popup_unset (self);
+      gtk_label_update_handles (self);
+    }
   gtk_label_update_active_link (widget, widget_x, widget_y);
 
   gtk_gesture_set_state (GTK_GESTURE (gesture), GTK_EVENT_SEQUENCE_CLAIMED);
@@ -4428,6 +4821,13 @@ gtk_label_click_gesture_pressed (GtkGestureClick *gesture,
       return;
     }
 
+  /* On touch, a fresh word/all selection (double/triple tap) shows the
+   * Copy/Select-all bubble. The single-tap case is handled on release:
+   * a tap inside the selection toggles the bubble, outside it collapses. */
+  if (button == GDK_BUTTON_PRIMARY && event_is_touch (event) &&
+      n_press >= 2 && info->selection_anchor != info->selection_end)
+    gtk_label_selection_bubble_popup_set (self);
+
   if (n_press >= 3)
     gtk_event_controller_reset (GTK_EVENT_CONTROLLER (gesture));
 }
@@ -4456,9 +4856,26 @@ gtk_label_click_gesture_released (GtkGestureClick *gesture,
 
   if (info->in_drag)
     {
+      GdkEvent *event = gtk_gesture_get_last_event (GTK_GESTURE (gesture), sequence);
+
       info->in_drag = FALSE;
-      get_layout_index (self, x, y, &index);
-      gtk_label_select_region_index (self, index, index);
+
+      if (event_is_touch (event) && info->selection_anchor != info->selection_end)
+        {
+          /* Touch tap inside the selection: toggle the bubble and keep the
+           * selection, rather than collapsing it (mirrors GtkText - otherwise
+           * there is no way back to Copy after the first dismiss). */
+          if (info->selection_bubble && gtk_widget_get_visible (info->selection_bubble))
+            gtk_label_selection_bubble_popup_unset (self);
+          else
+            gtk_label_selection_bubble_popup_set (self);
+        }
+      else
+        {
+          get_layout_index (self, x, y, &index);
+          gtk_label_select_region_index (self, index, index);
+          gtk_label_selection_bubble_popup_unset (self);
+        }
     }
   else if (info->active_link &&
            info->selection_anchor == info->selection_end &&
@@ -4884,6 +5301,14 @@ static void
 focus_change (GtkEventControllerFocus *controller,
               GtkLabel                *self)
 {
+  /* Focus leaving the label (e.g. Tab away) hides its touch selection UI. */
+  if (!gtk_event_controller_focus_contains_focus (controller) && self->select_info)
+    {
+      gtk_label_selection_bubble_popup_unset (self);
+      self->select_info->text_handles_enabled = FALSE;
+      gtk_label_update_handles (self);
+    }
+
   gtk_widget_queue_draw (GTK_WIDGET (self));
 }
 
@@ -4948,6 +5373,13 @@ gtk_label_clear_select_info (GtkLabel *self)
       gtk_widget_remove_controller (GTK_WIDGET (self), self->select_info->focus_controller);
       GTK_LABEL_CONTENT (self->select_info->provider)->label = NULL;
       g_object_unref (self->select_info->provider);
+
+      if (self->select_info->selection_bubble_timeout_id)
+        g_source_remove (self->select_info->selection_bubble_timeout_id);
+      g_clear_pointer (&self->select_info->selection_bubble, gtk_widget_unparent);
+      g_clear_pointer ((GtkWidget **) &self->select_info->text_handles[0], gtk_widget_unparent);
+      g_clear_pointer ((GtkWidget **) &self->select_info->text_handles[1], gtk_widget_unparent);
+      gtk_label_clear_dismiss_controller (self);
 
       g_free (self->select_info);
       self->select_info = NULL;
@@ -5140,6 +5572,8 @@ gtk_label_select_region_index (GtkLabel *self,
       gtk_accessible_text_update_selection_bound (GTK_ACCESSIBLE_TEXT (self));
 
       gtk_widget_queue_draw (GTK_WIDGET (self));
+
+      gtk_label_update_handles (self);
 
       g_object_thaw_notify (G_OBJECT (self));
     }
