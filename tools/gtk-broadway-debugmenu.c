@@ -20,6 +20,7 @@ static GtkWidget *session_label;
 static GtkWidget *traffic_label;
 static GtkWidget *fps_label;
 static GtkWidget *latency_label;
+static GtkWidget *textures_label;
 static GtkWidget *paint_flash_switch;
 static GSocket   *control_sock;
 
@@ -127,20 +128,25 @@ on_control_readable (GSocket *sock, GIOCondition cond, gpointer user_data)
       double fps = 0;
       unsigned int latency = 0;
       int flash = 0;
+      unsigned int tex_count = 0;
+      guint64 tex_bytes = 0;
 
-      if (sscanf (p, "stats %x %" G_GUINT64_FORMAT " %lf %u %d",
-                  &sid, &bytes, &fps, &latency, &flash) == 5)
+      if (sscanf (p, "stats %x %" G_GUINT64_FORMAT " %lf %u %d %u %" G_GUINT64_FORMAT,
+                  &sid, &bytes, &fps, &latency, &flash, &tex_count, &tex_bytes) == 7)
         {
           char *traffic = format_bytes (bytes);
+          char *texbuf = format_bytes (tex_bytes);
           char *s = g_strdup_printf ("Session: %08x", sid);
           char *t = g_strdup_printf ("Traffic: %s", traffic);
           char *f = g_strdup_printf ("Framerate: %.1f fps", fps);
           char *l = g_strdup_printf ("Latency: %u ms", latency);
+          char *x = g_strdup_printf ("Textures: %u (%s)", tex_count, texbuf);
 
           gtk_label_set_text (GTK_LABEL (session_label), s);
           gtk_label_set_text (GTK_LABEL (traffic_label), t);
           gtk_label_set_text (GTK_LABEL (fps_label), f);
           gtk_label_set_text (GTK_LABEL (latency_label), l);
+          gtk_label_set_text (GTK_LABEL (textures_label), x);
 
           /* Reflect the daemon's real paint-flash state (a freshly spawned menu
            * starts with the switch off; restore it without re-sending). */
@@ -155,10 +161,12 @@ on_control_readable (GSocket *sock, GIOCondition cond, gpointer user_data)
             }
 
           g_free (traffic);
+          g_free (texbuf);
           g_free (s);
           g_free (t);
           g_free (f);
           g_free (l);
+          g_free (x);
         }
     }
   return G_SOURCE_CONTINUE;
@@ -268,10 +276,12 @@ main (void)
   traffic_label = left_label ("Traffic: --");
   fps_label = left_label ("Framerate: -- fps");
   latency_label = left_label ("Latency: -- ms");
+  textures_label = left_label ("Textures: -- (--)");
   gtk_box_append (GTK_BOX (perf), session_label);
   gtk_box_append (GTK_BOX (perf), traffic_label);
   gtk_box_append (GTK_BOX (perf), fps_label);
   gtk_box_append (GTK_BOX (perf), latency_label);
+  gtk_box_append (GTK_BOX (perf), textures_label);
 
   /* Actions: commands sent back to the daemon. */
   actions = add_section (box, "Actions");

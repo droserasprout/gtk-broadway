@@ -838,6 +838,23 @@ menu_current_traffic (BroadwayServer *server, guint64 *bytes, guint32 *frames)
     }
 }
 
+/* Texture buffer the browser currently holds: count + summed PNG bytes across
+ * all live (refcounted) textures. This is the real footprint kept warm by the
+ * content-dedup cache, so the debug menu can show it. */
+static void
+menu_texture_buffer (BroadwayServer *server, guint *count, guint64 *bytes)
+{
+  GHashTableIter iter;
+  gpointer value;
+  guint64 total = 0;
+
+  *count = g_hash_table_size (server->textures);
+  g_hash_table_iter_init (&iter, server->textures);
+  while (g_hash_table_iter_next (&iter, NULL, &value))
+    total += g_bytes_get_size (((BroadwayTexture *) value)->bytes);
+  *bytes = total;
+}
+
 static gboolean
 menu_push_stats (gpointer user_data)
 {
@@ -848,7 +865,9 @@ menu_push_stats (gpointer user_data)
   guint32 frames;
   gint64 now;
   double fps = 0;
-  char line[128];
+  guint tex_count;
+  guint64 tex_bytes;
+  char line[160];
   int len;
 
   if (menu_sock == NULL)
@@ -862,9 +881,12 @@ menu_push_stats (gpointer user_data)
   last_time = now;
   last_frames = frames;
 
-  len = g_snprintf (line, sizeof line, "stats %08x %" G_GUINT64_FORMAT " %.1f %u %d\n",
+  menu_texture_buffer (server, &tex_count, &tex_bytes);
+
+  len = g_snprintf (line, sizeof line,
+                    "stats %08x %" G_GUINT64_FORMAT " %.1f %u %d %u %" G_GUINT64_FORMAT "\n",
                     server->session_id, bytes, fps, server->last_latency_ms,
-                    server->paint_flash ? 1 : 0);
+                    server->paint_flash ? 1 : 0, tex_count, tex_bytes);
   g_socket_send (menu_sock, line, len, NULL, NULL); /* best-effort */
   return G_SOURCE_CONTINUE;
 }
@@ -1762,9 +1784,14 @@ send_data (HttpRequest *request,
 {
   char *res;
 
+  /* No-store so a redeployed broadwayd's fresh client.html/broadway.js is always
+   * fetched - otherwise the browser serves a stale cached copy (these have no
+   * validator) and runs old code after an upgrade. They're tiny and loaded once
+   * per page, so skipping the cache is free. */
   res = g_strdup_printf ("HTTP/1.0 200 OK\r\n"
                          "Content-Type: %s\r\n"
                          "Content-Length: %"G_GSIZE_FORMAT"\r\n"
+                         "Cache-Control: no-store\r\n"
                          "\r\n",
                          mimetype, len);
 
