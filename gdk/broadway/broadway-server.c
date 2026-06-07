@@ -2492,14 +2492,15 @@ decode_nodes (BroadwayServer *server,
   node->children = (BroadwayNode **)((char *)node + sizeof(BroadwayNode) + (size - 1) * sizeof(guint32));
   node->n_data = size;
   for (i = 0; i < size; i++)
+    node->data[i] = data[(*pos)++];
+
+  /* Only texture nodes carry a texture id; remap it outside the copy loop so
+   * the common case skips a per-word comparison. */
+  if (texture_offset >= 0)
     {
-      node->data[i] = data[(*pos)++];
-      if (i == texture_offset)
-        {
-          node->texture_id = GPOINTER_TO_INT (g_hash_table_lookup (client_texture_map, GINT_TO_POINTER (node->data[i])));
-          broadway_server_ref_texture (server, node->texture_id);
-          node->data[i] = node->texture_id;
-        }
+      node->texture_id = GPOINTER_TO_INT (g_hash_table_lookup (client_texture_map, GINT_TO_POINTER (node->data[texture_offset])));
+      broadway_server_ref_texture (server, node->texture_id);
+      node->data[texture_offset] = node->texture_id;
     }
 
   for (i = 0; i < n_children; i++)
