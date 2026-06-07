@@ -61,9 +61,15 @@ void broadway_output_pong (BroadwayOutput *output)
   broadway_output_send_cmd (output, TRUE, BROADWAY_WS_CNX_PONG, NULL, 0);
 }
 
+/* A big texture frame can grow buf to many MB; set_size(0) keeps that capacity
+ * forever. After an oversized flush, free it and start small instead. */
+#define BROADWAY_OUTPUT_BUF_SHRINK_THRESHOLD (256 * 1024)
+
 int
 broadway_output_flush (BroadwayOutput *output)
 {
+  gsize flushed_len;
+
   if (output->buf->len == 0)
     return TRUE;
 
@@ -73,7 +79,15 @@ broadway_output_flush (BroadwayOutput *output)
   output->bytes_sent += output->buf->len;
   output->frames++;
 
-  g_string_set_size (output->buf, 0);
+  flushed_len = output->buf->len;
+
+  if (flushed_len > BROADWAY_OUTPUT_BUF_SHRINK_THRESHOLD)
+    {
+      g_string_free (output->buf, TRUE);
+      output->buf = g_string_new ("");
+    }
+  else
+    g_string_set_size (output->buf, 0);
 
   return !output->error;
 
