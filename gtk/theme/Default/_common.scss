@@ -2147,6 +2147,13 @@ notebook {
 
     > tabs { margin: -1px; }
 
+    // Pixel-scroll edge fade: dissolve the tab strip into the header background
+    // (drawn as native gradient nodes via gtk_notebook_snapshot_tabs, not a mask).
+    > tabs > undershoot {
+      &.left  { background-image: linear-gradient(to right, $dark_fill, transparentize($dark_fill, 1)); }
+      &.right { background-image: linear-gradient(to left,  $dark_fill, transparentize($dark_fill, 1)); }
+    }
+
     &.top {
       border-bottom-style: solid;
       > tabs {
