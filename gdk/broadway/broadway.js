@@ -1780,7 +1780,49 @@ function getSurfaceId(ev) {
     return (target && target.surface) ? target.surface.id : 0;
 }
 
+/* GTK only needs the latest pointer position, so buffer moves and send one per
+ * frame; a motion flood can't then fill the websocket and delay a later click
+ * or key (head-of-line blocking). Discrete events flush the pending move first
+ * to preserve ordering. */
+var pendingMove = null;
+var pendingMoveScheduled = false;
+
+function flushPendingMove()
+{
+    if (pendingMove == null)
+        return;
+    var args = pendingMove;
+    pendingMove = null;
+    rawSendInput(BROADWAY_EVENT_POINTER_MOVE, args);
+}
+
+function pendingMoveFrame()
+{
+    pendingMoveScheduled = false;
+    flushPendingMove();
+}
+
+function queuePointerMove(args)
+{
+    pendingMove = args;
+    if (!pendingMoveScheduled) {
+        pendingMoveScheduled = true;
+        window.requestAnimationFrame(pendingMoveFrame);
+    }
+}
+
 function sendInput(cmd, args)
+{
+    /* Flush any buffered move before a discrete event to keep ordering. */
+    if (cmd == BROADWAY_EVENT_POINTER_MOVE) {
+        queuePointerMove(args);
+        return;
+    }
+    flushPendingMove();
+    rawSendInput(cmd, args);
+}
+
+function rawSendInput(cmd, args)
 {
     if (inputSocket == null)
         return;
