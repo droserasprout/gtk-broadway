@@ -39,6 +39,11 @@
 #include "gtkgesturedrag.h"
 #include "gtkeventcontrollerscroll.h"
 #include "gtkgizmoprivate.h"
+#include "gtkcssnodeprivate.h"
+#include "gtkcssstyleprivate.h"
+#include "gtkcssboxesprivate.h"
+#include "gtkrenderbackgroundprivate.h"
+#include "gtkrenderborderprivate.h"
 #include "gtkbuiltiniconprivate.h"
 #include <glib/gi18n-lib.h>
 #include "gtklabel.h"
@@ -262,6 +267,7 @@ struct _GtkNotebook
   GtkWidget                 *header_widget;
   GtkWidget                 *tabs_widget;
   GtkWidget                 *arrow_widget[4];
+  GtkCssNode                *tab_fade_node[2];  /* left/right edge fade (pixel-scroll) */
 
   GListModel    *pages;
 
@@ -1528,6 +1534,29 @@ gtk_notebook_init (GtkNotebook *notebook)
    * lays tabs beyond the strip. */
   gtk_widget_set_overflow (notebook->tabs_widget, GTK_OVERFLOW_HIDDEN);
   gtk_box_append (GTK_BOX (notebook->header_widget), notebook->tabs_widget);
+
+  /* Themed edge-fade overlays for pixel-scroll mode: "undershoot" CSS nodes
+   * under the tabs gizmo, drawn over each edge in gtk_notebook_snapshot_tabs.
+   * Their CSS gradient (a native linear gradient, no rasterized mask) dissolves
+   * the strip into the header background. */
+  {
+    GtkCssNode *tabs_node = gtk_widget_get_css_node (notebook->tabs_widget);
+    const char *fade_classes[2] = { "left", "right" };
+    int fi;
+
+    for (fi = 0; fi < 2; fi++)
+      {
+        notebook->tab_fade_node[fi] = gtk_css_node_new ();
+        gtk_css_node_set_name (notebook->tab_fade_node[fi],
+                               g_quark_from_static_string ("undershoot"));
+        gtk_css_node_add_class (notebook->tab_fade_node[fi],
+                                g_quark_from_static_string (fade_classes[fi]));
+        gtk_css_node_set_parent (notebook->tab_fade_node[fi], tabs_node);
+        gtk_css_node_set_state (notebook->tab_fade_node[fi],
+                                gtk_css_node_get_state (tabs_node));
+        g_object_unref (notebook->tab_fade_node[fi]);
+      }
+  }
 
   notebook->stack_widget = gtk_stack_new ();
   gtk_widget_set_hexpand (notebook->stack_widget, TRUE);
@@ -4732,7 +4761,6 @@ gtk_notebook_snapshot_tabs (GtkGizmo    *gizmo,
   int step = STEP_PREV;
   gboolean is_rtl;
   GtkPositionType tab_pos;
-  gboolean masked = FALSE;
   guint i;
 
   is_rtl = gtk_widget_get_direction (widget) == GTK_TEXT_DIR_RTL;
@@ -4745,35 +4773,6 @@ gtk_notebook_snapshot_tabs (GtkGizmo    *gizmo,
   if (!notebook->first_tab)
     notebook->first_tab = notebook->children;
 
-  /* Pixel-scroll mode: instead of scroll arrows, fade the tab strip itself to
-   * transparent at whichever edge has more tabs to reveal, so it dissolves into the
-   * background (theme-independent -- no overlay colour). Done with an alpha mask
-   * wrapping all the tab drawing below; the matching pop is after the current tab. */
-  if (gtk_notebook_tab_pixel_scroll (notebook))
-    {
-      int w = gtk_widget_get_width (GTK_WIDGET (gizmo));
-      int h = gtk_widget_get_height (GTK_WIDGET (gizmo));
-      gboolean fade_left = notebook->touch_pan_px > 0;
-      gboolean fade_right = notebook->touch_pan_px < notebook->touch_pan_max;
-      const float fade = 48;
-
-      if ((fade_left || fade_right) && w > 2 * fade)
-        {
-          masked = TRUE;
-          gtk_snapshot_push_mask (snapshot, GSK_MASK_MODE_ALPHA);
-          gtk_snapshot_append_linear_gradient (snapshot,
-                                               &GRAPHENE_RECT_INIT (0, 0, w, h),
-                                               &GRAPHENE_POINT_INIT (0, 0),
-                                               &GRAPHENE_POINT_INIT (w, 0),
-                                               (GskColorStop[4]) {
-                                                   { 0,            { 1, 1, 1, fade_left ? 0 : 1 } },
-                                                   { fade / w,     { 1, 1, 1, 1 } },
-                                                   { 1 - fade / w, { 1, 1, 1, 1 } },
-                                                   { 1,            { 1, 1, 1, fade_right ? 0 : 1 } },
-                                               }, 4);
-          gtk_snapshot_pop (snapshot);   /* end mask; the tab drawing below is the source */
-        }
-    }
 
   if (!NOTEBOOK_IS_TAB_LABEL_PARENT (notebook, notebook->cur_page) ||
       !gtk_widget_get_mapped (notebook->cur_page->tab_label))
@@ -4869,8 +4868,37 @@ gtk_notebook_snapshot_tabs (GtkGizmo    *gizmo,
   if (notebook->operation != DRAG_OPERATION_DETACH)
     gtk_widget_snapshot_child (GTK_WIDGET (gizmo), notebook->cur_page->tab_widget, snapshot);
 
-  if (masked)
-    gtk_snapshot_pop (snapshot);   /* apply the edge-fade mask to the tab strip */
+  /* Pixel-scroll mode: instead of scroll arrows, fade the strip into the header
+   * background at whichever edge has more tabs to reveal. Drawn as themed CSS
+   * "undershoot" nodes over each edge - native linear-gradient nodes (no
+   * rasterized mask texture re-uploaded every scroll frame on Broadway). */
+  if (gtk_notebook_tab_pixel_scroll (notebook))
+    {
+      int w = gtk_widget_get_width (GTK_WIDGET (gizmo));
+      int h = gtk_widget_get_height (GTK_WIDGET (gizmo));
+      const int fade = 48;
+
+      if (w > 2 * fade)
+        {
+          GtkCssStyle *style;
+          GtkCssBoxes boxes;
+
+          if (notebook->touch_pan_px > 0)   /* more tabs off the left edge */
+            {
+              style = gtk_css_node_get_style (notebook->tab_fade_node[0]);
+              gtk_css_boxes_init_border_box (&boxes, style, 0, 0, fade, h);
+              gtk_css_style_snapshot_background (&boxes, snapshot);
+              gtk_css_style_snapshot_border (&boxes, snapshot);
+            }
+          if (notebook->touch_pan_px < notebook->touch_pan_max)   /* ... off the right */
+            {
+              style = gtk_css_node_get_style (notebook->tab_fade_node[1]);
+              gtk_css_boxes_init_border_box (&boxes, style, w - fade, 0, fade, h);
+              gtk_css_style_snapshot_background (&boxes, snapshot);
+              gtk_css_style_snapshot_border (&boxes, snapshot);
+            }
+        }
+    }
 }
 
 /* Private GtkNotebook Size Allocate Functions:
