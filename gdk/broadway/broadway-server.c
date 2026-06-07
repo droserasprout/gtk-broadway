@@ -11,6 +11,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <signal.h>
 
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
@@ -48,6 +49,7 @@ struct _BroadwayServer {
 
   char *address;
   int port;
+  char *display;    /* ":N" passed to the debug-menu client we spawn */
   char *ssl_cert;
   char *ssl_key;
   GSocketService *service;
@@ -63,7 +65,18 @@ struct _BroadwayServer {
   GList *surfaces;
   BroadwaySurface *root;
   gint32 focused_surface_id; /* -1 => none */
+  gint32 keep_on_top_surface_id; /* -1 => none; pinned above all others */
+  gboolean expecting_menu_surface; /* tag the next toplevel as the debug menu */
   int show_keyboard;
+
+  /* Debug-menu stats. session_id identifies this daemon run; the byte/frame
+   * totals are cumulative across browser reconnects (the live output's own
+   * counters are added in on read, and folded in here when an output is freed). */
+  guint32 session_id;
+  guint64 session_bytes;
+  guint32 session_frames;
+  guint32 last_latency_ms;  /* client-measured ping round-trip, reported on EVENT_PING */
+  gboolean paint_flash;     /* debug-menu: flash redrawn nodes pink in the browser */
 
   guint32 next_texture_id;
   GHashTable *textures;
@@ -282,6 +295,10 @@ broadway_server_init (BroadwayServer *server)
 
   server->service = g_socket_service_new ();
   server->pointer_grab_surface_id = -1;
+  server->keep_on_top_surface_id = -1;
+  do
+    server->session_id = g_random_int ();
+  while (server->session_id == 0);
   server->saved_serial = 1;
   server->last_seen_time = 1;
   server->surface_id_hash = g_hash_table_new (NULL, NULL);
@@ -324,6 +341,7 @@ broadway_server_finalize (GObject *object)
   g_slist_free (server->deferred_enters);
 
   g_free (server->address);
+  g_free (server->display);
   g_free (server->ssl_cert);
   g_free (server->ssl_key);
   g_hash_table_destroy (server->textures);
@@ -774,6 +792,261 @@ queue_input_message (BroadwayServer *server, BroadwayInputMsg *msg)
   server->input_messages = g_list_append (server->input_messages, g_memdup2 (msg, sizeof (BroadwayInputMsg)));
 }
 
+/* ---- Debug menu (spawn-on-demand) -------------------------------------
+ * On BROADWAY_EVENT_MENU from the browser we spawn a small native GTK4 client
+ * (gtk4-broadway-debugmenu) pointed at our own display, so its window composites
+ * into the same view every connected browser sees. A second trigger while it is
+ * up closes it (toggle). */
+
+/* Control channel to the spawned menu: a socketpair whose child end is passed
+ * by fd number (BROADWAY_DEBUGMENU_FD). The daemon pushes a "stats ..." line
+ * every MENU_STATS_INTERVAL_MS and reads back action commands ("open-uri"). */
+#define MENU_STATS_INTERVAL_MS 500
+
+static GPid     menu_pid = 0;
+static GSocket *menu_sock = NULL;        /* daemon end of the control socketpair */
+static guint    menu_stats_timer = 0;
+static GSource *menu_read_source = NULL;
+
+static void
+menu_control_teardown (void)
+{
+  if (menu_stats_timer != 0)
+    {
+      g_source_remove (menu_stats_timer);
+      menu_stats_timer = 0;
+    }
+  if (menu_read_source != NULL)
+    {
+      g_source_destroy (menu_read_source);
+      g_source_unref (menu_read_source);
+      menu_read_source = NULL;
+    }
+  g_clear_object (&menu_sock);
+}
+
+/* Cumulative totals = folded-in past outputs + the live one. */
+static void
+menu_current_traffic (BroadwayServer *server, guint64 *bytes, guint32 *frames)
+{
+  *bytes = server->session_bytes;
+  *frames = server->session_frames;
+  if (server->output)
+    {
+      *bytes += broadway_output_get_bytes_sent (server->output);
+      *frames += broadway_output_get_frames (server->output);
+    }
+}
+
+/* Texture buffer the browser currently holds: count + summed PNG bytes across
+ * all live (refcounted) textures. This is the real footprint kept warm by the
+ * content-dedup cache, so the debug menu can show it. */
+static void
+menu_texture_buffer (BroadwayServer *server, guint *count, guint64 *bytes)
+{
+  GHashTableIter iter;
+  gpointer value;
+  guint64 total = 0;
+
+  *count = g_hash_table_size (server->textures);
+  g_hash_table_iter_init (&iter, server->textures);
+  while (g_hash_table_iter_next (&iter, NULL, &value))
+    total += g_bytes_get_size (((BroadwayTexture *) value)->bytes);
+  *bytes = total;
+}
+
+static gboolean
+menu_push_stats (gpointer user_data)
+{
+  BroadwayServer *server = user_data;
+  static guint32 last_frames = 0;
+  static gint64 last_time = 0;
+  guint64 bytes;
+  guint32 frames;
+  gint64 now;
+  double fps = 0;
+  guint tex_count;
+  guint64 tex_bytes;
+  char line[160];
+  int len;
+
+  if (menu_sock == NULL)
+    return G_SOURCE_REMOVE;
+
+  menu_current_traffic (server, &bytes, &frames);
+
+  now = g_get_monotonic_time ();
+  if (last_time != 0 && now > last_time)
+    fps = (frames - last_frames) * (double) G_USEC_PER_SEC / (now - last_time);
+  last_time = now;
+  last_frames = frames;
+
+  menu_texture_buffer (server, &tex_count, &tex_bytes);
+
+  len = g_snprintf (line, sizeof line,
+                    "stats %08x %" G_GUINT64_FORMAT " %.1f %u %d %u %" G_GUINT64_FORMAT "\n",
+                    server->session_id, bytes, fps, server->last_latency_ms,
+                    server->paint_flash ? 1 : 0, tex_count, tex_bytes);
+  g_socket_send (menu_sock, line, len, NULL, NULL); /* best-effort */
+  return G_SOURCE_CONTINUE;
+}
+
+/* Debug-menu actions. "reconnect" closes the browser's socket so its auto-reconnect
+ * resumes in place (session_token unchanged). "drop-session" first rolls the token,
+ * so the reconnecting client sees a new session and hard-resets. Closing the stream
+ * routes through the normal EOF cleanup (broadway_input_read frees the input). */
+static void
+broadway_server_drop_client (BroadwayServer *server, gboolean new_session)
+{
+  if (new_session)
+    {
+      do
+        server->session_token = g_random_int ();
+      while (server->session_token == 0);
+    }
+
+  if (server->input != NULL && server->input->connection != NULL)
+    g_io_stream_close (server->input->connection, NULL, NULL);
+}
+
+/* Toggle the browser's paint-flash overlay. Remembered so it survives reconnects
+ * (re-sent in the connect handler). */
+static void
+broadway_server_set_paint_flash (BroadwayServer *server, gboolean on)
+{
+  server->paint_flash = on;
+  if (server->output)
+    {
+      broadway_output_debug_flash (server->output, on);
+      broadway_server_flush (server);
+    }
+}
+
+static gboolean
+menu_on_readable (GSocket *sock, GIOCondition cond, gpointer user_data)
+{
+  BroadwayServer *server = user_data;
+  char buf[256];
+  gssize n;
+
+  n = g_socket_receive (sock, buf, sizeof buf - 1, NULL, NULL);
+  if (n <= 0)
+    return G_SOURCE_REMOVE; /* peer closed; child-exit drives teardown */
+
+  buf[n] = '\0';
+  if (strncmp (buf, "open-uri", 8) == 0)
+    {
+      const char *url = "https://nicotine-plus.org/";
+      broadway_server_open_uri (server, url, strlen (url));
+    }
+  else if (strncmp (buf, "drop-session", 12) == 0)
+    broadway_server_drop_client (server, TRUE);
+  else if (strncmp (buf, "reconnect", 9) == 0)
+    broadway_server_drop_client (server, FALSE);
+  else if (strncmp (buf, "paint-flash ", 12) == 0)
+    broadway_server_set_paint_flash (server, buf[12] != '0');
+  return G_SOURCE_CONTINUE;
+}
+
+static void
+menu_child_exited (GPid pid, gint status, gpointer user_data)
+{
+  BroadwayServer *server = user_data;
+
+  g_spawn_close_pid (pid);
+  if (pid == menu_pid)
+    menu_pid = 0;
+  /* If it died before ever mapping a toplevel, don't mis-tag the next one. */
+  server->expecting_menu_surface = FALSE;
+  menu_control_teardown ();
+}
+
+static void
+broadway_server_summon_menu (BroadwayServer *server)
+{
+  const char *cmd;
+  char *argv[2];
+  char **envp;
+  char fdstr[16];
+  int sv[2];
+  GError *error = NULL;
+
+  /* Toggle: a second summon while it is running closes it. */
+  if (menu_pid != 0)
+    {
+      kill (menu_pid, SIGTERM);
+      return;
+    }
+
+  if (socketpair (AF_UNIX, SOCK_STREAM, 0, sv) != 0)
+    {
+      g_warning ("broadway: debug menu socketpair failed: %s", g_strerror (errno));
+      return;
+    }
+  /* sv[0] = daemon end (close-on-exec, never leaks to the child).
+   * sv[1] = child end (left inheritable so it survives exec). */
+  fcntl (sv[0], F_SETFD, FD_CLOEXEC);
+  g_snprintf (fdstr, sizeof fdstr, "%d", sv[1]);
+
+  cmd = g_getenv ("BROADWAY_DEBUGMENU");
+  if (cmd == NULL)
+    cmd = "gtk4-broadway-debugmenu";
+
+  argv[0] = (char *) cmd;
+  argv[1] = NULL;
+
+  envp = g_get_environ ();
+  envp = g_environ_setenv (envp, "GDK_BACKEND", "broadway", TRUE);
+  if (server->display != NULL)
+    envp = g_environ_setenv (envp, "BROADWAY_DISPLAY", server->display, TRUE);
+  envp = g_environ_setenv (envp, "BROADWAY_DEBUGMENU_FD", fdstr, TRUE);
+
+  /* LEAVE_DESCRIPTORS_OPEN keeps sv[1] across exec; the daemon's own fds are
+   * close-on-exec (GIO sets that), so only the control fd passes through. */
+  if (!g_spawn_async (NULL, argv, envp,
+                      G_SPAWN_SEARCH_PATH | G_SPAWN_DO_NOT_REAP_CHILD |
+                      G_SPAWN_LEAVE_DESCRIPTORS_OPEN,
+                      NULL, NULL, &menu_pid, &error))
+    {
+      g_warning ("broadway: failed to spawn debug menu '%s': %s",
+                 cmd, error->message);
+      g_clear_error (&error);
+      menu_pid = 0;
+      close (sv[0]);
+    }
+  else
+    {
+      /* The next non-popup surface to appear is the menu: pin it on top. */
+      server->expecting_menu_surface = TRUE;
+      g_child_watch_add (menu_pid, menu_child_exited, server);
+
+      menu_sock = g_socket_new_from_fd (sv[0], NULL); /* takes ownership of sv[0] */
+      if (menu_sock != NULL)
+        {
+          g_socket_set_blocking (menu_sock, FALSE);
+          menu_read_source = g_socket_create_source (menu_sock, G_IO_IN, NULL);
+          g_source_set_callback (menu_read_source, (GSourceFunc) menu_on_readable,
+                                 server, NULL);
+          g_source_attach (menu_read_source, NULL);
+          menu_stats_timer = g_timeout_add (MENU_STATS_INTERVAL_MS,
+                                            menu_push_stats, server);
+        }
+      else
+        close (sv[0]);
+    }
+
+  close (sv[1]); /* the child holds its own copy now */
+  g_strfreev (envp);
+}
+
+void
+broadway_server_set_display (BroadwayServer *server,
+                             const char     *display)
+{
+  g_free (server->display);
+  server->display = g_strdup (display);
+}
+
 static void
 parse_input_message (BroadwayInput *input, const unsigned char *message, gsize payload_len)
 {
@@ -915,12 +1188,19 @@ parse_input_message (BroadwayInput *input, const unsigned char *message, gsize p
     return;
 
   case BROADWAY_EVENT_PING:
-    /* Liveness probe: reply, don't forward to the app. */
+    /* Liveness probe: reply, don't forward to the app. The payload carries the
+     * client's last measured round-trip (ms), surfaced in the debug menu. */
+    server->last_latency_ms = ntohl (*p++);
     if (server->output)
       {
         broadway_output_pong_msg (server->output);
         broadway_server_flush (server);
       }
+    return;
+
+  case BROADWAY_EVENT_MENU:
+    /* Daemon-intercepted: spawn/toggle the menu, never forward to clients. */
+    broadway_server_summon_menu (server);
     return;
 
   default:
@@ -1191,6 +1471,8 @@ broadway_server_flush (BroadwayServer *server)
       !broadway_output_flush (server->output))
     {
       server->saved_serial = broadway_output_get_next_serial (server->output);
+      server->session_bytes += broadway_output_get_bytes_sent (server->output);
+      server->session_frames += broadway_output_get_frames (server->output);
       broadway_output_free (server->output);
       server->output = NULL;
       send_outstanding_roundtrips (server);
@@ -1466,6 +1748,8 @@ start (BroadwayInput *input)
   if (server->output)
     {
       server->saved_serial = broadway_output_get_next_serial (server->output);
+      server->session_bytes += broadway_output_get_bytes_sent (server->output);
+      server->session_frames += broadway_output_get_frames (server->output);
       broadway_output_free (server->output);
     }
   server->output = input->output;
@@ -1476,6 +1760,10 @@ start (BroadwayInput *input)
   /* Send the session token before the resync, so the client can reset its
    * cache before surfaces are rebuilt. */
   broadway_output_session (server->output, server->session_token, server->owner_id);
+
+  /* Restore the paint-flash debug state for a (re)connecting client. */
+  if (server->paint_flash)
+    broadway_output_debug_flash (server->output, TRUE);
 
   broadway_server_resync_surfaces (server);
 
@@ -1496,9 +1784,14 @@ send_data (HttpRequest *request,
 {
   char *res;
 
+  /* No-store so a redeployed broadwayd's fresh client.html/broadway.js is always
+   * fetched - otherwise the browser serves a stale cached copy (these have no
+   * validator) and runs old code after an upgrade. They're tiny and loaded once
+   * per page, so skipping the cache is free. */
   res = g_strdup_printf ("HTTP/1.0 200 OK\r\n"
                          "Content-Type: %s\r\n"
                          "Content-Length: %"G_GSIZE_FORMAT"\r\n"
+                         "Cache-Control: no-store\r\n"
                          "\r\n",
                          mimetype, len);
 
@@ -1824,6 +2117,9 @@ broadway_server_destroy_surface (BroadwayServer *server,
   if (server->pointer_grab_surface_id == id)
     server->pointer_grab_surface_id = -1;
 
+  if (server->keep_on_top_surface_id == id)
+    server->keep_on_top_surface_id = -1;
+
   if (server->output)
     broadway_output_destroy_surface (server->output, id);
 
@@ -1909,6 +2205,33 @@ broadway_server_surface_hide (BroadwayServer *server,
   return sent;
 }
 
+/* Re-raise the pinned (always-on-top) surface so it stays above everything.
+ * No-op if nothing is pinned or it is already topmost. */
+static void
+restack_kept_on_top (BroadwayServer *server)
+{
+  BroadwaySurface *surface;
+
+  if (server->keep_on_top_surface_id == -1)
+    return;
+
+  surface = broadway_server_lookup_surface (server, server->keep_on_top_surface_id);
+  if (surface == NULL)
+    {
+      server->keep_on_top_surface_id = -1;
+      return;
+    }
+
+  if (server->surfaces != NULL && g_list_last (server->surfaces)->data == surface)
+    return; /* already on top */
+
+  server->surfaces = g_list_remove (server->surfaces, surface);
+  server->surfaces = g_list_append (server->surfaces, surface);
+
+  if (server->output)
+    broadway_output_raise_surface (server->output, surface->id);
+}
+
 void
 broadway_server_surface_raise (BroadwayServer *server,
                                int id)
@@ -1924,6 +2247,10 @@ broadway_server_surface_raise (BroadwayServer *server,
 
   if (server->output)
     broadway_output_raise_surface (server->output, surface->id);
+
+  /* Keep the pinned surface above the one just raised. */
+  if (id != server->keep_on_top_surface_id)
+    restack_kept_on_top (server);
 }
 
 void
@@ -2433,6 +2760,18 @@ broadway_server_new_surface (BroadwayServer *server,
                                  surface->height);
   else
     fake_configure_notify (server, surface);
+
+  if (server->expecting_menu_surface && !is_popup)
+    {
+      /* The toplevel the spawned debug menu just mapped: pin it on top. */
+      server->expecting_menu_surface = FALSE;
+      server->keep_on_top_surface_id = surface->id;
+    }
+  else
+    {
+      /* A new surface lands on top; keep the pinned one above it. */
+      restack_kept_on_top (server);
+    }
 
   return surface->id;
 }

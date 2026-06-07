@@ -50,6 +50,7 @@ gtk_tools = [
                         '../testsuite/reftests/reftest-compare.c'], [libgtk_dep] ],
   ['gtk4-update-icon-cache', ['updateiconcache.c', '../gtk/gtkiconcachevalidator.c' ] + extra_update_icon_cache_objs, [ libgtk_dep ] ],
   ['gtk4-encode-symbolic-svg', ['encodesymbolic.c'], [ libgtk_static_dep ] ],
+  ['gtk4-broadway-debugmenu', ['gtk-broadway-debugmenu.c'], [ libgtk_dep ] ],
 ]
 
 if os_unix

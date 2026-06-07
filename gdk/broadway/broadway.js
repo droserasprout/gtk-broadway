@@ -45,6 +45,7 @@ const BROADWAY_OP_REASSERT_POINTER = 20;
 const BROADWAY_OP_OPEN_URI = 21;
 const BROADWAY_OP_SESSION = 22;
 const BROADWAY_OP_PONG = 23;
+const BROADWAY_OP_DEBUG_FLASH = 24;
 
 /* Latin 'v'/'V' keysyms, used to recognise the paste shortcut (Ctrl+V and
  * Ctrl+Shift+V) so the browser's native 'paste' event is allowed to fire. */
@@ -68,6 +69,9 @@ const BROADWAY_EVENT_FOCUS = 13;
 const BROADWAY_EVENT_ROUNDTRIP_NOTIFY = 14;
 const BROADWAY_EVENT_CLIPBOARD_CONTENTS = 15;
 const BROADWAY_EVENT_PING = 16;
+/* Browser->daemon "summon the debug menu". The daemon intercepts it (like
+ * CLIPBOARD_CONTENTS) and never forwards it to GTK clients. */
+const BROADWAY_EVENT_MENU = 17;
 
 const DISPLAY_OP_REPLACE_CHILD = 0;
 const DISPLAY_OP_APPEND_CHILD = 1;
@@ -268,6 +272,13 @@ var HEARTBEAT_MS = 2500;
 var HEARTBEAT_TIMEOUT_MS = 7000;
 var heartbeatTimer = null;
 var lastPongTime = 0;
+var pingSentTime = 0;          /* when the last PING went out, for RTT measurement */
+var lastRtt = 0;               /* last measured round-trip (ms), reported to the daemon */
+var paintFlashing = false;     /* debug overlay: received (magenta), reused (green), uploaded (red) */
+const FLASH_MS = 100;          /* how long a flash stays up (no fade) */
+var textureBatch = 0;          /* bumped per message; a Texture's batch == this => uploaded now */
+var flashPool = [];            /* recycled paint-flash overlay divs (avoids per-node create/remove churn) */
+const FLASH_MAX = 200;         /* cap overlays drawn per frame to keep layout cost bounded */
 /* Clipboard paste capture: a hidden, focused textarea receives the browser's
  * native 'paste' event (Ctrl+V). Unlike navigator.clipboard.readText(), that
  * event needs no permission/user-activation popup, so we cache the pasted text
@@ -434,6 +445,7 @@ function Texture(id, data) {
     this.url = url;
     this.refcount = 1;
     this.id = id;
+    this.batch = textureBatch;  /* which message uploaded these pixels (for paint-flash) */
 
     var image = new Image();
     image.src = this.url;
@@ -761,6 +773,9 @@ TransformNodes.prototype.insertNode = function(parent, previousSibling, is_tople
         case BROADWAY_NODE_REUSE:
         {
             oldNode = this.nodes[id];
+            /* Reused content node (kept/re-parented, not redrawn) -> "reused" colour. */
+            if (oldNode && oldNode.__content)
+                oldNode.__flashKind = 2;
         }
         break;
         /* Leaf nodes */
@@ -774,10 +789,23 @@ TransformNodes.prototype.insertNode = function(parent, previousSibling, is_tople
             image.height = rect.height;
             image.style["position"] = "absolute";
             set_rect_style(image, rect);
-            var texture = textures[texture_id].ref();
-            image.src = texture.url;
-            // Unref blob url when loaded
-            image.onload = function() { texture.unref(); };
+            /* A texture id can be stale if it was released before this node is
+             * processed (a lifecycle race; the daemon then remaps it to 0). Skip
+             * gracefully - throwing here would wedge the whole render loop until a
+             * page refresh. Mirrors the unknown-node handling in execute(). */
+            var texture = textures[texture_id];
+            if (texture) {
+                texture.ref();
+                image.src = texture.url;
+                // Unref blob url when loaded
+                image.onload = function() { texture.unref(); };
+                image.__content = true;  /* drawn pixels */
+                /* 3 = texture uploaded this batch (real traffic), 1 = node re-sent but
+                 * the texture was cached (cheap). */
+                image.__flashKind = (texture.batch === textureBatch) ? 3 : 1;
+            } else {
+                console.warn("broadway: NODE_TEXTURE references unknown texture " + texture_id);
+            }
             newNode = image;
         }
         break;
@@ -790,6 +818,8 @@ TransformNodes.prototype.insertNode = function(parent, previousSibling, is_tople
             div.style["position"] = "absolute";
             set_rect_style(div, rect);
             div.style["background-color"] = c;
+            div.__content = true;
+            div.__flashKind = 1;
             newNode = div;
         }
         break;
@@ -1050,8 +1080,8 @@ TransformNodes.prototype.execute = function(display_commands)
             delete this.nodes[removeId];
             if (remove == null)
                 console.log("Wanted to delete node " + removeId + " but it is unknown");
-
-            this.display_commands.push([DISPLAY_OP_DELETE_NODE, remove]);
+            else
+                this.display_commands.push([DISPLAY_OP_DELETE_NODE, remove]);
             break;
         case BROADWAY_NODE_OP_MOVE_AFTER_CHILD:
             parentId = this.decode_uint32();
@@ -1071,8 +1101,13 @@ TransformNodes.prototype.execute = function(display_commands)
             var textureNodeId = this.decode_uint32();
             var textureNode = this.nodes[textureNodeId];
             var textureId = this.decode_uint32();
-            var texture = textures[textureId].ref();
-            this.display_commands.push([DISPLAY_OP_CHANGE_TEXTURE, textureNode, texture]);
+            var texture = textures[textureId];
+            if (texture) {
+                texture.ref();
+                this.display_commands.push([DISPLAY_OP_CHANGE_TEXTURE, textureNode, texture]);
+            } else {
+                console.warn("broadway: PATCH_TEXTURE references unknown texture " + textureId);
+            }
             break;
         case BROADWAY_NODE_OP_PATCH_TRANSFORM:
             var transformNodeId = this.decode_uint32();
@@ -1098,60 +1133,101 @@ function cmdUngrabPointer()
         doUngrab();
 }
 
+/* A pooled paint-flash overlay div. Created once and kept in document.body
+ * forever (just toggled display:none); recycled via flashPool so heavy frames
+ * don't churn the DOM. */
+function getFlashDiv() {
+    var f = flashPool.pop();
+    if (!f) {
+        f = document.createElement("div");
+        f.style.cssText = "position:fixed;pointer-events:none;z-index:2147483647;";
+        document.body.appendChild(f);
+    }
+    return f;
+}
+
 function handleDisplayCommands(display_commands)
 {
+    /* A double-scheduled requestAnimationFrame can fire after a prior frame
+     * already applied and cleared outstandingDisplayCommands, so the arg is
+     * null - nothing left to apply. */
+    if (!display_commands)
+        return;
     var div, parent;
+    var flashed = paintFlashing ? [] : null;
     var len = display_commands.length;
     for (var i = 0; i < len; i++) {
         var cmd = display_commands[i];
 
+        /* A node/texture id can be stale (a lifecycle race during heavy scroll
+         * leaves the renderer referencing a node the browser no longer has).
+         * Guard each deref and keep a per-command try/catch backstop so one bad
+         * command degrades gracefully instead of wedging the render loop until a
+         * page refresh. */
+        try {
         switch (cmd[0]) {
         case DISPLAY_OP_REPLACE_CHILD:
-            cmd[1].replaceChild(cmd[2], cmd[3]);
+            if (cmd[1] && cmd[2] && cmd[3]) {
+                cmd[1].replaceChild(cmd[2], cmd[3]);
+                if (flashed && cmd[2].__flashKind) flashed.push(cmd[2]);
+            }
             break;
         case DISPLAY_OP_APPEND_CHILD:
-            cmd[1].appendChild(cmd[2]);
+            if (cmd[1] && cmd[2]) {
+                cmd[1].appendChild(cmd[2]);
+                if (flashed && cmd[2].__flashKind) flashed.push(cmd[2]);
+            }
             break;
         case DISPLAY_OP_INSERT_AFTER_CHILD:
             parent = cmd[1];
             var afterThis = cmd[2];
             div = cmd[3];
-            if (afterThis == null) // First
-                parent.insertBefore(div, parent.firstChild);
-            else
-                parent.insertBefore(div, afterThis.nextSibling);
+            if (parent && div) {
+                if (afterThis == null) // First
+                    parent.insertBefore(div, parent.firstChild);
+                else
+                    parent.insertBefore(div, afterThis.nextSibling);
+                if (flashed && div.__flashKind) flashed.push(div);
+            }
             break;
         case DISPLAY_OP_APPEND_ROOT:
             /* Into the zoom wrapper, not document.body, so the pinch-zoom
              * transform magnifies all surfaces (the offscreen clipboard/OSK
              * helpers stay on document.body and unscaled). */
-            (zoomRoot || document.body).appendChild(cmd[1]);
+            if (cmd[1])
+                (zoomRoot || document.body).appendChild(cmd[1]);
             break;
         case DISPLAY_OP_SHOW_SURFACE:
             div = cmd[1];
-            var xOffset = cmd[2];
-            var yOffset = cmd[3];
-            div.style["left"] = xOffset + "px";
-            div.style["top"] = yOffset + "px";
-            div.style["visibility"] = "visible";
+            if (div) {
+                div.style["left"] = cmd[2] + "px";
+                div.style["top"] = cmd[3] + "px";
+                div.style["visibility"] = "visible";
+            }
             break;
         case DISPLAY_OP_HIDE_SURFACE:
             div = cmd[1];
-            div.style["visibility"] = "hidden";
+            if (div)
+                div.style["visibility"] = "hidden";
             break;
         case DISPLAY_OP_DELETE_NODE:
             div = cmd[1];
-            div.parentNode.removeChild(div);
+            if (div && div.parentNode)
+                div.parentNode.removeChild(div);
             break;
         case DISPLAY_OP_MOVE_NODE:
             div = cmd[1];
-            div.style["left"] = cmd[2] + "px";
-            div.style["top"] = cmd[3] + "px";
+            if (div) {
+                div.style["left"] = cmd[2] + "px";
+                div.style["top"] = cmd[3] + "px";
+            }
             break;
         case DISPLAY_OP_RESIZE_NODE:
             div = cmd[1];
-            div.style["width"] = cmd[2] + "px";
-            div.style["height"] = cmd[3] + "px";
+            if (div) {
+                div.style["width"] = cmd[2] + "px";
+                div.style["height"] = cmd[3] + "px";
+            }
             break;
 
         case DISPLAY_OP_RESTACK_SURFACES:
@@ -1164,22 +1240,73 @@ function handleDisplayCommands(display_commands)
         case DISPLAY_OP_CHANGE_TEXTURE:
             var image = cmd[1];
             var texture = cmd[2];
-            // We need a new closure here to have a separate copy of "texture" for each iteration in the onload callback...
-            var block = function(t) {
-                image.src = t.url;
-                // Unref blob url when loaded
-                image.onload = function() { t.unref(); };
-            };
-            block(texture);
+            if (image && texture) {
+                // We need a new closure here to have a separate copy of "texture" for each iteration in the onload callback...
+                var block = function(t) {
+                    image.src = t.url;
+                    // Unref blob url when loaded
+                    image.onload = function() { t.unref(); };
+                };
+                block(texture);
+                if (flashed) { image.__content = true; image.__flashKind = (texture.batch === textureBatch) ? 3 : 1; flashed.push(image); }
+            }
             break;
         case DISPLAY_OP_CHANGE_TRANSFORM:
             var div = cmd[1];
-            var transform_string = cmd[2];
-            div.style["transform"] = transform_string;
+            if (div)
+                div.style["transform"] = cmd[2];
             break;
         default:
-            alert("Unknown display op " + command);
+            console.warn("broadway: unknown display op " + cmd[0]);
         }
+        } catch (e) {
+            console.warn("broadway: display op " + (cmd && cmd[0]) + " failed:", e);
+        }
+    }
+
+    /* Flash after the whole batch is applied so geometry is settled. Read all
+     * geometry first (one batched layout), then write all overlays, then a
+     * single timer recycles this frame's divs - the old per-node
+     * getBoundingClientRect + appendChild + setTimeout thrashed layout and
+     * hung the page under heavy scrolling. Colour by kind:
+     *   1 = received (node re-sent, texture cached) = magenta;
+     *   2 = reused (kept node + texture, just re-parented) = green;
+     *   3 = received + texture uploaded this frame (real traffic) = red. */
+    if (flashed) {
+        var rects = [];
+        var drawN = Math.min(flashed.length, FLASH_MAX);
+        for (var fi = 0; fi < drawN; fi++) {
+            var el = flashed[fi];
+            if (el && el.getBoundingClientRect) {
+                var r = el.getBoundingClientRect();
+                if (r.width >= 1 && r.height >= 1)
+                    rects.push({ r: r, kind: el.__flashKind });
+            }
+        }
+        for (var fr = 0; fr < flashed.length; fr++)   /* reset all, incl. uncapped */
+            flashed[fr].__flashKind = 0;
+
+        var batch = [];
+        for (var dw = 0; dw < rects.length; dw++) {
+            var d = rects[dw];
+            var f = getFlashDiv();
+            f.style.left = d.r.left + "px";
+            f.style.top = d.r.top + "px";
+            f.style.width = d.r.width + "px";
+            f.style.height = d.r.height + "px";
+            f.style.background = d.kind === 2 ? "rgba(0,200,0,0.45)"
+                              : d.kind === 3 ? "rgba(255,0,0,0.65)"
+                              : "rgba(255,0,200,0.5)";
+            f.style.display = "block";
+            batch.push(f);
+        }
+        if (batch.length)
+            setTimeout(function () {
+                for (var k = 0; k < batch.length; k++) {
+                    batch[k].style.display = "none";
+                    flashPool.push(batch[k]);
+                }
+            }, FLASH_MS);
     }
 }
 
@@ -1187,6 +1314,7 @@ function handleCommands(cmd, display_commands, new_textures, modified_trees)
 {
     var res = true;
     var need_restack = false;
+    textureBatch++;   /* textures uploaded in this message are "fresh" (real traffic) */
 
     while (res && cmd.pos < cmd.length) {
         var id, x, y, w, h, q, surface;
@@ -1201,7 +1329,14 @@ function handleCommands(cmd, display_commands, new_textures, modified_trees)
             break;
 
         case BROADWAY_OP_PONG:
-            /* handleMessage already bumped lastPongTime. */
+            /* handleMessage already bumped lastPongTime. Measure the round-trip so
+             * the next PING reports it to the daemon's debug menu. */
+            if (pingSentTime)
+                lastRtt = Date.now() - pingSentTime;
+            break;
+
+        case BROADWAY_OP_DEBUG_FLASH:
+            paintFlashing = cmd.get_uint8() != 0;
             break;
 
         case BROADWAY_OP_DISCONNECTED:
@@ -1444,7 +1579,11 @@ function handleOutstandingDisplayCommands()
     if (outstandingDisplayCommands) {
         window.requestAnimationFrame(
             function () {
-                handleDisplayCommands(outstandingDisplayCommands);
+                try {
+                    handleDisplayCommands(outstandingDisplayCommands);
+                } catch (e) {
+                    console.warn("broadway: handleDisplayCommands failed:", e);
+                }
                 outstandingDisplayCommands = null;
 
                 /* First repaint after a resume: drop the dim+spinner overlay. */
@@ -3348,6 +3487,8 @@ function ignoreKeyEvent(ev) {
 function handleKeyDown(e) {
     var fev = null, ev = (e ? e : window.event), keysym = null, suppress = false;
 
+    noteShiftTaps(ev);
+
     fev = copyKeyEvent(ev);
 
     keysym = getKeysymSpecial(ev);
@@ -3562,6 +3703,7 @@ function onTouchStart(ev) {
     if (activeTouchCount() >= 2) {
         if (!pinchActive)
             beginPinch();
+        armHoldMenu();   /* (re)start the two-finger press-and-hold timer */
         return;
     }
     /* A finger left over from a just-ended pinch is never forwarded, so it can't
@@ -3633,6 +3775,7 @@ function onTouchMove(ev) {
             zoomFactor = clampZoom(pinchStartZoom * (dist / pinchStartDist));
             applyPinchPreview();
         }
+        holdMenuCheckDrift();   /* finger movement = real pinch/pan, abort hold */
         return;
     }
     if (suppressTouchForward)
@@ -3671,6 +3814,10 @@ function onTouchEnd(ev) {
         var t = ev.changedTouches.item(i);
         delete activeTouches[t.identifier];
     }
+
+    /* A lifted finger breaks the two-finger hold. */
+    if (activeTouchCount() < 2)
+        cancelHoldMenu();
 
     if (pinchActive) {
         if (activeTouchCount() < 2)
@@ -3712,6 +3859,88 @@ function onTouchEnd(ev) {
 
         sendInput (BROADWAY_EVENT_TOUCH, [touchType, id, touch.identifier, isEmulated, pos.rootX, pos.rootY, pos.winX, pos.winY, lastState]);
     }
+}
+
+/* ---- Debug menu summon triggers ----------------------------------------
+ * Two ways to summon the debug menu, both chosen to be inert to any GTK app and
+ * safe in any browser:
+ *   - keyboard: triple-tap Shift (nothing else between the taps)
+ *   - touch:    two-finger press-and-hold for HOLD_MENU_MS
+ * Neither costs input latency. A bare Shift is a no-op modifier, so we observe
+ * the taps while still forwarding each Shift to GTK as usual. On this backend
+ * 2+ fingers already drive pinch-zoom client-side and are never forwarded to
+ * GTK, so the hold layers onto the existing pinch path: real pinches/pans move
+ * the fingers and trip the slop check (aborting the hold), while single-finger
+ * drags never reach here at all.
+ *
+ * onSummonMenu() is the single fire point: it sends BROADWAY_EVENT_MENU to the
+ * daemon, which spawns (or toggles) a native GTK4 menu window on demand. The
+ * menu is purely server-side - it composites into the same display, so any
+ * connected browser (desktop or mobile) sees it. */
+
+var SHIFT_TAP_MS = 600;        /* max gap between Shift taps */
+var shiftTapCount = 0;
+var shiftLastTap = 0;
+
+/* Observer only - does not consume the Shift, so no latency and no swallowed
+ * modifier. Any non-Shift key, or auto-repeat from a held Shift, breaks the run. */
+function noteShiftTaps(ev) {
+    if (ev.keyCode !== 16) { shiftTapCount = 0; return; }   /* 16 = Shift (L/R) */
+    if (ev.repeat) return;                                  /* ignore held-key repeat */
+    var now = Date.now();
+    shiftTapCount = (now - shiftLastTap <= SHIFT_TAP_MS) ? shiftTapCount + 1 : 1;
+    shiftLastTap = now;
+    if (shiftTapCount >= 3) {
+        shiftTapCount = 0;
+        onSummonMenu();
+    }
+}
+
+var HOLD_MENU_MS = 2500;       /* "several seconds" of stillness to summon */
+var HOLD_MENU_SLOP = 16;       /* px a finger may drift before it counts as a gesture */
+var holdMenuTimer = null;
+var holdMenuAnchors = null;    /* {identifier: {x,y}} captured when the hold armed */
+
+/* Armed when a second finger lands (alongside beginPinch). We never withhold the
+ * fingers from the pinch path, so the common pinch/pan case is unchanged. */
+function armHoldMenu() {
+    cancelHoldMenu();
+    holdMenuAnchors = {};
+    for (var id in activeTouches)
+        holdMenuAnchors[id] = { x: activeTouches[id].x, y: activeTouches[id].y };
+    holdMenuTimer = setTimeout(function () {
+        holdMenuTimer = null;
+        holdMenuAnchors = null;
+        onSummonMenu();
+    }, HOLD_MENU_MS);
+}
+
+function cancelHoldMenu() {
+    if (holdMenuTimer) {
+        clearTimeout(holdMenuTimer);
+        holdMenuTimer = null;
+    }
+    holdMenuAnchors = null;
+}
+
+/* Any finger drifting past the slop means a real pinch/pan, not a hold: abort. */
+function holdMenuCheckDrift() {
+    if (!holdMenuAnchors)
+        return;
+    for (var id in activeTouches) {
+        var a = holdMenuAnchors[id];
+        if (!a) { cancelHoldMenu(); return; }   /* finger set changed */
+        var dx = activeTouches[id].x - a.x;
+        var dy = activeTouches[id].y - a.y;
+        if (dx * dx + dy * dy > HOLD_MENU_SLOP * HOLD_MENU_SLOP) {
+            cancelHoldMenu();
+            return;
+        }
+    }
+}
+
+function onSummonMenu() {
+    sendInput(BROADWAY_EVENT_MENU, []);
 }
 
 /* Heuristic for phones/tablets, where focusing an offscreen input summons the
@@ -4075,8 +4304,10 @@ function heartbeatTick()
         handleConnectionLost();
         return;
     }
-    if (!reconnecting)
-        sendInput(BROADWAY_EVENT_PING, []);
+    if (!reconnecting) {
+        pingSentTime = Date.now();
+        sendInput(BROADWAY_EVENT_PING, [lastRtt]);
+    }
 }
 
 function connect()
