@@ -658,7 +658,8 @@ broadway_output_surface_set_nodes (BroadwayOutput *output,
                                    BroadwayNode   *old_root,
                                    GHashTable     *old_node_lookup)
 {
-  gsize size_pos, start, end;
+  gsize header_pos, size_pos, start, end;
+  guint32 saved_serial;
 
 
   if (old_root)
@@ -668,6 +669,9 @@ broadway_output_surface_set_nodes (BroadwayOutput *output,
       /* This will modify children of old_root if any are shared */
       broadway_node_mark_deep_reused (root, TRUE);
     }
+
+  header_pos = output->buf->len;
+  saved_serial = output->serial;
 
   write_header (output, BROADWAY_OP_SET_NODES);
 
@@ -684,6 +688,16 @@ broadway_output_surface_set_nodes (BroadwayOutput *output,
   if (old_root)
     append_node_removes (output, old_root);
   end = output->buf->len;
+
+  /* No ops: the client tree already matches, so drop the empty SET_NODES
+   * rather than send a no-op. Roll the serial back too. */
+  if (end == start)
+    {
+      g_string_set_size (output->buf, header_pos);
+      output->serial = saved_serial;
+      return;
+    }
+
   patch_uint32 (output, (end - start) / 4, size_pos);
 }
 
