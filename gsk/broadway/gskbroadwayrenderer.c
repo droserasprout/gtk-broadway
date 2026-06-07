@@ -15,6 +15,7 @@ struct _GskBroadwayRenderer
   GskRenderer parent_instance;
   GdkBroadwayDrawContext *draw_context;
   guint32 next_node_id;
+  int last_scale; /* scale of last frame's textures */
 
   /* Set during rendering */
   GArray *nodes;              /* Owned by draw_contex */
@@ -758,39 +759,32 @@ gsk_broadway_renderer_add_node (GskRenderer *renderer,
         GskTransform *transform = gsk_transform_node_get_transform (node);
         GskTransformCategory category = gsk_transform_get_category (transform);
 
+        /* Send only pure translate natively. Scale/rotate/general used to emit a
+         * client-side matrix over a natural-size child, so upscaled vectors
+         * (e.g. 16px icon at 128px) blurred on GPU-less Broadway. Fall through to
+         * the cairo fallback: it rasterizes the subtree at display resolution
+         * (bounds * scale_factor), so it stays crisp. */
+        if (category < GSK_TRANSFORM_CATEGORY_2D_TRANSLATE)
+          break; /* Fallback */
+
         if (add_new_node (renderer, node, BROADWAY_NODE_TRANSFORM, clip_bounds)) {
-          if (category >= GSK_TRANSFORM_CATEGORY_2D_TRANSLATE)
+          float dx, dy;
+          graphene_rect_t child_bounds;
+          graphene_rect_t *child_bounds_p = NULL;
+
+          gsk_transform_to_translate (transform, &dx, &dy);
+          add_uint32 (nodes, 0); // Translate
+          add_xy (nodes, dx, dy, 0, 0);
+
+          if (clip_bounds)
             {
-              float dx, dy;
-              graphene_rect_t child_bounds;
-              graphene_rect_t *child_bounds_p = NULL;
-
-              gsk_transform_to_translate (transform, &dx, &dy);
-              add_uint32 (nodes, 0); // Translate
-              add_xy (nodes, dx, dy, 0, 0);
-
-              if (clip_bounds)
-                {
-                  graphene_rect_offset_r (clip_bounds, -dx, -dy, &child_bounds);
-                  child_bounds_p = &child_bounds;
-                }
-
-              gsk_broadway_renderer_add_node (renderer,
-                                              gsk_transform_node_get_child (node),
-                                              0, 0, child_bounds_p);
+              graphene_rect_offset_r (clip_bounds, -dx, -dy, &child_bounds);
+              child_bounds_p = &child_bounds;
             }
-          else
-            {
-              graphene_matrix_t matrix;
 
-              gsk_transform_to_matrix (transform, &matrix);
-              add_uint32 (nodes, 1); // General transform
-              add_matrix (nodes, &matrix);
-              // We just drop the clip bounds here to make things simpler
-              gsk_broadway_renderer_add_node (renderer,
-                                              gsk_transform_node_get_child (node),
-                                              0, 0, NULL);
-            }
+          gsk_broadway_renderer_add_node (renderer,
+                                          gsk_transform_node_get_child (node),
+                                          0, 0, child_bounds_p);
         }
       }
       return;
@@ -923,6 +917,16 @@ gsk_broadway_renderer_render (GskRenderer          *renderer,
                               const cairo_region_t *update_area)
 {
   GskBroadwayRenderer *self = GSK_BROADWAY_RENDERER (renderer);
+  GdkDisplay *display = gdk_surface_get_display (gsk_renderer_get_surface (renderer));
+  int scale = GDK_BROADWAY_DISPLAY (display)->scale_factor;
+
+  /* Scale changed since last frame, so cached textures are at the old scale.
+   * Drop the reuse cache to re-rasterize the whole tree; else unchanged nodes
+   * (e.g. static labels) stay blurry after a HiDPI switch (browser reports
+   * scale 1, then the real dpr). */
+  if (scale != self->last_scale && self->last_node_lookup)
+    g_hash_table_remove_all (self->last_node_lookup);
+  self->last_scale = scale;
 
   self->node_lookup = g_hash_table_new (g_direct_hash, g_direct_equal);
 
