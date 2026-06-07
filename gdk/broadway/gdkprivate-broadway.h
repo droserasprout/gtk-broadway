@@ -51,6 +51,7 @@ GdkDrag * _gdk_broadway_surface_drag_begin        (GdkSurface          *surface,
                                                    GdkDragAction       actions,
                                                    double              dx,
                                                    double              dy);
+GdkSurface * gdk_broadway_drag_surface_new        (GdkDisplay         *display);
 void     _gdk_broadway_surface_translate          (GdkSurface *surface,
                                                    cairo_region_t *area,
                                                    int        dx,
