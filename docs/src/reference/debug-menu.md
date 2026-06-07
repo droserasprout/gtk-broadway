@@ -1,12 +1,12 @@
 # Debug menu
 
+*New in v2*
+
 A **Triple-Shift** (press Shift three times quickly) summons a server-side debug overlay for the
 Broadway session: live stats, a paint-flash traffic profiler, and session actions. It is a native
 GTK4 window composited into the same display every connected browser sees, not browser chrome.
 
-**Files:** `gdk/broadway/broadway-server.c`, `broadway-protocol.h`, `broadway-output.c/.h`,
-`broadway.js`, `broadwayd.c`, `tools/gtk-broadway-debugmenu.c`. **Deploy:** broadwayd + libgtk +
-the `gtk4-broadway-debugmenu` binary. **Verified:** on the local browser harness (4.22 and 4.14).
+*TODO: add screenshot*
 
 ## How it is wired
 
@@ -46,15 +46,16 @@ upload traffic, coloured by cost:
 
 The daemon sends `BROADWAY_OP_DEBUG_FLASH` (24) to toggle it; the client tags each node as it is
 applied. Overlays are pooled and drawn in one read-then-write pass with a single recycle timer per
-frame - a naive per-node implementation (one `getBoundingClientRect` + `appendChild` + `setTimeout`
-each) thrashed layout and froze the page under heavy scrolling.
+frame. A per-node implementation (one `getBoundingClientRect` + `appendChild` + `setTimeout` each)
+thrashed layout and froze the page under heavy scrolling.
 
 ## Render-loop hardening
 
-Shaken out while profiling: under heavy scrolling the renderer could reference a node or texture the
+Found while profiling: under heavy scrolling the renderer could reference a node or texture the
 browser no longer has (a stale-id desync; the daemon then remaps the texture to id 0). The unguarded
 dereference in `handleDisplayCommands` threw, and because one bad op aborts the whole batch, the DOM
-desynced from the renderer and cascaded into corruption + a frozen render loop until a page refresh.
+desynced from the renderer and cascaded into corruption plus a frozen render loop until a page
+refresh.
 
 Every display-op dereference is now guarded, with a per-command `try/catch` backstop, so a stale id
 degrades to a logged skip and the rest of the batch still applies. The served `client.html` and

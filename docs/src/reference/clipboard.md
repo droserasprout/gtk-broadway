@@ -3,9 +3,6 @@
 Stock Broadway has no clipboard. The fork bridges `GdkClipboard` <-> `gtk4-broadwayd` <-> the
 browser's `navigator.clipboard`, both ways.
 
-**Deploy:** spans `libgtk` (the new `gdkclipboard-broadway.c`, `gdkbroadway-server.c`) and
-broadwayd (`broadwayd.c`, `broadway.js`) - full image rebuild and app restart.
-
 ## Two directions, two mechanisms
 
 A browser accepts clipboard writes freely but hands out its contents only on request, so the two
@@ -28,8 +25,8 @@ The new file `gdkclipboard-broadway.c` implements the GDK side of both paths.
 
 ## Details
 
-- **Per-client request table.** The daemon tracks outstanding paste requests by id, so with
-  several browsers connected a reply reaches the requester and not another tab.
+- **Per-client request table.** The daemon tracks outstanding paste requests by id, so with several
+  browsers connected a reply reaches the requester, not another tab.
 - **5-second read timeout** so a closed tab can't hang a pending paste.
 - **Hidden textarea.** `client.html` carries an offscreen textarea; `broadway.js` captures a native
   paste into it, which hands over clipboard text without a permission prompt. (The offscreen

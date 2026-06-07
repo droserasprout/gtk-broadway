@@ -1,21 +1,20 @@
 # Performance
 
+*New in v2*
+
 Broadway sends rasterized content to the browser as PNG uploads, so the dominant cost is uploading
 the same pixels twice. The [paint-flash profiler](debug-menu.md) made this visible: scrolling or
-hovering a list flashed **red** (real uploads) almost everywhere, because identical content was being
-re-rasterized and re-uploaded. Two tiers of reuse plus a native edge-fade cut that traffic.
-
-**Files:** `gdk/broadway/gdkdisplay-broadway.{c,h}`, `gsk/broadway/gskbroadwayrenderer.c`,
-`gtk/gtknotebook.c`, `gtk/theme/Default/_common.scss`. **Deploy:** libgtk. **Verified:** via the
-debug menu's Traffic / Textures stats and the three-colour flash.
+hovering a list flashed **red** (real uploads) almost everywhere, because identical content was
+re-rasterized and re-uploaded each frame. Two tiers of reuse plus a native edge-fade cut that
+traffic.
 
 ## Tier 1 - content node reuse
 
 `gskbroadwayrenderer.c` already reused nodes by `GskRenderNode` *pointer* identity across frames
 (emitting `BROADWAY_NODE_REUSE`). But widgets like `GtkTreeView` rebuild **all** their cell nodes
-every snapshot, so pointer identity always missed and every cell re-rasterized. Added a second key:
-a content hash (FNV-1a over glyphs/colour/font/bounds/offset) compared against last frame's, so a
-re-snapshotted-but-identical node reuses last frame's id without re-rasterizing.
+every snapshot, so pointer identity always missed and every cell re-rasterized. The fork adds a
+second key: a content hash (FNV-1a over glyphs/colour/font/bounds/offset) compared against last
+frame's, so a re-snapshotted-but-identical node reuses last frame's id without re-rasterizing.
 
 ## Tier 2 - cross-time texture dedup
 

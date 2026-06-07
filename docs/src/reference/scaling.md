@@ -1,12 +1,9 @@
 # Scaling & HiDPI
 
 Icons (and anything under a scale or rotate transform) rendered blurry on HiDPI displays and under
-the fork's [pinch-zoom](zoom.md). The Broadway GSK renderer was applying those transforms as a
+the fork's [pinch-zoom](zoom.md). The Broadway GSK renderer applied those transforms as a
 client-side matrix on an already-rasterized texture, so the bitmap was scaled up rather than
 re-rasterized at the target resolution.
-
-**Files:** `gsk/broadway/gskbroadwayrenderer.c`, `gdk/broadway/gdkdisplay-broadway.c`.
-**Deploy:** libgtk. **Status:** merged (PR #7).
 
 ## Fix
 

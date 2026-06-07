@@ -4,9 +4,7 @@ Two-finger pinch zooms the whole UI (0.25x-5x) with a real re-layout and re-rend
 desktop Firefox's Ctrl+scroll page-zoom. Mobile browsers refuse to page-zoom a `user-scalable=no`
 page, so the fork drives it manually.
 
-**Files:** `gdk/broadway/broadway.js`, `gdk/broadway/client.html` (+ the `case 3 ->
-GDK_TOUCH_CANCEL` mapping in `gdkeventsource.c`, already shipped). **Deploy:** broadwayd-only.
-**Status:** verified on mobile Firefox.
+*TODO: add screenshot*
 
 ## Reflow, not the native scale
 
@@ -33,9 +31,9 @@ covering mouse, wheel, and touch. Grab/ungrab and `REASSERT_POINTER` already use
 ## Live preview, then crisp reflow
 
 During the pinch only the wrapper transform updates live (briefly soft); the reported size/scale -
-the GTK reflow - is committed once on touch-end (`endPinch`). `applyPinchPreview` makes the live
+the GTK reflow - commits once on touch-end (`endPinch`). `applyPinchPreview` makes the live
 transform `translate(t) scale(Z)` pin the layout point under the pinch-start midpoint to the current
-midpoint, so the magnified view follows the fingers instead of anchoring top-left; `endPinch` resets
+midpoint, so the magnified view follows the fingers instead of anchoring top-left. `endPinch` resets
 to a plain `scale(Z)` as the reflow fills the viewport.
 
 ## No tap-leak on pinch

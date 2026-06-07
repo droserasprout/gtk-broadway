@@ -51,8 +51,7 @@ Two GTK bases are maintained in parallel (**4.14.5** and **4.22.2**), each built
 
 - **User Guide** - which version to pick, installing the `.deb`, serving an app with `broadwayd`.
 - **Feature Reference** - [architecture](reference/architecture.md),
-  [wire protocol](reference/protocol.md), [changed-files map](reference/files.md), and a chapter
-  per subsystem.
+  [wire protocol](reference/protocol.md), and a chapter per subsystem.
 - **Building & Releasing** - the Meson config, the CI `.deb` build, and the release flow.
 
 > Both bases carry the same feature set (the 4.22 work is ported to 4.14). Chapters are

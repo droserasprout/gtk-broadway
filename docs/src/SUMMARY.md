@@ -13,7 +13,6 @@
 
 - [Architecture](reference/architecture.md)
 - [Wire protocol](reference/protocol.md)
-- [Changed files](reference/files.md)
 - [Clipboard](reference/clipboard.md)
 - [Touch interface](reference/touch.md)
 - [Connection management](reference/connection.md)

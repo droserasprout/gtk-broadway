@@ -14,6 +14,8 @@ being `GDK_SOURCE_TOUCHSCREEN` (`gtktext.c`, `gtktextview.c`, `gtklabel`). Stock
 the gate never opened. The fix emits touch events from Broadway's existing-but-unused `touchscreen`
 device. *(libgtk.)* The cursor and handles now appear; most other fixes build on this.
 
+*TODO: add screenshot*
+
 ## Reliable taps
 
 - **`preventDefault()` was a no-op.** Touch listeners on `document` are passive by default in

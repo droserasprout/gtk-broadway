@@ -53,4 +53,3 @@ This split drives deployment:
   the app.
 
 The `.deb` ships both the patched `libgtk-4.so` and `gtk4-broadwayd`, so a release covers both.
-[Changed files](files.md) breaks this down per file.
