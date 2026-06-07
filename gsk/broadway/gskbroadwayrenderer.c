@@ -26,7 +26,6 @@
 #include "gskrendernodeprivate.h"
 #include "gskshadownode.h"
 #include "gsksubsurfacenode.h"
-#include "gsktextnode.h"
 #include "gsktransformnode.h"
 #include "gsktexturenode.h"
 #include "gdk/gdkcolorstateprivate.h"
@@ -54,12 +53,6 @@ struct _GskBroadwayRenderer
   /* Kept from last frame */
   GHashTable *last_node_lookup;
   GskRenderNode *last_root; /* Owning refs to the things in last_node_lookup */
-
-  /* Content-based reuse for text runs: a hash of (glyphs+font+color+position)
-   * -> broadway node id. Lets a re-snapshotted-but-unchanged GtkTreeView cell
-   * reuse last frame's node + texture instead of re-rasterizing on hover. */
-  GHashTable *content_lookup;
-  GHashTable *last_content_lookup;
 };
 
 struct _GskBroadwayRendererClass
@@ -411,135 +404,15 @@ node_type_is_container (BroadwayNodeType type)
     type == BROADWAY_NODE_CONTAINER;
 }
 
-/* FNV-1a 64 hash of a text run's pixel-affecting content plus its absolute
- * position. Position is in the hash on purpose: two cells with identical text,
- * or a scrolled-away run, must not false-match - this targets the hover case,
- * where nothing moves. Returns non-zero (0 is the "no content reuse" sentinel).
- * The font is hashed by pointer (GTK's font cache keeps it stable across
- * frames); if it ever isn't, content reuse simply won't trigger. */
-static guint64
-broadway_text_node_hash (GskRenderNode *node, float offset_x, float offset_y)
-{
-  guint n_glyphs = 0;
-  const PangoGlyphInfo *glyphs = gsk_text_node_get_glyphs (node, &n_glyphs);
-  PangoFont *font = gsk_text_node_get_font (node);
-  const GdkRGBA *color = gsk_text_node_get_color (node);
-  const graphene_point_t *off = gsk_text_node_get_offset (node);
-  guint64 h = 1469598103934665603ULL;
-  guint i;
-
-#define MIX(ptr, len) G_STMT_START {                                    \
-    const unsigned char *_b = (const unsigned char *) (ptr);            \
-    gsize _n = (len), _i;                                               \
-    for (_i = 0; _i < _n; _i++) { h ^= _b[_i]; h *= 1099511628211ULL; } \
-  } G_STMT_END
-
-  MIX (&font, sizeof font);
-  MIX (color, sizeof *color);
-  MIX (off, sizeof *off);
-  MIX (&node->bounds, sizeof node->bounds);
-  MIX (&offset_x, sizeof offset_x);
-  MIX (&offset_y, sizeof offset_y);
-  for (i = 0; i < n_glyphs; i++)
-    {
-      MIX (&glyphs[i].glyph, sizeof glyphs[i].glyph);
-      MIX (&glyphs[i].geometry, sizeof glyphs[i].geometry);
-    }
-#undef MIX
-
-  return h ? h : 1;
-}
-
-/* Same idea for an immutable texture (cached icon / treeview expander arrow):
- * a re-snapshotted node at the same spot (hover) reuses its node + texture
- * instead of re-sending. Textures are immutable so the pointer identifies the
- * pixels; position is hashed so the same icon elsewhere won't false-match. */
-static guint64
-broadway_texture_node_hash (GdkTexture *texture, GskRenderNode *node,
-                            float offset_x, float offset_y)
-{
-  guint64 h = 1469598103934665603ULL;
-
-#define MIX(ptr, len) G_STMT_START {                                    \
-    const unsigned char *_b = (const unsigned char *) (ptr);            \
-    gsize _n = (len), _i;                                               \
-    for (_i = 0; _i < _n; _i++) { h ^= _b[_i]; h *= 1099511628211ULL; } \
-  } G_STMT_END
-
-  MIX (&texture, sizeof texture);
-  MIX (&node->bounds, sizeof node->bounds);
-  MIX (&offset_x, sizeof offset_x);
-  MIX (&offset_y, sizeof offset_y);
-#undef MIX
-
-  return h ? h : 1;
-}
-
-/* Recolored symbolic icon (treeview expander arrow, etc.): the colorized result
- * is fully determined by (source texture, color matrix + offset); position by
- * the child's bounds. Reuses the node on hover instead of re-sending it. */
-static guint64
-broadway_colorized_node_hash (GdkTexture *texture,
-                              const graphene_matrix_t *color_matrix,
-                              const graphene_vec4_t *color_offset,
-                              GskRenderNode *child, float offset_x, float offset_y)
-{
-  guint64 h = 1469598103934665603ULL;
-
-#define MIX(ptr, len) G_STMT_START {                                    \
-    const unsigned char *_b = (const unsigned char *) (ptr);            \
-    gsize _n = (len), _i;                                               \
-    for (_i = 0; _i < _n; _i++) { h ^= _b[_i]; h *= 1099511628211ULL; } \
-  } G_STMT_END
-
-  MIX (&texture, sizeof texture);
-  MIX (color_matrix, sizeof *color_matrix);
-  MIX (color_offset, sizeof *color_offset);
-  MIX (&child->bounds, sizeof child->bounds);
-  MIX (&offset_x, sizeof offset_x);
-  MIX (&offset_y, sizeof offset_y);
-#undef MIX
-
-  return h ? h : 1;
-}
-
-/* Solid color rect (row/cell backgrounds, selection, grid lines). Cheap to send
- * but there are hundreds, and they re-emit on every re-snapshot; reuse the node
- * on hover. Determined by color + position. */
-static guint64
-broadway_color_node_hash (const GdkRGBA *color, GskRenderNode *node,
-                          float offset_x, float offset_y)
-{
-  guint64 h = 1469598103934665603ULL;
-
-#define MIX(ptr, len) G_STMT_START {                                    \
-    const unsigned char *_b = (const unsigned char *) (ptr);            \
-    gsize _n = (len), _i;                                               \
-    for (_i = 0; _i < _n; _i++) { h ^= _b[_i]; h *= 1099511628211ULL; } \
-  } G_STMT_END
-
-  MIX (color, sizeof *color);
-  MIX (&node->bounds, sizeof node->bounds);
-  MIX (&offset_x, sizeof offset_x);
-  MIX (&offset_y, sizeof offset_y);
-#undef MIX
-
-  return h ? h : 1;
-}
-
-#define CONTENT_KEY(h) GSIZE_TO_POINTER ((gsize) (h))
-
 static gboolean
-add_new_node_full (GskRenderer *renderer,
-                   GskRenderNode *node,
-                   BroadwayNodeType type,
-                   graphene_rect_t *clip_bounds,
-                   guint64 content_hash)
+add_new_node (GskRenderer *renderer,
+              GskRenderNode *node,
+              BroadwayNodeType type,
+              graphene_rect_t *clip_bounds)
 {
   GskBroadwayRenderer *self = GSK_BROADWAY_RENDERER (renderer);
   guint32 id, old_id;
 
-  /* Same node object as last frame (GTK kept the object). */
   if (self->last_node_lookup &&
       (old_id = GPOINTER_TO_INT (g_hash_table_lookup (self->last_node_lookup, node))) != 0)
     {
@@ -548,24 +421,6 @@ add_new_node_full (GskRenderer *renderer,
 
       g_hash_table_insert (self->node_lookup, node, GINT_TO_POINTER(old_id));
       collect_reused_child_nodes (renderer, node);
-
-      return FALSE;
-    }
-
-  /* Fresh object, but identical content+position to a last-frame run (e.g. a
-   * re-snapshotted GtkTreeView cell on hover). Reuse that node + its texture
-   * instead of re-rasterizing. Consume the entry so a duplicate can't claim the
-   * same id (positions are unique within a frame, so this is belt-and-braces). */
-  if (content_hash != 0 && self->last_content_lookup &&
-      (old_id = GPOINTER_TO_INT (g_hash_table_lookup (self->last_content_lookup,
-                                                      CONTENT_KEY (content_hash)))) != 0)
-    {
-      add_uint32 (self->nodes, BROADWAY_NODE_REUSE);
-      add_uint32 (self->nodes, old_id);
-
-      g_hash_table_insert (self->node_lookup, node, GINT_TO_POINTER(old_id));
-      g_hash_table_insert (self->content_lookup, CONTENT_KEY (content_hash), GINT_TO_POINTER(old_id));
-      g_hash_table_remove (self->last_content_lookup, CONTENT_KEY (content_hash));
 
       return FALSE;
     }
@@ -587,22 +442,10 @@ add_new_node_full (GskRenderer *renderer,
       node_is_fully_visible (node, clip_bounds))
     g_hash_table_insert (self->node_lookup, node, GINT_TO_POINTER(id));
 
-  if (content_hash != 0)
-    g_hash_table_insert (self->content_lookup, CONTENT_KEY (content_hash), GINT_TO_POINTER(id));
-
   add_uint32 (self->nodes, type);
   add_uint32 (self->nodes, id);
 
   return TRUE;
-}
-
-static gboolean
-add_new_node (GskRenderer *renderer,
-              GskRenderNode *node,
-              BroadwayNodeType type,
-              graphene_rect_t *clip_bounds)
-{
-  return add_new_node_full (renderer, node, type, clip_bounds, 0);
 }
 
 typedef struct ColorizedTexture {
@@ -778,22 +621,18 @@ gsk_broadway_renderer_add_node (GskRenderer *renderer,
     /* Leaf nodes */
 
     case GSK_TEXTURE_NODE:
-      {
-        GdkTexture *texture = gsk_texture_node_get_texture (node);
+      if (add_new_node (renderer, node, BROADWAY_NODE_TEXTURE, clip_bounds))
+        {
+          GdkTexture *texture = gsk_texture_node_get_texture (node);
+          guint32 texture_id;
 
-        if (add_new_node_full (renderer, node, BROADWAY_NODE_TEXTURE, clip_bounds,
-                               broadway_texture_node_hash (texture, node, offset_x, offset_y)))
-          {
-            guint32 texture_id;
+          /* No need to add to self->node_textures here, the node will keep it alive until end of frame. */
 
-            /* No need to add to self->node_textures here, the node will keep it alive until end of frame. */
+          texture_id = gdk_broadway_display_ensure_texture (display, texture);
 
-            texture_id = gdk_broadway_display_ensure_texture (display, texture);
-
-            add_rect (nodes, &node->bounds, offset_x, offset_y);
-            add_uint32 (nodes, texture_id);
-          }
-      }
+          add_rect (nodes, &node->bounds, offset_x, offset_y);
+          add_uint32 (nodes, texture_id);
+        }
       return;
 
     case GSK_CAIRO_NODE:
@@ -833,16 +672,11 @@ gsk_broadway_renderer_add_node (GskRenderer *renderer,
       return;
 
     case GSK_COLOR_NODE:
-      {
-        const GdkRGBA *color = gsk_color_node_get_color (node);
-
-        if (add_new_node_full (renderer, node, BROADWAY_NODE_COLOR, clip_bounds,
-                               broadway_color_node_hash (color, node, offset_x, offset_y)))
-          {
-            add_rect (nodes, &node->bounds, offset_x, offset_y);
-            add_rgba (nodes, color);
-          }
-      }
+      if (add_new_node (renderer, node, BROADWAY_NODE_COLOR, clip_bounds))
+        {
+          add_rect (nodes, &node->bounds, offset_x, offset_y);
+          add_rgba (nodes, gsk_color_node_get_color (node));
+        }
       return;
 
     case GSK_BORDER_NODE:
@@ -1050,11 +884,9 @@ gsk_broadway_renderer_add_node (GskRenderer *renderer,
             const graphene_matrix_t *color_matrix = gsk_color_matrix_node_get_color_matrix (node);
             const graphene_vec4_t *color_offset = gsk_color_matrix_node_get_color_offset (node);
             GdkTexture *texture = gsk_texture_node_get_texture (child);
-            guint64 chash = broadway_colorized_node_hash (texture, color_matrix, color_offset,
-                                                          child, offset_x, offset_y);
-            if (add_new_node_full (renderer, node, BROADWAY_NODE_TEXTURE, clip_bounds, chash))
+            GdkTexture *colorized_texture = get_colorized_texture (texture, color_matrix, color_offset);
+            if (add_new_node (renderer, node, BROADWAY_NODE_TEXTURE, clip_bounds))
               {
-                GdkTexture *colorized_texture = get_colorized_texture (texture, color_matrix, color_offset);
                 guint32 texture_id = gdk_broadway_display_ensure_texture (display, colorized_texture);
                 add_rect (nodes, &child->bounds, offset_x, offset_y);
                 add_uint32 (nodes, texture_id);
@@ -1090,14 +922,7 @@ gsk_broadway_renderer_add_node (GskRenderer *renderer,
       break; /* Fallback */
     }
 
-  /* Text runs (and only text) get content-based reuse: GtkTreeView rebuilds
-   * its cells' text nodes as fresh objects every snapshot, so pointer reuse
-   * always misses and every glyph re-rasterizes on hover. */
-  {
-  guint64 content_hash = gsk_render_node_get_node_type (node) == GSK_TEXT_NODE
-                         ? broadway_text_node_hash (node, offset_x, offset_y) : 0;
-
-  if (add_new_node_full (renderer, node, BROADWAY_NODE_TEXTURE, clip_bounds, content_hash))
+  if (add_new_node (renderer, node, BROADWAY_NODE_TEXTURE, clip_bounds))
     {
       GdkTexture *texture;
       cairo_surface_t *surface;
@@ -1135,7 +960,6 @@ gsk_broadway_renderer_add_node (GskRenderer *renderer,
 
       cairo_surface_destroy (surface);
     }
-  }
 }
 
 static void
@@ -1152,15 +976,10 @@ gsk_broadway_renderer_render (GskRenderer          *renderer,
    * (e.g. static labels) stay blurry after a HiDPI switch (browser reports
    * scale 1, then the real dpr). */
   if (scale != self->last_scale && self->last_node_lookup)
-    {
-      g_hash_table_remove_all (self->last_node_lookup);
-      if (self->last_content_lookup)
-        g_hash_table_remove_all (self->last_content_lookup);
-    }
+    g_hash_table_remove_all (self->last_node_lookup);
   self->last_scale = scale;
 
   self->node_lookup = g_hash_table_new (g_direct_hash, g_direct_equal);
-  self->content_lookup = g_hash_table_new (g_direct_hash, g_direct_equal);
 
   gdk_draw_context_begin_frame_full (GDK_DRAW_CONTEXT (self->draw_context), NULL, GDK_MEMORY_U8, update_area, NULL);
 
@@ -1181,11 +1000,6 @@ gsk_broadway_renderer_render (GskRenderer          *renderer,
   self->last_node_lookup = self->node_lookup;
   self->node_lookup = NULL;
 
-  if (self->last_content_lookup)
-    g_hash_table_unref (self->last_content_lookup);
-  self->last_content_lookup = self->content_lookup;
-  self->content_lookup = NULL;
-
   if (self->last_root)
     gsk_render_node_unref (self->last_root);
   self->last_root = gsk_render_node_ref (root);
@@ -1197,8 +1011,6 @@ gsk_broadway_renderer_render (GskRenderer          *renderer,
        * without risk of any old nodes sticking around and conflicting. */
 
       g_hash_table_remove_all (self->last_node_lookup);
-      if (self->last_content_lookup)
-        g_hash_table_remove_all (self->last_content_lookup);
       self->next_node_id = 0;
     }
 }
