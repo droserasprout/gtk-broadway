@@ -2815,7 +2815,16 @@ gtk_tree_view_click_gesture_pressed (GtkGestureClick *gesture,
 
   if (node == NULL)
     {
-      /* We clicked in dead space */
+      /* Dead space below the last row. A plain primary press drops the
+       * selection: empty-space clicks clear it, and a rubber-band started
+       * here then replaces rather than extends. Modifiers/other buttons keep it. */
+      gboolean modify, extend;
+
+      get_current_selection_modifiers (GTK_EVENT_CONTROLLER (gesture), &modify, &extend);
+      if (button == GDK_BUTTON_PRIMARY && !modify && !extend &&
+          gtk_tree_selection_get_mode (priv->selection) == GTK_SELECTION_MULTIPLE)
+        gtk_tree_selection_unselect_all (priv->selection);
+
       grab_focus_and_unset_draw_keyfocus (tree_view);
       return;
     }
