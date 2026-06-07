@@ -1,0 +1,16 @@
+[book]
+title = "GTK Broadway fork"
+description = "Bidirectional clipboard + touch/Android support for GTK's Broadway backend"
+authors = ["Lev Gorodetskii"]
+language = "en"
+src = "src"
+
+[output.html]
+default-theme = "navy"
+preferred-dark-theme = "navy"
+git-repository-url = "https://github.com/droserasprout/gtk-broadway"
+edit-url-template = "https://github.com/droserasprout/gtk-broadway/edit/ci/docs/{path}"
+
+[output.html.fold]
+enable = true
+level = 1
