@@ -134,13 +134,26 @@ on_control_readable (GSocket *sock, GIOCondition cond, gpointer user_data)
       if (sscanf (p, "stats %x %" G_GUINT64_FORMAT " %lf %u %d %u %" G_GUINT64_FORMAT,
                   &sid, &bytes, &fps, &latency, &flash, &tex_count, &tex_bytes) == 7)
         {
+          /* Traffic rate from the byte delta since the last push (the daemon
+           * sends cumulative bytes ~every 500ms). */
+          static guint64 prev_bytes = 0;
+          static gint64 prev_time = 0;
+          gint64 now = g_get_monotonic_time ();
+          double rate = (prev_time != 0 && now > prev_time)
+                          ? (double) (bytes - prev_bytes) * G_USEC_PER_SEC / (now - prev_time)
+                          : 0;
           char *traffic = format_bytes (bytes);
+          char *rate_s = format_bytes ((guint64) rate);
           char *texbuf = format_bytes (tex_bytes);
           char *s = g_strdup_printf ("Session: %08x", sid);
-          char *t = g_strdup_printf ("Traffic: %s", traffic);
-          char *f = g_strdup_printf ("Framerate: %.1f fps", fps);
+          char *t = g_strdup_printf ("Traffic: %s (%s/s)", traffic, rate_s);
+          /* "fps" here is non-empty flushes per second, i.e. pushes to the browser. */
+          char *f = g_strdup_printf ("Pushes: %.1f/s", fps);
           char *l = g_strdup_printf ("Latency: %u ms", latency);
           char *x = g_strdup_printf ("Textures: %u (%s)", tex_count, texbuf);
+
+          prev_bytes = bytes;
+          prev_time = now;
 
           gtk_label_set_text (GTK_LABEL (session_label), s);
           gtk_label_set_text (GTK_LABEL (traffic_label), t);
@@ -161,6 +174,7 @@ on_control_readable (GSocket *sock, GIOCondition cond, gpointer user_data)
             }
 
           g_free (traffic);
+          g_free (rate_s);
           g_free (texbuf);
           g_free (s);
           g_free (t);
@@ -273,8 +287,8 @@ main (void)
   /* Performance: live stats from the daemon's control channel. */
   perf = add_section (box, "Performance");
   session_label = left_label ("Session: --------");
-  traffic_label = left_label ("Traffic: --");
-  fps_label = left_label ("Framerate: -- fps");
+  traffic_label = left_label ("Traffic: -- (--/s)");
+  fps_label = left_label ("Pushes: --/s");
   latency_label = left_label ("Latency: -- ms");
   textures_label = left_label ("Textures: -- (--)");
   gtk_box_append (GTK_BOX (perf), session_label);

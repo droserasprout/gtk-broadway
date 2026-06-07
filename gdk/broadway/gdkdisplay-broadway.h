@@ -57,7 +57,14 @@ struct _GdkBroadwayDisplay
   int scale_factor;
   gboolean fixed_scale;
 
-  GHashTable *texture_cache;
+  /* Cross-time content cache: dedups texture *pixels* across GdkTexture object
+   * lifetimes. On scroll/hover the source GdkTexture is freed and a fresh one
+   * with identical pixels is made next frame, so object-identity dedup misses.
+   * This keeps the browser-side texture id alive until LRU eviction so the
+   * identical pixels are not re-uploaded. */
+  GHashTable *content_texture_cache; /* ContentKey* -> ContentCacheEntry* */
+  GQueue      content_texture_lru;   /* MRU head, LRU tail; node->data == entry */
+  gsize       content_texture_count;
 
   guint idle_flush_id;
 };
