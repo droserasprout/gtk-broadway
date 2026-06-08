@@ -9,7 +9,8 @@ platform / protocol capabilities the fork does **not** change, so the two Broadw
 there: Broadway is a browser-tunneled backend with no window manager, no desktop session, and no
 GPU, so most of them never apply.
 
-Legend: **🟢** full support, **🟡** partial/workaround/caveats, **🔴** not supported.
+Legend: **🟢** full support, **🟡** partial/workaround/caveats, **🔴** not supported, **⚪** not
+applicable.
 
 | Feature | Wayland | X11 | Win32 | macOS | Broadway (stock) | Broadway (fork) |
 |---------|:---:|:---:|:---:|:---:|:---:|:---:|
@@ -38,11 +39,11 @@ Legend: **🟢** full support, **🟡** partial/workaround/caveats, **🔴** not
 | Presentation-time / vsync feedback | 🟢 | 🟡 | 🟡 | 🟡 | 🔴 | 🔴 |
 | **Scaling & monitors** | | | | | | |
 | HiDPI integer scaling | 🟢 | 🟢 | 🟢 | 🟢 | 🟡 | 🟢 [^hidpi] |
-| Fractional scaling | 🟢 [^frac] | 🔴 | 🔴 | 🟢 [^frac] | 🔴 | 🔴 |
+| Fractional scaling | 🟢 [^frac] | 🔴 | 🔴 | 🟢 [^frac] | 🔴 | 🔴 [^forkfrac] |
 | Multiple monitors | 🟢 | 🟢 | 🟢 | 🟢 | 🟡 | 🟡 |
 | **Windowing** | | | | | | |
 | Client-side decorations | 🟢 | 🟢 | 🟢 | 🟢 | 🟢 | 🟢 |
-| Server-side decorations | 🟢 | 🔴 | 🟢 | 🟢 | n/a | n/a [^deco] |
+| Server-side decorations | 🟢 | 🔴 | 🟢 | 🟢 | ⚪ | ⚪ [^deco] |
 | Multiple top-level windows | 🟢 | 🟢 | 🟢 | 🟢 | 🟢 | 🟢 |
 | Window transparency / RGBA | 🟢 | 🟢 | 🟢 | 🟢 | 🟢 | 🟢 |
 | Keep-above / keep-below stacking | 🔴 | 🟢 | 🟢 | 🔴 | 🔴 | 🔴 |
@@ -112,6 +113,12 @@ windowing and platform-integration row is untouched by the fork.
     `devicePixelRatio` sharpening, no resize. See [Scaling & HiDPI](scaling.md).
 
 [^frac]: Via `fractional-scale-v1` on Wayland and the native backing scale on macOS.
+
+[^forkfrac]: The fork's pinch-zoom reaches arbitrary 0.25x-5x magnification, but not through a
+    fractional surface scale: the GDK scale factor stays integer (`round(devicePixelRatio * Z)`).
+    Zoom is achieved by reporting a smaller/larger *logical* screen size (so GTK reflows) plus a
+    CSS transform on the wrapper, so GTK itself never renders at a fractional `scale`. Different
+    mechanism, same visual result. See [Pinch to zoom](zoom.md).
 
 [^deco]: Broadway runs inside a browser tab; the browser window chromes it, so SSD/CSD is not
     meaningful in the usual sense.

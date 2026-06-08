@@ -4,19 +4,9 @@
 
 A **Triple-Shift** (press Shift three times quickly) summons a server-side debug overlay for the
 Broadway session: live stats, a paint-flash traffic profiler, and session actions. This is a native
-GTK4 window composited into the same display every connected browser sees, not browser chrome.
+GTK4 window composited into the same display main app use.
 
 *TODO: add screenshot*
-
-## How it is wired
-
-Triple-Shift in `broadway.js` sends `BROADWAY_EVENT_MENU` (17). `broadwayd` intercepts it and
-`spawn`s `gtk4-broadway-debugmenu` with `GDK_BACKEND`/`BROADWAY_DISPLAY` pointed at itself, so the
-window renders into the same display and is pinned always-on-top via server-side stacking.
-
-The daemon hands the child one end of a control socketpair through the `BROADWAY_DEBUGMENU_FD` env
-var. Over it the daemon pushes a `stats <session> <bytes> <fps> <latency> <flash> <tex_count> <tex_bytes>`
-line every ~500 ms and reads back newline-terminated commands.
 
 ## Performance section
 
@@ -50,15 +40,12 @@ applied. Overlays are pooled and drawn in one read-then-write pass with a single
 frame. An earlier per-node implementation (one `getBoundingClientRect` + `appendChild` + `setTimeout`
 each) thrashed layout and froze the page under heavy scrolling.
 
-## Render-loop hardening
+## How it is wired
 
-Found while profiling: under heavy scrolling the renderer could reference a node or texture the
-browser no longer has. That is a stale-id desync, after which the daemon remaps the texture to id 0.
-The unguarded dereference in `handleDisplayCommands` threw, and since one bad op aborts the whole
-batch, the DOM desynced from the renderer and cascaded into corruption plus a frozen render loop
-until a page refresh.
+Triple-Shift in `broadway.js` sends `BROADWAY_EVENT_MENU` (17). `broadwayd` intercepts it and
+`spawn`s `gtk4-broadway-debugmenu` with `GDK_BACKEND`/`BROADWAY_DISPLAY` pointed at itself, so the
+window renders into the same display and is pinned always-on-top via server-side stacking.
 
-Every display-op dereference is now guarded, with a per-command `try/catch` backstop, so a stale id
-degrades to a logged skip and the rest of the batch still applies. The served `client.html` and
-`broadway.js` also carry `Cache-Control: no-store`, so a redeployed daemon's assets are never served
-stale (they have no validator otherwise).
+The daemon hands the child one end of a control socketpair through the `BROADWAY_DEBUGMENU_FD` env
+var. Over it the daemon pushes a `stats <session> <bytes> <fps> <latency> <flash> <tex_count> <tex_bytes>`
+line every ~500 ms and reads back newline-terminated commands.

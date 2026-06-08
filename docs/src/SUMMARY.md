@@ -2,9 +2,10 @@
 
 [Introduction](introduction.md)
 
-# Users
+# User guide
 
 - [Supported versions](users/versions.md)
+- [Build from source](build/from-source.md)
 - [Installation](users/installation.md)
 - [Running broadwayd](users/running.md)
 - [Known issues](users/known-issues.md)
@@ -30,7 +31,6 @@
 
 # Building & Releasing
 
-- [Build from source](build/from-source.md)
 - [CI & packaging](build/ci.md)
 - [Release process](build/release.md)
 

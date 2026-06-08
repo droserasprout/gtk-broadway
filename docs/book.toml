@@ -8,6 +8,7 @@ src = "src"
 [output.html]
 default-theme = "navy"
 preferred-dark-theme = "navy"
+additional-css = ["theme/adwaita.css"]
 git-repository-url = "https://github.com/droserasprout/gtk-broadway"
 edit-url-template = "https://github.com/droserasprout/gtk-broadway/edit/ci/docs/{path}"
 

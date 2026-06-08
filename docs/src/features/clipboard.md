@@ -3,22 +3,21 @@
 Stock Broadway has no clipboard. The fork bridges `GdkClipboard` <-> `gtk4-broadwayd` <-> the
 browser's `navigator.clipboard`, both ways.
 
-## Two directions, two mechanisms
+## Implementation
 
 A browser accepts clipboard writes freely but hands out its contents only on request, so the two
 paths differ.
 
-Copy and cut (guest to host) is push-based:
+Copy and cut (guest -> host) is push-based:
 
 1. GTK claims the clipboard (Ctrl+C/X, right-click Copy, a custom Copy action).
-2. The app sends `BROADWAY_OP_SET_CLIPBOARD` (op 17) with the text.
+2. The app sends `BROADWAY_OP_SET_CLIPBOARD` with the text.
 3. `broadway.js` calls `navigator.clipboard.writeText()`.
 
-Paste (host to guest) is request/reply:
+Paste (host -> guest) is request/reply:
 
-1. The app sends `BROADWAY_OP_REQUEST_CLIPBOARD` (op 18) with a serial.
-2. `broadway.js` reads the browser clipboard and replies with `BROADWAY_EVENT_CLIPBOARD_CONTENTS`
-   (event 15).
+1. The app sends `BROADWAY_OP_REQUEST_CLIPBOARD` with a serial.
+2. `broadway.js` reads the browser clipboard and replies with `BROADWAY_EVENT_CLIPBOARD_CONTENTS`.
 3. The daemon routes the reply back to the one client that asked, by request serial.
 
 The new file `gdkclipboard-broadway.c` implements the GDK side of both paths.
@@ -49,8 +48,6 @@ multi-line snippet produces real line breaks. See [Touch interface](touch.md) fo
 
 ## Limitations
 
-The PRIMARY selection and middle-click paste aren't bridged, since browsers expose no JS API for it
-(WONTFIX).
-
-`navigator.clipboard` needs a secure context. Over plain `http://`, copy may silently fail outside a
-user gesture, so serve over `https://` or `http://localhost`.
+- The PRIMARY selection and middle-click paste are not supported, since browsers expose no JS API for it.
+- `navigator.clipboard` needs a secure context. Over plain `http://`, copy may silently fail outside a
+user gesture.

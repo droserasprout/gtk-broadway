@@ -1,0 +1,96 @@
+/* Adwaita-dark theme for mdbook.
+ *
+ * Palette resolved from the GTK Default theme SCSS sources
+ * (gtk/gtk/theme/Default/_colors.scss, $variant: 'dark') so the docs match
+ * stock GTK4 Adwaita dark. Layered via book.toml `additional-css`; it overrides
+ * the active "navy" theme (default-theme / preferred-dark-theme) and the no-JS
+ * dark fallback rather than forking mdbook's bundled variables.css.
+ *
+ *   window bg .... #353535   view/base ... #2d2d2d   fg ......... #eeeeec
+ *   accent ....... #3584e4   selection ... #15539e   borders .... #1c1c1c
+ */
+
+:root {
+    /* GTK font stack: Adwaita Sans (4.14+) -> Cantarell -> system. */
+    --mono-font: "Adwaita Mono", "Source Code Pro", Consolas, "Ubuntu Mono", Menlo, "DejaVu Sans Mono", monospace, monospace;
+}
+
+.navy {
+    --bg: #353535;
+    --fg: #eeeeec;
+
+    --sidebar-bg: #313131;
+    --sidebar-fg: #eeeeec;
+    --sidebar-non-existant: #929291;
+    --sidebar-active: #3584e4;
+    --sidebar-spacer: #2b2b2b;
+
+    --scrollbar: #a4a4a3;
+
+    --icons: #929291;
+    --icons-hover: #eeeeec;
+
+    --links: #3584e4;
+
+    --inline-code-color: #eeeeec;
+
+    --theme-popup-bg: #2d2d2d;
+    --theme-popup-border: #1c1c1c;
+    --theme-hover: #212121;
+
+    --quote-bg: #2d2d2d;
+    --quote-border: #494949;
+
+    --warning-border: #f57900;
+
+    --table-border-color: #232323;
+    --table-header-bg: #444444;
+    --table-alternate-bg: #2b2b2b;
+
+    --searchbar-border-color: #1c1c1c;
+    --searchbar-bg: #1e1e1e;
+    --searchbar-fg: #eeeeec;
+    --searchbar-shadow-color: #3584e4;
+    --searchresults-header-fg: #929291;
+    --searchresults-border-color: #1c1c1c;
+    --searchresults-li-bg: #2b2b2b;
+    --search-mark-bg: #15539e;
+
+    --color-scheme: dark;
+
+    /* tint the copy/clipboard button toward --icons (#929291) / --fg on hover */
+    --copy-button-filter: invert(62%);
+    --copy-button-filter-hover: invert(95%);
+
+    --footnote-highlight: #3584e4;
+
+    --overlay-bg: rgba(20, 20, 20, 0.5);
+
+    /* GNOME/Adwaita admonition palette */
+    --blockquote-note-color: #3584e4;     /* accent blue   */
+    --blockquote-tip-color: #26ab62;      /* success green */
+    --blockquote-important-color: #c061cb; /* purple        */
+    --blockquote-warning-color: #f57900;  /* warning orange*/
+    --blockquote-caution-color: #cc0000;  /* error red     */
+
+    --sidebar-header-border-color: #3584e4;
+}
+
+/* --- GTK feel: flatter radii, Adwaita typography ------------------------- */
+
+html {
+    font-family: "Adwaita Sans", "Cantarell", system-ui, "Open Sans", sans-serif;
+}
+
+/* mdbook hardcodes "Open Sans" on body; restore the GTK stack. */
+body,
+.content {
+    font-family: "Adwaita Sans", "Cantarell", system-ui, "Open Sans", sans-serif;
+}
+
+/* Adwaita uses subtly rounded cards (~6px) rather than chunky corners. */
+.content pre,
+.content pre > .buttons,
+blockquote {
+    border-radius: 6px;
+}

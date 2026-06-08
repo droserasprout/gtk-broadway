@@ -1,12 +1,16 @@
 # Architecture
 
-Broadway has three parts. The fork changes all three without altering the shape.
+Broadway consists of three parts.
 
-```
+```text
    GTK app (libgtk, GDK broadway backend)
-        |  local socket  (BroadwayRequest / BroadwayReply)
+          |
+          |  local socket  (BroadwayRequest / BroadwayReply)
+          |
    gtk4-broadwayd  (daemon: owns the display, multiplexes clients)
-        |  WebSocket  (display ops out, input events in)
+          |
+          |  WebSocket  (display ops out, input events in)
+          |
    browser  (client.html + broadway.js)
 ```
 

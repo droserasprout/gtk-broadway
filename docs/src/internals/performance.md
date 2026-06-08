@@ -3,12 +3,12 @@
 Broadway sends rasterized content to the browser as PNG uploads, so the dominant cost is uploading
 the same pixels twice. The [paint-flash profiler](debug-menu.md) made this visible: scrolling or
 hovering a list flashed **red** (real uploads) almost everywhere, because identical content was
-re-rasterized and re-uploaded each frame. Two tiers of reuse plus a native edge-fade cut that
+re-rasterized and re-uploaded each frame.  Two tiers of reuse plus a native edge-fade cut that
 traffic.
 
-## Tier 1: content node reuse
+## Reusing nodes/textures
 
-*New in v2*
+### Tier 1: content node reuse
 
 `gskbroadwayrenderer.c` already reused nodes by `GskRenderNode` *pointer* identity across frames,
 emitting `BROADWAY_NODE_REUSE`. The problem is that widgets like `GtkTreeView` rebuild all their cell
@@ -17,9 +17,7 @@ second key: a content hash (FNV-1a over glyphs/colour/font/bounds/offset) compar
 frame's. A re-snapshotted but otherwise identical node then reuses last frame's id without
 re-rasterizing.
 
-## Tier 2: cross-time texture dedup
-
-*New in v2*
+### Tier 2: cross-time texture dedup
 
 When tier 1 misses because the node genuinely moved (a scroll, say), the texture is re-rasterized into
 a new `GdkTexture`. Textures were deduped only by `GdkTexture` *object* identity, so the fresh object
