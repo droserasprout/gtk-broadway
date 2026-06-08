@@ -51,9 +51,22 @@ broadway_output_send_cmd (BroadwayOutput *output,
       p += 8;
     }
   // FIXME: if we are paranoid we should 'mask' the data
-  // FIXME: we should really emit these as a single write
-  g_output_stream_write_all (output->out, header, p, NULL, NULL, NULL);
-  g_output_stream_write_all (output->out, buf, count, NULL, NULL, NULL);
+  /* One vectored write instead of two syscalls, and no payload copy. */
+  if (count > 0)
+    {
+      GOutputVector vectors[2];
+
+      vectors[0].buffer = header;
+      vectors[0].size = p;
+      vectors[1].buffer = buf;
+      vectors[1].size = count;
+
+      g_output_stream_writev_all (output->out, vectors, 2, NULL, NULL, NULL);
+    }
+  else
+    {
+      g_output_stream_write_all (output->out, header, p, NULL, NULL, NULL);
+    }
 }
 
 void broadway_output_pong (BroadwayOutput *output)
@@ -61,9 +74,15 @@ void broadway_output_pong (BroadwayOutput *output)
   broadway_output_send_cmd (output, TRUE, BROADWAY_WS_CNX_PONG, NULL, 0);
 }
 
+/* A big texture frame can grow buf to many MB; set_size(0) keeps that capacity
+ * forever. After an oversized flush, free it and start small instead. */
+#define BROADWAY_OUTPUT_BUF_SHRINK_THRESHOLD (256 * 1024)
+
 int
 broadway_output_flush (BroadwayOutput *output)
 {
+  gsize flushed_len;
+
   if (output->buf->len == 0)
     return TRUE;
 
@@ -73,7 +92,15 @@ broadway_output_flush (BroadwayOutput *output)
   output->bytes_sent += output->buf->len;
   output->frames++;
 
-  g_string_set_size (output->buf, 0);
+  flushed_len = output->buf->len;
+
+  if (flushed_len > BROADWAY_OUTPUT_BUF_SHRINK_THRESHOLD)
+    {
+      g_string_free (output->buf, TRUE);
+      output->buf = g_string_new ("");
+    }
+  else
+    g_string_set_size (output->buf, 0);
 
   return !output->error;
 
@@ -658,7 +685,8 @@ broadway_output_surface_set_nodes (BroadwayOutput *output,
                                    BroadwayNode   *old_root,
                                    GHashTable     *old_node_lookup)
 {
-  gsize size_pos, start, end;
+  gsize header_pos, size_pos, start, end;
+  guint32 saved_serial;
 
 
   if (old_root)
@@ -668,6 +696,9 @@ broadway_output_surface_set_nodes (BroadwayOutput *output,
       /* This will modify children of old_root if any are shared */
       broadway_node_mark_deep_reused (root, TRUE);
     }
+
+  header_pos = output->buf->len;
+  saved_serial = output->serial;
 
   write_header (output, BROADWAY_OP_SET_NODES);
 
@@ -684,6 +715,16 @@ broadway_output_surface_set_nodes (BroadwayOutput *output,
   if (old_root)
     append_node_removes (output, old_root);
   end = output->buf->len;
+
+  /* No ops: the client tree already matches, so drop the empty SET_NODES
+   * rather than send a no-op. Roll the serial back too. */
+  if (end == start)
+    {
+      g_string_set_size (output->buf, header_pos);
+      output->serial = saved_serial;
+      return;
+    }
+
   patch_uint32 (output, (end - start) / 4, size_pos);
 }
 

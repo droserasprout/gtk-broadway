@@ -631,6 +631,10 @@ add_new_node (GskRenderer *renderer,
   return add_new_node_full (renderer, node, type, clip_bounds, 0);
 }
 
+/* Max colorizations cached per source texture; each holds a full decoded copy,
+ * so the list must be bounded. */
+#define BROADWAY_COLORIZED_CACHE_MAX 16
+
 typedef struct ColorizedTexture {
   GdkTexture *texture;
   graphene_matrix_t color_matrix;
@@ -702,7 +706,19 @@ get_colorized_texture (GdkTexture *texture,
 
       if (graphene_vec4_equal (&colorized->color_offset, color_offset) &&
           matrix_equal (&colorized->color_matrix, color_matrix))
-        return g_object_ref (colorized->texture);
+        {
+          /* Move to the tail (most-recently-used) so eviction drops the oldest
+           * head first. Steal the list before mutating its head. */
+          if (l != g_list_last (colorized_list))
+            {
+              colorized_list = g_object_steal_data (G_OBJECT (texture), "broadway-colorized");
+              colorized_list = g_list_remove_link (colorized_list, l);
+              colorized_list = g_list_concat (colorized_list, l);
+              g_object_set_data_full (G_OBJECT (texture), "broadway-colorized",
+                                      colorized_list, (GDestroyNotify)colorized_texture_free_list);
+            }
+          return g_object_ref (colorized->texture);
+        }
     }
 
   surface = gdk_texture_download_surface (texture, GDK_COLOR_STATE_SRGB);
@@ -758,14 +774,20 @@ get_colorized_texture (GdkTexture *texture,
   colorized_texture = gdk_texture_new_for_surface (surface);
 
   colorized = colorized_texture_new (colorized_texture, color_matrix, color_offset);
-  if (colorized_list)
-    colorized_list = g_list_append (colorized_list, colorized);
-  else
+
+  /* Append and evict past the cap so recoloring one texture many ways (symbolic
+   * icons across states/themes) can't grow the list unbounded. Steal the list
+   * to mutate its head, then re-attach with the destroy notify. */
+  colorized_list = g_object_steal_data (G_OBJECT (texture), "broadway-colorized");
+  colorized_list = g_list_append (colorized_list, colorized);
+  while (g_list_length (colorized_list) > BROADWAY_COLORIZED_CACHE_MAX)
     {
-      colorized_list = g_list_append (NULL, colorized);
-      g_object_set_data_full (G_OBJECT (texture), "broadway-colorized",
-                              colorized_list, (GDestroyNotify)colorized_texture_free_list);
+      ColorizedTexture *oldest = colorized_list->data;
+      colorized_list = g_list_delete_link (colorized_list, colorized_list);
+      colorized_texture_free (oldest);
     }
+  g_object_set_data_full (G_OBJECT (texture), "broadway-colorized",
+                          colorized_list, (GDestroyNotify)colorized_texture_free_list);
 
   cairo_surface_destroy (surface);
 
