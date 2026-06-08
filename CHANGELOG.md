@@ -13,13 +13,13 @@ All notable changes to the GTK Broadway fork. Format based on [Keep a Changelog]
 ### Fixed
 
 - Icons stay crisp under scale transforms and HiDPI.
-- Fixed crash when starting a drag from a text selection.
-- Touch: long pressing multiple selected rows doesn't clear selection.
+- No crash when starting a drag from a text selection.
+- Rendering no longer freezes under heavy scrolling or on a stale node/texture reference.
+- Touch: long-pressing a multi-row selection keeps it.
 - Desktop: clicking empty space in a list clears the selection.
-- Rendering no longer freezes under heavy scrolling; a stale node/texture reference degrades gracefully.
-- Popovers and menus land on their anchor instead of offset by their shadow extent (a popup surface now gets its shadow margin, like X11/Wayland).
-- A popover's shadow passes clicks through to whatever is behind it instead of swallowing them (Broadway now honours the input-region shape, not just empty/non-empty).
-- Widget borders render crisp: no 1px transparent seam or light-grey corner sliver between a border and its background. A uniform border is drawn as a single-element outline (like the window frame) instead of a separate element abutting the background.
+- Popovers and menus land on their anchor, not offset by their shadow.
+- A popover's shadow passes clicks through instead of swallowing them.
+- Widget borders render crisp: no 1px seam or corner sliver against the background.
 
 ### Performance
 
