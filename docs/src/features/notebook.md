@@ -3,7 +3,11 @@
 On Broadway the `GtkNotebook` tab bar becomes a single **pixel-scrolled** strip, closing the
 long-standing "tab bar not scrollable on touch" gap.
 
-*TODO: add screenshot*
+<video src="../images/notebook-tab-scroll.mp4" autoplay loop muted playsinline
+  style="max-width:100%;border-radius:6px"></video>
+
+*Touch-swiping the overflowing tab strip: the tabs pixel-scroll to reveal the ones off-screen,
+fading at the edges, with no scroll arrows. (Amber dots trace the swipe.)*
 
 ## What works
 
