@@ -50,6 +50,7 @@ struct _GskBroadwayRenderer
   GArray *nodes;              /* Owned by draw_contex */
   GPtrArray *node_textures;   /* Owned by draw_contex */
   GHashTable *node_lookup;
+  GHashTable *reused_ids;     /* ids reused this frame, so we never reuse one twice */
 
   /* Kept from last frame */
   GHashTable *last_node_lookup;
@@ -262,28 +263,48 @@ add_string (GArray *nodes, const char *str)
     add_uint32 (nodes, v);
 }
 
-static void
+/* Walk the kept subtree under a pointer-reused node.
+ *   check_only: TRUE if any descendant id is already reused this frame (a conflict;
+ *               reusing this subtree would put one node in the tree twice).
+ *   otherwise:  claim every descendant id so nothing reuses it again. Returns FALSE. */
+static gboolean
 collect_reused_child_nodes (GskRenderer *renderer,
-                            GskRenderNode *node);
+                            GskRenderNode *node,
+                            gboolean check_only);
 
-static void
+static gboolean
 collect_reused_node (GskRenderer *renderer,
-                     GskRenderNode *node)
+                     GskRenderNode *node,
+                     gboolean check_only)
 {
   GskBroadwayRenderer *self = GSK_BROADWAY_RENDERER (renderer);
   guint32 old_id;
 
   if (self->last_node_lookup &&
       (old_id = GPOINTER_TO_INT(g_hash_table_lookup (self->last_node_lookup, node))) != 0)
-    g_hash_table_insert (self->node_lookup, node, GINT_TO_POINTER (old_id));
+    {
+      if (check_only)
+        {
+          /* Already reused elsewhere -> reusing the ancestor too would dupe
+           * this node and blank a tab. */
+          if (g_hash_table_contains (self->reused_ids, GINT_TO_POINTER (old_id)))
+            return TRUE;
+        }
+      else
+        {
+          g_hash_table_insert (self->node_lookup, node, GINT_TO_POINTER (old_id));
+          g_hash_table_add (self->reused_ids, GINT_TO_POINTER (old_id));
+        }
+    }
 
-  collect_reused_child_nodes (renderer, node);
+  return collect_reused_child_nodes (renderer, node, check_only);
 }
 
 
-static void
+static gboolean
 collect_reused_child_nodes (GskRenderer *renderer,
-                            GskRenderNode *node)
+                            GskRenderNode *node,
+                            gboolean check_only)
 {
   guint i;
 
@@ -291,7 +312,7 @@ collect_reused_child_nodes (GskRenderer *renderer,
     {
     case GSK_NOT_A_RENDER_NODE:
       g_assert_not_reached ();
-      return;
+      return FALSE;
 
       /* Leaf nodes */
 
@@ -335,45 +356,40 @@ collect_reused_child_nodes (GskRenderer *renderer,
       /* Bin nodes */
 
     case GSK_SHADOW_NODE:
-      collect_reused_node (renderer,
-                           gsk_shadow_node_get_child (node));
-      break;
+      return collect_reused_node (renderer,
+                                  gsk_shadow_node_get_child (node), check_only);
 
     case GSK_OPACITY_NODE:
-      collect_reused_node (renderer,
-                           gsk_opacity_node_get_child (node));
-      break;
+      return collect_reused_node (renderer,
+                                  gsk_opacity_node_get_child (node), check_only);
 
     case GSK_ROUNDED_CLIP_NODE:
-      collect_reused_node (renderer,
-                           gsk_rounded_clip_node_get_child (node));
-      break;
+      return collect_reused_node (renderer,
+                                  gsk_rounded_clip_node_get_child (node), check_only);
 
     case GSK_CLIP_NODE:
-      collect_reused_node (renderer,
-                           gsk_clip_node_get_child (node));
-      break;
+      return collect_reused_node (renderer,
+                                  gsk_clip_node_get_child (node), check_only);
 
     case GSK_TRANSFORM_NODE:
-      collect_reused_node (renderer,
-                           gsk_transform_node_get_child (node));
-      break;
+      return collect_reused_node (renderer,
+                                  gsk_transform_node_get_child (node), check_only);
 
     case GSK_DEBUG_NODE:
-      collect_reused_node (renderer,
-                           gsk_debug_node_get_child (node));
-      break;
+      return collect_reused_node (renderer,
+                                  gsk_debug_node_get_child (node), check_only);
 
       /* Generic nodes */
 
     case GSK_CONTAINER_NODE:
       for (i = 0; i < gsk_container_node_get_n_children (node); i++)
-        collect_reused_node (renderer,
-                             gsk_container_node_get_child (node, i));
+        if (collect_reused_node (renderer,
+                                 gsk_container_node_get_child (node, i), check_only))
+          return TRUE;
       break;
-
-      break; /* Fallback */
     }
+
+  return FALSE;
 }
 
 static gboolean
@@ -520,11 +536,22 @@ try_pointer_reuse (GskRenderer   *renderer,
   if (self->last_node_lookup &&
       (old_id = GPOINTER_TO_INT (g_hash_table_lookup (self->last_node_lookup, node))) != 0)
     {
+      /* Content tier already grabbed this id -> reusing it again re-parents the
+       * one DOM node twice and blanks a tab. Emit fresh. */
+      if (g_hash_table_contains (self->reused_ids, GINT_TO_POINTER (old_id)))
+        return FALSE;
+
+      /* A descendant is reused elsewhere -> reusing this subtree too would dupe
+       * it and blank a tab. Render fresh; it keeps its other use. */
+      if (collect_reused_child_nodes (renderer, node, TRUE))
+        return FALSE;
+
       add_uint32 (self->nodes, BROADWAY_NODE_REUSE);
       add_uint32 (self->nodes, old_id);
 
+      g_hash_table_add (self->reused_ids, GINT_TO_POINTER (old_id));
       g_hash_table_insert (self->node_lookup, node, GINT_TO_POINTER(old_id));
-      collect_reused_child_nodes (renderer, node);
+      collect_reused_child_nodes (renderer, node, FALSE);
 
       return TRUE;
     }
@@ -553,14 +580,20 @@ add_new_node_full (GskRenderer *renderer,
       (old_id = GPOINTER_TO_INT (g_hash_table_lookup (self->last_content_lookup,
                                                       CONTENT_KEY (content_hash)))) != 0)
     {
-      add_uint32 (self->nodes, BROADWAY_NODE_REUSE);
-      add_uint32 (self->nodes, old_id);
-
-      g_hash_table_insert (self->node_lookup, node, GINT_TO_POINTER(old_id));
-      g_hash_table_insert (self->content_lookup, CONTENT_KEY (content_hash), GINT_TO_POINTER(old_id));
       g_hash_table_remove (self->last_content_lookup, CONTENT_KEY (content_hash));
 
-      return FALSE;
+      /* Pointer tier already reused this id -> fall through to a fresh node. */
+      if (!g_hash_table_contains (self->reused_ids, GINT_TO_POINTER (old_id)))
+        {
+          add_uint32 (self->nodes, BROADWAY_NODE_REUSE);
+          add_uint32 (self->nodes, old_id);
+
+          g_hash_table_add (self->reused_ids, GINT_TO_POINTER (old_id));
+          g_hash_table_insert (self->node_lookup, node, GINT_TO_POINTER(old_id));
+          g_hash_table_insert (self->content_lookup, CONTENT_KEY (content_hash), GINT_TO_POINTER(old_id));
+
+          return FALSE;
+        }
     }
 
   id = ++self->next_node_id;
@@ -1160,6 +1193,7 @@ gsk_broadway_renderer_render (GskRenderer          *renderer,
 
   self->node_lookup = g_hash_table_new (g_direct_hash, g_direct_equal);
   self->content_lookup = g_hash_table_new (g_direct_hash, g_direct_equal);
+  self->reused_ids = g_hash_table_new (g_direct_hash, g_direct_equal);
 
   gdk_draw_context_begin_frame_full (GDK_DRAW_CONTEXT (self->draw_context), NULL, GDK_MEMORY_U8, update_area, NULL);
 
@@ -1172,6 +1206,9 @@ gsk_broadway_renderer_render (GskRenderer          *renderer,
 
   self->nodes = NULL;
   self->node_textures = NULL;
+
+  g_hash_table_unref (self->reused_ids);
+  self->reused_ids = NULL;
 
   gdk_draw_context_end_frame_full (GDK_DRAW_CONTEXT (self->draw_context), NULL);
 
