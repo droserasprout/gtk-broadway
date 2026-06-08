@@ -2,11 +2,17 @@
 
 Broadway has no real compositor to manage pointer focus and input regions. Two related ops paper over the touch-interaction problems that fall out of that.
 
-## `SET_INPUT_REGION` (op 19): click-through surfaces
+## `SET_INPUT_REGION` (op 19): per-surface input shape
 
-Some surfaces should not eat pointer events. The text cursor and selection handles, for instance, overlay content the user is trying to tap. `BROADWAY_OP_SET_INPUT_REGION` (and the matching `BROADWAY_REQUEST_SET_INPUT_REGION`, struct `BroadwayRequestSetInputRegion { ... guint32 is_empty; }`) marks a surface's input region empty, so the browser treats it as click-through and taps land on the content behind it.
+Some parts of a surface should not eat pointer events. The text cursor and selection handles overlay content the user is trying to tap; a popover's transparent shadow margin should pass clicks through to whatever is behind it. `BROADWAY_OP_SET_INPUT_REGION` (and the matching `BROADWAY_REQUEST_SET_INPUT_REGION`) carries the surface's input region so the browser only takes pointer events inside it.
 
-The empty-region flag doubles as a signal for [pointer recovery](#reassert_pointer-op-20---the-menu-tap-freeze). A surface with an empty input region (a text handle) does not count as "interactive navigation in progress", so it doesn't block a focus re-assert.
+Broadway can't represent an arbitrary shape, but the cases that matter are rectangular, so the op carries a **mode plus the region's bounding box** (`struct BroadwayRequestSetInputRegion { ... guint32 mode; BroadwayRect rect; }`):
+
+- **mode 0 - whole**: no region; the whole surface div takes pointer events (the default).
+- **mode 1 - empty**: click-through everywhere. The browser sets the surface div `pointer-events: none` so taps land on the content behind - used for text handles.
+- **mode 2 - rect**: only the given rect is interactive. The surface div goes `pointer-events: none` (its rendered children inherit that) and one transparent *hit div* is overlaid on the rect; a click on it still resolves to this surface, while everything outside it - e.g. a popover's shadow margin - falls through. This is what lets a popover carry a shadow without the shadow becoming a dead click-zone around the menu. The rect's x/y are signed: a toplevel's resize border sits just *outside* the surface, at negative coordinates.
+
+The empty case (mode 1) doubles as a signal for [pointer recovery](#reassert_pointer-op-20---the-menu-tap-freeze). A surface with an empty input region (a text handle) does not count as "interactive navigation in progress", so it doesn't block a focus re-assert.
 
 ## `REASSERT_POINTER` (op 20): the menu-tap freeze
 

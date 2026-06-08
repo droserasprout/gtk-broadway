@@ -68,7 +68,11 @@ Win32, none on macOS which renders via Metal); see the OpenGL / Vulkan rows abov
 ## What the fork adds over stock Broadway
 
 The cells where the fork beats stock Broadway: text clipboard, real touch (events, text-selection
-UI, pinch-zoom), OSK and IME bridging, HiDPI reflow, and opening external links. Cross-process DnD,
+UI, pinch-zoom), OSK and IME bridging, HiDPI reflow, and opening external links. It also fixes a
+set of rendering-correctness problems stock Broadway has with client-side decorations: popups land
+on their anchor instead of offset by their shadow, a popover's shadow passes clicks through (the
+[input region](../internals/input-region.md) carries its shape), and uniform widget borders render
+without the 1px seam stock leaves between a border and its background. Cross-process DnD,
 rich/image clipboard, PRIMARY selection, and GPU rendering stay unsupported, same as stock. Every
 windowing and platform-integration row is untouched by the fork.
 
