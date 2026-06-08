@@ -52,9 +52,6 @@ reading (the `SET_NODES` pattern), capped at `BROADWAY_CLIPBOARD_MAX_SIZE` (16 M
 
 ## broadwayd-only vs libgtk
 
-This split drives deployment. Changes to `broadway.js`, `client.html`, or the daemon C
-(`broadwayd.c`, `broadway-server.c`, `broadway-output.c`) are broadwayd-only: rebuild and
-restart the daemon, then hard-reload the browser. Changes to the GDK backend, the GSK renderer,
-or a GTK widget are libgtk: rebuild the library and restart the app.
-
-The `.deb` ships both the patched `libgtk-4.so` and `gtk4-broadwayd`, so a release covers both.
+Every fork change lives on one side of a split: client/daemon (`broadway.js`, `client.html`, the
+daemon C) versus the library (GDK backend, GSK renderer, GTK widgets). It drives how you iterate on
+a change and how a release ships it. See [broadwayd vs libgtk](build-split.md).

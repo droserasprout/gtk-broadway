@@ -29,7 +29,7 @@ publish a partial set.
    `gtk4-broadway-fork_<gtk>-<rev>_<arch>.deb`, create the `vN` release if needed, and upload all
    four (`--clobber`).
 
-The result is what [Installation](../users/installation.md) downloads, e.g.
+The result is what [Installation](../guide/installation.md) downloads, e.g.
 `gtk4-broadway-fork_4.22.2-123_amd64.deb`.
 
 ## Version scheme

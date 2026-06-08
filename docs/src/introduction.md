@@ -41,22 +41,30 @@ screen-off, network handovers, and surface churn.
 - **[Pinch to zoom](features/zoom.md):** two-finger UI zoom that re-renders crisply.
 - **[Notebook tabs](features/notebook.md):** drag/wheel scrolling of the tab strip on touch.
 - **[Opening links](features/open-uri.md):** clicked links open in the viewing browser.
+- **[Desktop & rendering fixes](features/desktop-fixes.md):** no white flash, centered windows,
+  popups on their anchor, click-through shadows, seam-free borders.
 
 ## How it ships
 
 The patched GTK is built Broadway-only and published as a Debian package, `gtk4-broadway-fork`,
 that overlays stock `libgtk-4-1` / `libgtk-4-bin`. It replaces only `libgtk-4.so` and the
-`gtk4-broadwayd` daemon, leaving the rest of GTK in place ([Installation](users/installation.md)).
+`gtk4-broadwayd` daemon, leaving the rest of GTK in place ([Installation](guide/installation.md)).
 
 Two GTK bases are maintained in parallel (**4.14.5** and **4.22.2**), each built for **amd64** and
-**arm64** ([Supported versions](users/versions.md)).
+**arm64** ([Supported versions](guide/versions.md)).
 
 ## Layout
 
-- **User Guide:** which version to pick, installing the `.deb`, serving an app with `broadwayd`.
-- **Feature Reference:** [architecture](internals/architecture.md),
-  [wire protocol](internals/protocol.md), and a chapter per subsystem.
-- **Building & Releasing:** the Meson config, the CI `.deb` build, and the release flow.
+The book is ordered by audience, shallow to deep:
+
+- **Using the fork:** pick a version, install the `.deb`, serve an app with `broadwayd`, deploy it
+  behind TLS. Start at the [Quickstart](quickstart.md).
+- **Features:** what each subsystem does and how it behaves. Every feature page links to its own
+  **Implementation** page for the wire-level detail.
+- **Internals:** [architecture](internals/architecture.md), the
+  [wire protocol](internals/protocol.md), input/pointer handling, rendering and performance.
+- **Building & releasing:** the Meson config, [re-forking a new GTK release](build/reforking.md),
+  the CI `.deb` build, and the release flow.
 
 > Both bases carry the same feature set (the 4.22 work is ported to 4.14). Chapters are
 > version-agnostic; base differences (e.g. a Meson flag rename) are called out inline.
