@@ -148,7 +148,8 @@ void                broadway_server_surface_set_modal_hint    (BroadwayServer *s
                                                                gboolean        modal_hint);
 void                broadway_server_surface_set_input_region  (BroadwayServer *server,
                                                                int             id,
-                                                               gboolean        is_empty);
+                                                               int             mode,
+                                                               BroadwayRect   *rect);
 /* The daemon's own display string (":N"), used to spawn the debug-menu client
  * so it connects back to this same display. */
 void                broadway_server_set_display               (BroadwayServer *server,

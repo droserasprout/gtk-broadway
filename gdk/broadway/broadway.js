@@ -882,18 +882,45 @@ TransformNodes.prototype.insertNode = function(parent, previousSibling, is_tople
 
             var div = this.createDiv(id);
             div.style["position"] = "absolute";
-            rrect.bounds.width -= border_widths[1] + border_widths[3];
-            rrect.bounds.height -= border_widths[0] + border_widths[2];
-            set_rrect_style(div, rrect);
-            div.style["border-style"] = "solid";
-            div.style["border-top-color"] = border_colors[0];
-            div.style["border-top-width"] = px(border_widths[0]);
-            div.style["border-right-color"] = border_colors[1];
-            div.style["border-right-width"] = px(border_widths[1]);
-            div.style["border-bottom-color"] = border_colors[2];
-            div.style["border-bottom-width"] = px(border_widths[2]);
-            div.style["border-left-color"] = border_colors[3];
-            div.style["border-left-width"] = px(border_widths[3]);
+
+            /* Draw a border as inset box-shadow(s) on one element, like the
+             * window frame's 1px border. A CSS border is a separate element
+             * whose edge meets the background's, which the browser rasterizes
+             * with a 1px seam (and a corner sliver) at any zoom. Uniform border:
+             * coincide this div with the background sibling (border box for
+             * buttons, 1px smaller for menus) and use one inset shadow. */
+            if (border_widths[0] === border_widths[1] &&
+                border_widths[1] === border_widths[2] &&
+                border_widths[2] === border_widths[3] &&
+                border_colors[0] === border_colors[1] &&
+                border_colors[1] === border_colors[2] &&
+                border_colors[2] === border_colors[3]) {
+                var bg = previousSibling;
+                if (bg && bg.tagName === "DIV" && bg.style.width &&
+                    Math.abs(parseFloat(bg.style.left) - rrect.bounds.x) <= border_widths[0] + 1 &&
+                    Math.abs(parseFloat(bg.style.top) - rrect.bounds.y) <= border_widths[0] + 1) {
+                    div.style["left"] = bg.style.left;
+                    div.style["top"] = bg.style.top;
+                    div.style["width"] = bg.style.width;
+                    div.style["height"] = bg.style.height;
+                    div.style["border-top-left-radius"] = bg.style.borderTopLeftRadius;
+                    div.style["border-top-right-radius"] = bg.style.borderTopRightRadius;
+                    div.style["border-bottom-right-radius"] = bg.style.borderBottomRightRadius;
+                    div.style["border-bottom-left-radius"] = bg.style.borderBottomLeftRadius;
+                } else {
+                    set_rrect_style(div, rrect);
+                }
+                div.style["box-shadow"] = "inset 0 0 0 " + px(border_widths[0]) + " " + border_colors[0];
+            } else {
+                /* Per-side border (an active button's darker top edge): one
+                 * directional inset shadow per side, same single-element trick. */
+                set_rrect_style(div, rrect);
+                div.style["box-shadow"] =
+                    "inset 0 " + px(border_widths[0]) + " 0 0 " + border_colors[0] + ", " +
+                    "inset " + px(-border_widths[1]) + " 0 0 0 " + border_colors[1] + ", " +
+                    "inset 0 " + px(-border_widths[2]) + " 0 0 " + border_colors[2] + ", " +
+                    "inset " + px(border_widths[3]) + " 0 0 0 " + border_colors[3];
+            }
             newNode = div;
         }
         break;
@@ -1431,13 +1458,13 @@ function handleCommands(cmd, display_commands, new_textures, modified_trees)
 
         case BROADWAY_OP_SET_INPUT_REGION:
             id = cmd.get_16();
-            var inputEmpty = cmd.get_16();
+            var irMode = cmd.get_16();   /* 0 whole, 1 empty, 2 rect */
+            /* x/y are signed: a toplevel's resize border sits just outside the
+             * surface (negative), so read them as get_16s, not get_16. */
+            var irX = cmd.get_16s(), irY = cmd.get_16s(), irW = cmd.get_16(), irH = cmd.get_16();
             surface = surfaces[id];
             if (surface)
-                /* Empty input region => click-through (e.g. GtkTextHandle), so
-                 * taps fall through to the surface below instead of being
-                 * misrouted to this overlay. */
-                surface.div.style.pointerEvents = inputEmpty ? "none" : "auto";
+                setInputRegion(surface, irMode, irX, irY, irW, irH);
             break;
 
         case BROADWAY_OP_REASSERT_POINTER:
@@ -1766,6 +1793,36 @@ function handleMessage(message)
     outstandingCommands.push(cmd);
     if (outstandingCommands.length == 1) {
         handleOutstanding();
+    }
+}
+
+/* Apply a surface's input region (BROADWAY_OP_SET_INPUT_REGION):
+ *  mode 0 (whole): the whole surface div takes pointer events (the default).
+ *  mode 1 (empty): nothing does - click-through (e.g. GtkTextHandle).
+ *  mode 2 (rect):  only the given rect is interactive; everything outside it
+ *                  (e.g. a popover's shadow margin) passes clicks through.
+ * For the rect case the surface div goes pointer-events:none - its rendered
+ * children inherit that - and one transparent hit div over the rect captures
+ * input. A click on it still resolves to this surface via getSurfaceId (the hit
+ * div's parent is surface.div, which carries .surface). */
+function setInputRegion(surface, mode, x, y, w, h) {
+    var div = surface.div;
+    if (surface.inputHit) {
+        surface.inputHit.remove();
+        surface.inputHit = null;
+    }
+    if (mode == 2) {
+        div.style.pointerEvents = "none";
+        var hit = document.createElement("div");
+        hit.style.cssText = "position:absolute;pointer-events:auto;background:transparent;";
+        hit.style.left = x + "px";
+        hit.style.top = y + "px";
+        hit.style.width = w + "px";
+        hit.style.height = h + "px";
+        div.appendChild(hit);
+        surface.inputHit = hit;
+    } else {
+        div.style.pointerEvents = (mode == 1) ? "none" : "auto";
     }
 }
 

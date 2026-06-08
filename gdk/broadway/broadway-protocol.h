@@ -323,7 +323,8 @@ typedef struct {
 typedef struct {
   BroadwayRequestBase base;
   guint32 id;
-  guint32 is_empty;
+  guint32 mode;       /* 0 = whole surface, 1 = empty (click-through), 2 = rect */
+  BroadwayRect rect;  /* interactive area (mode 2); the input region's bounding box */
 } BroadwayRequestSetInputRegion;
 
 typedef struct {
