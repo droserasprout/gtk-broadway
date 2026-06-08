@@ -56,3 +56,63 @@ Genuine per-frame animation, where each frame is honestly different pixels, stil
 scroll **overshoot** shadow and the `GtkSwitch` knob mid-toggle both use `radial-gradient`, which
 falls back to a cairo texture. The dedup catches their settled states. Native radial-gradient
 support in the Broadway renderer would remove the rest, but is out of scope here.
+
+# Transport and resources
+
+The reuse tiers above cut *texture* traffic; a second pass trims the rest of the per-frame cost -
+redundant wire ops, input latency, syscalls, and unbounded buffers.
+
+## Wire: drop empty frames
+
+*New in v2*
+
+When a surface's frame diff produces no ops, `broadway-output.c` drops the whole `SET_NODES` instead
+of sending an 11-byte no-op (and its forced flush); the serial is rolled back so the counter stays
+dense.
+
+A companion change that also deduped repeated **show-keyboard** / **input-region** ops was tried and
+**reverted**: broadwayd keeps that state across a page reload but never resets it on client disconnect,
+so the redundant re-sends were inadvertently re-syncing a reconnecting client. Suppressing them left a
+stale OSK / empty-input-region state on the new client that popped the keyboard on first tap and
+swallowed taps on mobile. Dedup here is only safe once disconnect resets the flags (or the reconnect
+sync re-asserts both states, not just the active one).
+
+## Input latency: pointer-move coalescing
+
+*New in v2*
+
+A high-Hz mouse or trackpad fires many `mousemove` events per displayed frame, but GTK only needs the
+latest position. `broadway.js` now buffers moves and sends one per animation frame, so a motion flood
+can't fill the websocket and delay a following click or key ([head-of-line
+blocking](https://en.wikipedia.org/wiki/Head-of-line_blocking)). Any discrete event flushes the
+pending move first, preserving order.
+
+## CPU: fewer syscalls and allocations
+
+*New in v2*
+
+- **Single vectored write** (`broadway-output.c`): the WebSocket header and payload go out in one
+  `g_output_stream_writev_all` instead of two `write_all`s, with no payload copy.
+- **Leaner input packing** (`broadway.js`): `sendInput` packs fields straight into the buffer, dropping
+  the per-event `concat()`/`forEach()` closure on the move/wheel hot path.
+- **Texture-id remap hoist** (`broadway-server.c`): only texture nodes carry a client texture id, so the
+  remap moved out of the node-data copy loop - the common case skips a per-word comparison.
+
+## Memory bounding
+
+*New in v2*
+
+- **Output buffer shrink** (`broadway-output.c`): a frame uploading a large texture can grow the output
+  buffer to many MB, and `g_string_set_size(.., 0)` keeps that capacity for the connection's life.
+  After an oversized flush the buffer is freed and restarted small.
+- **Colorized cache LRU cap** (`gskbroadwayrenderer.c`): the per-source-texture recolor cache (each entry
+  a full decoded copy) is bounded to 16 entries, LRU, so recoloring one texture many ways (symbolic
+  icons across states/themes) can't grow it without limit.
+
+## A note on browser differences
+
+One experiment - releasing the JS `Image` used to drive `decode()` once it settled, to reclaim the
+decoded bitmap - rendered fine in Chrome but produced thin-line artifacts in Firefox, which discards
+the decoded data once no `Image` references it and re-decodes lazily on paint. It was dropped. The
+rendered `<img>` nodes load from the texture URL, so anything that lets the browser evict decoded data
+out from under a pending paint is unsafe to assume across browsers.

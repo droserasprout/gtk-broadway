@@ -21,6 +21,10 @@ All notable changes to the GTK Broadway fork. Format based on [Keep a Changelog]
 ### Performance
 
 - Reuse re-rendered-but-identical content (text scrolled into view, re-hovered rows, repeated icons).
+- Drop empty `SET_NODES` no-op frames from the wire.
+- Coalesce pointer-move events to one per frame, so a motion flood can't delay a following click or keypress.
+- Lower per-frame CPU: header and payload go out in a single socket write, and input events are packed without per-event allocation.
+- Bound memory: the output buffer is released after an oversized frame, and the per-texture recolor cache is LRU-capped.
 
 ## [v1] - 2026-06-05
 
