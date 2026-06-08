@@ -617,6 +617,18 @@ gdk_broadway_surface_layout_popup (GdkSurface     *surface,
                                             gdk_monitor_get_geometry);
   gdk_monitor_get_geometry (monitor, &bounds);
 
+  /* Populate the shadow margin from the popup layout, like X11/Wayland do.
+     compute_toplevel_size() only sets impl->shadow_* for toplevels, so without
+     this a popup's shadow stays 0: the helper can't shift the surface origin to
+     cancel the shadow the renderer bakes into the contents node, and the popover
+     lands offset by the shadow extent (the app's "popover > contents {
+     box-shadow: none }" CSS hack worked around exactly this). */
+  gdk_popup_layout_get_shadow_width (layout,
+                                     &impl->shadow_left,
+                                     &impl->shadow_right,
+                                     &impl->shadow_top,
+                                     &impl->shadow_bottom);
+
   gdk_surface_layout_popup_helper (surface,
                                    width,
                                    height,
@@ -835,20 +847,32 @@ gdk_broadway_surface_set_input_region (GdkSurface     *surface,
 {
   GdkBroadwaySurface *impl = GDK_BROADWAY_SURFACE (surface);
   GdkBroadwayDisplay *broadway_display;
-  gboolean is_empty;
+  cairo_rectangle_int_t ext = { 0, 0, 0, 0 };
+  int mode;
 
   if (GDK_SURFACE_DESTROYED (surface))
     return;
 
-  /* Broadway can't represent arbitrary input shapes, but the important case is
-   * an empty region: a click-through surface (e.g. GtkTextHandle). Forward that
-   * so the client makes its div pointer-events:none; otherwise the handle's div
-   * would swallow taps meant for the widget below it. */
-  is_empty = shape_region != NULL && cairo_region_is_empty (shape_region);
+  /* Forward the input region so the client only takes pointer events inside it.
+   * Broadway can't carry an arbitrary shape, but the cases that matter are
+   * rectangular: an empty region is a click-through surface (e.g. GtkTextHandle),
+   * and a popover's region is its content rect - everything outside (the shadow
+   * margin) must pass clicks through. We send the region's bounding box; the
+   * shadow lies entirely outside it. NULL means no region (whole surface). */
+  if (shape_region == NULL)
+    mode = 0; /* whole surface interactive */
+  else if (cairo_region_is_empty (shape_region))
+    mode = 1; /* empty: click-through everywhere */
+  else
+    {
+      mode = 2;
+      cairo_region_get_extents (shape_region, &ext);
+    }
 
   broadway_display = GDK_BROADWAY_DISPLAY (gdk_surface_get_display (surface));
   _gdk_broadway_server_surface_set_input_region (broadway_display->server,
-                                                 impl->id, is_empty);
+                                                 impl->id, mode,
+                                                 ext.x, ext.y, ext.width, ext.height);
 }
 
 static void

@@ -640,12 +640,17 @@ _gdk_broadway_server_surface_set_modal_hint (GdkBroadwayServer *server,
 
 void
 _gdk_broadway_server_surface_set_input_region (GdkBroadwayServer *server,
-                                               int id, gboolean is_empty)
+                                               int id, int mode,
+                                               int x, int y, int width, int height)
 {
   BroadwayRequestSetInputRegion msg;
 
   msg.id = id;
-  msg.is_empty = is_empty;
+  msg.mode = mode;
+  msg.rect.x = x;
+  msg.rect.y = y;
+  msg.rect.width = width;
+  msg.rect.height = height;
   gdk_broadway_server_send_message (server, msg,
 				    BROADWAY_REQUEST_SET_INPUT_REGION);
 }
