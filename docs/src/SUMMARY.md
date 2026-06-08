@@ -18,6 +18,7 @@
 - [Opening links](features/open-uri.md)
 - [Connection management](features/connection.md)
 - [Scaling & HiDPI](features/scaling.md)
+- [Backend comparison](features/backends.md)
 
 # Internals
 
