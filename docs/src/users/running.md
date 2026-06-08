@@ -1,7 +1,7 @@
 # Running broadwayd
 
-Broadway serves a GTK app to the browser in two pieces: the **`gtk4-broadwayd`** daemon (owns
-the display and the WebSocket) and the **app** itself, run with the Broadway GDK backend so it
+Broadway serves a GTK app to the browser in two pieces. The `gtk4-broadwayd` daemon owns
+the display and the WebSocket. The app itself runs with the Broadway GDK backend, so it
 connects to that daemon instead of an X11/Wayland display.
 
 ## Start the daemon
@@ -10,8 +10,8 @@ connects to that daemon instead of an X11/Wayland display.
 gtk4-broadwayd :5
 ```
 
-`:5` is the Broadway display number. The daemon listens for the browser on **HTTP port
-`8080 + N`** (so `:5` -> `http://localhost:8085`) and for app clients on the matching local
+`:5` is the Broadway display number. The daemon listens for the browser on HTTP port
+`8080 + N` (so `:5` maps to `http://localhost:8085`) and for app clients on the matching local
 Broadway socket. Open the served page in a browser:
 
 ```
@@ -33,9 +33,10 @@ browser sends input (pointer, touch, keyboard) back over the same socket.
 
 The page the daemon serves is `client.html` + `broadway.js`, both embedded in the daemon binary
 (generated into `broadwayjs.h` / `clienthtml.h` at build time). All the fork's browser-side logic
-- touch delivery, the clipboard bridge, pinch-zoom, reconnect, the [debug menu](../internals/debug-menu.md)
-+ paint-flash overlay - lives in `broadway.js`. Both assets are served `Cache-Control: no-store`, so
-a plain reload always picks up a rebuilt+restarted `gtk4-broadwayd` - no hard-refresh needed.
+lives in `broadway.js`: touch delivery, the clipboard bridge, pinch-zoom, reconnect, the
+[debug menu](../internals/debug-menu.md), and the paint-flash overlay. Both assets are served
+`Cache-Control: no-store`, so a plain reload always picks up a rebuilt and restarted
+`gtk4-broadwayd`. No hard-refresh needed.
 
 > A change confined to `broadway.js` / `client.html` only needs a **broadwayd restart** then a
 > normal browser reload. A change in `libgtk` (a widget or GDK fix) needs the library rebuilt and
@@ -43,7 +44,7 @@ a plain reload always picks up a rebuilt+restarted `gtk4-broadwayd` - no hard-re
 
 ## Secure context note
 
-The clipboard bridge uses `navigator.clipboard`, which browsers only expose in a **secure
-context** - `https://` or `http://localhost`. Over plain `http://` to a remote host, copy may
+The clipboard bridge uses `navigator.clipboard`, which browsers only expose in a secure
+context: `https://` or `http://localhost`. Over plain `http://` to a remote host, copy may
 silently fail outside a user gesture. The reference deployment runs behind TLS (Traefik in Docker
 Swarm) for exactly this reason.

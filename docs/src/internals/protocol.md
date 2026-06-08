@@ -7,7 +7,7 @@ value at the end so existing wire numbers never shift.
 
 This chapter covers the fork's additions; stock entries appear for context.
 
-## Display ops - daemon to browser (`BROADWAY_OP_*`)
+## Display ops, daemon to browser (`BROADWAY_OP_*`)
 
 Stock ops are `0`-`16` (`GRAB_POINTER` ... `ROUNDTRIP`). The fork appends:
 
@@ -22,7 +22,7 @@ Stock ops are `0`-`16` (`GRAB_POINTER` ... `ROUNDTRIP`). The fork appends:
 | `BROADWAY_OP_PONG`              | 23 | daemon -> browser | heartbeat reply ([Connection management](../features/connection.md)) |
 | `BROADWAY_OP_DEBUG_FLASH`       | 24 | daemon -> browser | toggle the paint-flash profiler overlay ([Debug menu](debug-menu.md)) |
 
-## Input events - browser to app (`BROADWAY_EVENT_*`)
+## Input events, browser to app (`BROADWAY_EVENT_*`)
 
 Stock events are `0`-`14` (`ENTER` ... `ROUNDTRIP_NOTIFY`); `TOUCH` (5) already existed but was
 [never sourced as a touchscreen](../features/touch.md). The fork appends:
@@ -33,7 +33,7 @@ Stock events are `0`-`14` (`ENTER` ... `ROUNDTRIP_NOTIFY`); `TOUCH` (5) already 
 | `BROADWAY_EVENT_PING`               | 16 | heartbeat from the browser; the app answers with `PONG` ([Connection management](../features/connection.md)) |
 | `BROADWAY_EVENT_MENU`               | 17 | Triple-Shift; the daemon intercepts it to spawn the debug menu, so it never reaches the app ([Debug menu](debug-menu.md)) |
 
-## Requests - app to daemon (`BROADWAY_REQUEST_*`)
+## Requests, app to daemon (`BROADWAY_REQUEST_*`)
 
 The fork appends `BROADWAY_REQUEST_SET_CLIPBOARD`, `BROADWAY_REQUEST_REQUEST_CLIPBOARD`,
 `BROADWAY_REQUEST_SET_INPUT_REGION`, and `BROADWAY_REQUEST_OPEN_URI`, with matching structs
@@ -55,9 +55,9 @@ typedef struct {
 } BroadwayRequestNewSurface;
 ```
 
-`is_popup` is set on the GDK client from `surface->parent != NULL` and stored on the daemon's
+The GDK client sets `is_popup` from `surface->parent != NULL`, and the daemon stores it on its
 `BroadwaySurface`. It replaced an earlier `transient_for`-based heuristic that misclassified
-transient **dialogs** as popups. It now gates two touch behaviours: which surfaces get raised and
+transient dialogs as popups. Two touch behaviours now key off it: which surfaces get raised and
 focused on a tap, and which surfaces count for pointer-recovery (`any_popup_visible`). See
 [Touch interface](../features/touch.md).
 
@@ -67,6 +67,6 @@ focused on a tap, and which surfaces count for pointer-recovery (`any_popup_visi
 #define BROADWAY_CLIPBOARD_MAX_SIZE (16 * 1024 * 1024)
 ```
 
-Bounds the allocation a (possibly malicious or buggy) browser-supplied length can drive on the
-daemon, and the resulting reply size on the client. The clipboard and open-URI paths both clamp
-against the framed message size first, then this ceiling.
+This caps the allocation a browser-supplied length (possibly malicious or buggy) can drive on the
+daemon, along with the resulting reply size on the client. The clipboard and open-URI paths both
+clamp against the framed message size first, then against this ceiling.

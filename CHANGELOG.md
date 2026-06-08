@@ -8,7 +8,7 @@ All notable changes to the GTK Broadway fork. Format based on [Keep a Changelog]
 
 - **Connection management** - auto-reconnect after screen-off or network change, sessions token, ping-pong heartbeat, single-display arbitration.
 - **Label touch selection** - read-only labels get selection handles and a Copy/Select-all bubble like entries; tap outside or use the mouse to dismiss.
-- **Debug menu** - Triple-Shift opens a server-side overlay: live stats (traffic, framerate, latency, texture buffer), a paint-flash profiler that visualizes what re-renders and re-uploads, and reconnect / drop-session actions.
+- **Debug menu** - Triple-Shift opens a server-side overlay with live performance stats and a paint-flash profiler that visualizes re-rendered areas.
 
 ### Fixed
 
@@ -16,7 +16,7 @@ All notable changes to the GTK Broadway fork. Format based on [Keep a Changelog]
 - Fixed crash when starting a drag from a text selection.
 - Touch: long pressing multiple selected rows doesn't clear selection.
 - Desktop: clicking empty space in a list clears the selection.
-- Rendering no longer freezes under heavy scrolling (e.g. the About dialog); a stale node/texture reference now degrades gracefully instead of wedging the page until a refresh.
+- Rendering no longer freezes under heavy scrolling; a stale node/texture reference degrades gracefully.
 
 ### Performance
 
@@ -52,4 +52,3 @@ All notable changes to the GTK Broadway fork. Format based on [Keep a Changelog]
 - Desktop: drags survive the cursor leaving the widget.
 
 [v1]: https://github.com/droserasprout/gtk-broadway/releases/tag/v1
-

@@ -8,13 +8,13 @@ browser's `navigator.clipboard`, both ways.
 A browser accepts clipboard writes freely but hands out its contents only on request, so the two
 paths differ.
 
-**Copy / cut (guest -> host)** is push-based:
+Copy and cut (guest to host) is push-based:
 
 1. GTK claims the clipboard (Ctrl+C/X, right-click Copy, a custom Copy action).
 2. The app sends `BROADWAY_OP_SET_CLIPBOARD` (op 17) with the text.
 3. `broadway.js` calls `navigator.clipboard.writeText()`.
 
-**Paste (host -> guest)** is request/reply:
+Paste (host to guest) is request/reply:
 
 1. The app sends `BROADWAY_OP_REQUEST_CLIPBOARD` (op 18) with a serial.
 2. `broadway.js` reads the browser clipboard and replies with `BROADWAY_EVENT_CLIPBOARD_CONTENTS`
@@ -25,18 +25,20 @@ The new file `gdkclipboard-broadway.c` implements the GDK side of both paths.
 
 ## Details
 
-- **Per-client request table.** The daemon tracks outstanding paste requests by id, so with several
-  browsers connected a reply reaches the requester, not another tab.
-- **5-second read timeout** so a closed tab can't hang a pending paste.
-- **Hidden textarea.** `client.html` carries an offscreen textarea; `broadway.js` captures a native
-  paste into it, which hands over clipboard text without a permission prompt. (The offscreen
-  clipboard/OSK helpers live on `body`, outside the zoomed `#zoomRoot`.)
-- **`GtkTextView` fallback.** Some selections don't yield a plain string directly; the bridge
-  serializes them to `text/plain`.
-- **Length clamps.** Both the daemon `SET_CLIPBOARD` path (`broadwayd.c`) and the client
-  `CLIPBOARD` reply (`gdkbroadway-server.c`) clamp the wire `len` to the framed message size, then
-  to `BROADWAY_CLIPBOARD_MAX_SIZE` (16 MiB). `ensure_recv_capacity` doubles overflow-safe with a
-  fatal guard on absurd frame sizes, rather than wrapping a `guint32` to 0.
+The daemon keeps a per-client request table, tracking outstanding paste requests by id. With several
+browsers connected, a reply reaches the requester rather than another tab. A 5-second read timeout
+keeps a closed tab from hanging a pending paste.
+
+Paste relies on a hidden textarea. `client.html` carries an offscreen textarea, and `broadway.js`
+captures a native paste into it, which hands over clipboard text without a permission prompt. (The
+offscreen clipboard and OSK helpers live on `body`, outside the zoomed `#zoomRoot`.) Some selections
+don't yield a plain string directly, so the bridge falls back to serializing them to `text/plain`,
+the `GtkTextView` case.
+
+Both paths clamp length. The daemon `SET_CLIPBOARD` path (`broadwayd.c`) and the client `CLIPBOARD`
+reply (`gdkbroadway-server.c`) clamp the wire `len` to the framed message size, then to
+`BROADWAY_CLIPBOARD_MAX_SIZE` (16 MiB). `ensure_recv_capacity` doubles overflow-safe with a fatal
+guard on absurd frame sizes, rather than wrapping a `guint32` to 0.
 
 ## Touch keyboard paste
 
@@ -47,7 +49,8 @@ multi-line snippet produces real line breaks. See [Touch interface](touch.md) fo
 
 ## Limitations
 
-- **PRIMARY selection / middle-click paste** is not bridged - browsers expose no JS API for it
-  (WONTFIX).
-- **Insecure origins.** `navigator.clipboard` needs a secure context; over plain `http://` copy may
-  silently fail outside a user gesture. Serve over `https://` or `http://localhost`.
+The PRIMARY selection and middle-click paste aren't bridged, since browsers expose no JS API for it
+(WONTFIX).
+
+`navigator.clipboard` needs a secure context. Over plain `http://`, copy may silently fail outside a
+user gesture, so serve over `https://` or `http://localhost`.
