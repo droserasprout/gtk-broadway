@@ -40,6 +40,35 @@ real touch (events, text-selection UI, pinch-zoom), OSK and IME bridging, HiDPI 
 external links. Cross-process DnD, rich/image clipboard, PRIMARY selection, and GPU rendering stay
 unsupported, same as stock.
 
+## Beyond the fork: other backend differences
+
+These are platform / windowing-protocol capabilities that differ across backends but that the fork
+does **not** change. The Broadway column is therefore the same for stock and fork. They are listed
+so the picture is honest about where Broadway sits even after our patches: it is a browser-tunneled
+backend with no window manager, no desktop session, and no GPU, so most of these never apply.
+
+| Capability | Wayland | X11 | Win32 | macOS | Broadway |
+|------------|:---:|:---:|:---:|:---:|:---:|
+| Keep-above / keep-below stacking | 🔴 | 🟢 | 🟢 | 🔴 | 🔴 |
+| Sticky (on all workspaces) | 🔴 | 🟢 | 🔴 | 🔴 | 🔴 |
+| Lower window below siblings | 🔴 | 🟢 | 🔴 | 🟢 | 🔴 |
+| Inhibit system shortcuts (grab all keys) | 🟢 | 🟢 | 🟢 | 🔴 | 🔴 |
+| Startup notification / activation token | 🟢 | 🟢 | 🔴 | 🔴 | 🔴 |
+| Server window menu (`show_window_menu`) | 🟡 | 🟢 | 🟢 | 🔴 | 🔴 |
+| Tiled-edge constraints | 🟢 | 🟢 | 🔴 | 🔴 | 🔴 |
+| Window handle export (xdg-activation / dialogs) | 🟢 | 🟢 | 🔴 | 🔴 | 🔴 |
+| Smooth / touchpad scroll-source detection | 🟢 | 🟢 | 🟢 | 🟡 | 🟡 [^scroll] |
+| Keyboard layout groups | 🟢 | 🟡 | 🔴 | 🔴 | 🔴 |
+| DMA-BUF texture import | 🟢 [^dmabuf] | 🔴 | 🔴 | 🔴 | 🔴 |
+| Graphics offload / video subsurfaces | 🟢 [^offload] | 🔴 | 🔴 | 🔴 | 🔴 |
+| HDR / wide-gamut color (`GdkColorState`) | 🟢 | 🔴 | 🔴 | 🟡 | 🔴 |
+| Presentation-time / vsync feedback | 🟢 | 🟡 | 🟡 | 🟡 | 🔴 |
+| Accessibility bridge | 🟢 [^a11y] | 🟢 [^a11y] | 🟢 [^a11y] | 🟢 [^a11y] | 🔴 |
+| Desktop settings (dark mode / accent / fonts) | 🟢 [^settings] | 🟢 [^settings] | 🟡 | 🟢 [^settings] | 🔴 |
+
+GL is reached through a different API per platform (EGL on Wayland, GLX or EGL on X11, WGL or EGL on
+Win32, none on macOS which renders via Metal); see the OpenGL / Vulkan rows in the matrix above.
+
 [^clip]: Stock upstream Broadway ships no `GdkClipboard` at all. The fork adds
     `gdkclipboard-broadway.c` with `SET_CLIPBOARD` / `REQUEST_CLIPBOARD` ops bridging
     `navigator.clipboard`, both directions. See [Clipboard](clipboard.md).
@@ -83,3 +112,20 @@ unsupported, same as stock.
 
 [^uri]: The fork adds `BROADWAY_OP_OPEN_URI` + `gdk_broadway_display_show_uri`, hooked through
     `gtk_show_uri_full` to `window.open(..., "_blank")`. See [Opening links](open-uri.md).
+
+[^scroll]: Broadway forwards wheel scroll, but has no touchpad/source distinction or true smooth
+    scroll; macOS reports everything as surface (smooth) scroll.
+
+[^dmabuf]: Linux-only by construction (`gdkdmabuftexture.c`); imported via `zwp_linux_dmabuf` on
+    Wayland. No other backend builds a dmabuf texture.
+
+[^offload]: `gdksubsurface-wayland.c` only; lets video/textures bypass the compositor. No
+    `gdksubsurface-*.c` exists for the other backends.
+
+[^a11y]: AT-SPI over D-Bus on the Linux backends (`gtkatspicontext.c`), AccessKit on
+    Windows/macOS (`gtkaccesskitcontext.c`, build-time `HAVE_ACCESSKIT`). Broadway has no a11y
+    bridge.
+
+[^settings]: Dark-mode / accent / font settings come from the xdg settings portal on Wayland,
+    XSETTINGS on X11, and AppKit (`NSAppearance`) on macOS. Broadway has no desktop session to read
+    from; theming is whatever CSS the app ships.
