@@ -82,7 +82,8 @@ void            broadway_output_set_show_keyboard   (BroadwayOutput *output,
                                                      gboolean        show);
 void            broadway_output_set_input_region    (BroadwayOutput *output,
                                                      int             id,
-                                                     gboolean        is_empty);
+                                                     int             mode,
+                                                     BroadwayRect   *rect);
 void            broadway_output_reassert_pointer     (BroadwayOutput *output,
                                                      int             id,
                                                      int             x,

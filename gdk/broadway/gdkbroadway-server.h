@@ -85,5 +85,9 @@ void               _gdk_broadway_server_surface_set_modal_hint   (GdkBroadwaySer
                                                                   gboolean           modal_hint);
 void               _gdk_broadway_server_surface_set_input_region (GdkBroadwayServer *server,
                                                                   int                id,
-                                                                  gboolean           is_empty);
+                                                                  int                mode,
+                                                                  int                x,
+                                                                  int                y,
+                                                                  int                width,
+                                                                  int                height);
 
