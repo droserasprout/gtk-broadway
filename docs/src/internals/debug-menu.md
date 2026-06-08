@@ -4,9 +4,14 @@
 
 A **Triple-Shift** (press Shift three times quickly) summons a server-side debug overlay for the
 Broadway session: live stats, a paint-flash traffic profiler, and session actions. This is a native
-GTK4 window composited into the same display main app use.
+GTK4 window composited into the same display the main app uses.
 
-*TODO: add screenshot*
+<img src="../images/debug-menu.png" alt="Broadway debug menu" width="320"
+  style="max-width:100%;border-radius:6px">
+
+> The menu binary (`gtk4-broadway-debugmenu`) is **local-dev only** - the `.deb` packs just
+> `libgtk-4.so` and `gtk4-broadwayd` ([CI & packaging](../build/ci.md)); `Dockerfile.local` installs
+> the menu on top for development.
 
 ## Performance section
 
@@ -23,8 +28,28 @@ summed PNG bytes across `server->textures`), the footprint kept warm by the
 - **Drop session** rolls the session token first, so the reconnecting client sees a new session and
   hard-resets.
 - **Open test URL** exercises the [open-uri](../features/open-uri.md) path.
+- **Test gallery** opens the [widget gallery](#widget-gallery) below.
 - **Paint flashing** toggles the profiler below.
 - **Debug logging** is a placeholder, no-op for now.
+
+## Widget gallery
+
+**Test gallery** opens a second top-level window holding one clean, empty widget per fork feature.
+It gives any Broadway session - including a real Android device - a stable, data-free surface to
+exercise and screencast a feature, instead of hunting for the right widget inside a live app at
+app-specific coordinates.
+
+| Section | Widgets | Exercises |
+|---|---|---|
+| Text & clipboard | two `GtkEntry`, a selectable `GtkLabel`, a `GtkTextView` | [clipboard](../features/clipboard.md), [touch text selection](../features/touch.md), OSK/IME |
+| Notebook tabs | a scrollable `GtkNotebook` with more tabs than fit | [tab pixel-scroll](../features/notebook.md) |
+| Menus & popups | `GtkDropDown`, a popover, an "Open dialog" button | [tap-selects-right-row, menu-tap freeze](../features/touch.md), autohide popovers, window centering |
+| Scrolling list | a `GtkListBox` of 25 rows in a scroller | gesture-survives-repaint, hover prelight, [node/texture reuse](performance.md) |
+| Animation & links | a `GtkSpinner`, a `GtkSwitch`, a `GtkLinkButton` | continuous-repaint traffic, [open-uri](../features/open-uri.md) |
+
+The menu and the windows it opens share one main loop, but it quits only when the **last** window
+closes - so you can close the stats overlay and keep just the gallery up for a clean recording.
+Escape or Close dismisses whichever window has focus.
 
 ## Paint-flash profiler
 
