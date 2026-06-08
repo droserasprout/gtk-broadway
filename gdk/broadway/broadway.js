@@ -1727,17 +1727,62 @@ function getSurfaceId(ev) {
     return (target && target.surface) ? target.surface.id : 0;
 }
 
+/* GTK only needs the latest pointer position, so buffer moves and send one per
+ * frame; a motion flood can't then fill the websocket and delay a later click
+ * or key (head-of-line blocking). Discrete events flush the pending move first
+ * to preserve ordering. */
+var pendingMove = null;
+var pendingMoveScheduled = false;
+
+function flushPendingMove()
+{
+    if (pendingMove == null)
+        return;
+    var args = pendingMove;
+    pendingMove = null;
+    rawSendInput(BROADWAY_EVENT_POINTER_MOVE, args);
+}
+
+function pendingMoveFrame()
+{
+    pendingMoveScheduled = false;
+    flushPendingMove();
+}
+
+function queuePointerMove(args)
+{
+    pendingMove = args;
+    if (!pendingMoveScheduled) {
+        pendingMoveScheduled = true;
+        window.requestAnimationFrame(pendingMoveFrame);
+    }
+}
+
 function sendInput(cmd, args)
+{
+    /* Flush any buffered move before a discrete event to keep ordering. */
+    if (cmd == BROADWAY_EVENT_POINTER_MOVE) {
+        queuePointerMove(args);
+        return;
+    }
+    flushPendingMove();
+    rawSendInput(cmd, args);
+}
+
+function rawSendInput(cmd, args)
 {
     if (inputSocket == null)
         return;
 
-    var fullArgs = [cmd, lastSerial, lastTimeStamp].concat(args);
-    var buffer = new ArrayBuffer(fullArgs.length * 4);
+    /* Pack fields straight into the buffer; avoids the per-event concat()/
+     * forEach() closure on the move/wheel hot path. */
+    var buffer = new ArrayBuffer((args.length + 3) * 4);
     var view = new DataView(buffer);
-    fullArgs.forEach(function(arg, i) {
-        view.setInt32(i*4, arg, false);
-    });
+    view.setInt32(0, cmd, false);
+    view.setInt32(4, lastSerial, false);
+    view.setInt32(8, lastTimeStamp, false);
+    for (var i = 0; i < args.length; i++)
+        view.setInt32((i + 3) * 4, args[i], false);
 
     inputSocket.send(buffer);
 }
