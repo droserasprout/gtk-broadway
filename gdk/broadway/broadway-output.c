@@ -339,11 +339,15 @@ broadway_output_set_show_keyboard (BroadwayOutput *output,
 
 void
 broadway_output_set_input_region (BroadwayOutput *output,
-                                  int id, gboolean is_empty)
+                                  int id, int mode, BroadwayRect *rect)
 {
   write_header (output, BROADWAY_OP_SET_INPUT_REGION);
   append_uint16 (output, id);
-  append_uint16 (output, is_empty);
+  append_uint16 (output, mode);
+  append_uint16 (output, mode == 2 ? rect->x : 0);
+  append_uint16 (output, mode == 2 ? rect->y : 0);
+  append_uint16 (output, mode == 2 ? rect->width : 0);
+  append_uint16 (output, mode == 2 ? rect->height : 0);
 }
 
 void

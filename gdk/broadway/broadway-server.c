@@ -151,7 +151,9 @@ struct BroadwaySurface {
   gboolean is_popup; /* menu/popover/bubble, as opposed to a toplevel or dialog */
   guint32 texture;
   gboolean modal_hint;
-  gboolean input_region_is_empty;
+  gboolean input_region_is_empty;  /* mode == 1; kept for any_popup_visible() */
+  int input_region_mode;           /* 0 = whole, 1 = empty, 2 = rect */
+  BroadwayRect input_region_rect;  /* interactive area when mode == 2 */
   BroadwayNode *nodes;
   GHashTable *node_lookup;
 };
@@ -2352,7 +2354,7 @@ broadway_server_surface_set_modal_hint (BroadwayServer *server,
 
 void
 broadway_server_surface_set_input_region (BroadwayServer *server,
-                                          int id, gboolean is_empty)
+                                          int id, int mode, BroadwayRect *rect)
 {
   BroadwaySurface *surface;
 
@@ -2360,10 +2362,13 @@ broadway_server_surface_set_input_region (BroadwayServer *server,
   if (surface == NULL)
     return;
 
-  surface->input_region_is_empty = is_empty;
+  surface->input_region_mode = mode;
+  surface->input_region_is_empty = (mode == 1);
+  if (mode == 2)
+    surface->input_region_rect = *rect;
 
   if (server->output)
-    broadway_output_set_input_region (server->output, id, is_empty);
+    broadway_output_set_input_region (server->output, id, mode, rect);
 }
 
 gboolean
@@ -2830,8 +2835,10 @@ broadway_server_resync_surfaces (BroadwayServer *server)
                                            surface->nodes,
                                            NULL, NULL);
 
-      if (surface->input_region_is_empty)
-        broadway_output_set_input_region (server->output, surface->id, TRUE);
+      if (surface->input_region_mode != 0)
+        broadway_output_set_input_region (server->output, surface->id,
+                                          surface->input_region_mode,
+                                          &surface->input_region_rect);
 
       if (surface->visible)
         broadway_output_show_surface (server->output, surface->id);

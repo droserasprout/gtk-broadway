@@ -433,7 +433,8 @@ client_handle_request (BroadwayClient *client,
     case BROADWAY_REQUEST_SET_INPUT_REGION:
       broadway_server_surface_set_input_region (server,
                                                 request->set_input_region.id,
-                                                request->set_input_region.is_empty);
+                                                request->set_input_region.mode,
+                                                &request->set_input_region.rect);
       break;
     case BROADWAY_REQUEST_SET_CLIPBOARD:
       {
