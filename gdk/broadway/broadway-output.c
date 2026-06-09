@@ -150,6 +150,24 @@ broadway_output_flush (BroadwayOutput *output)
 
 }
 
+/* Shared-session broadcast: replay one already-built frame (the primary's
+ * flushed buffer) verbatim onto a secondary client's stream, so every viewer
+ * gets the identical differential node stream and stays in lockstep. We reuse
+ * the primary's serial/byte content unchanged - secondaries are pure mirrors
+ * and never originate commands. */
+void
+broadway_output_mirror_frame (BroadwayOutput *output,
+                              const char     *buf,
+                              gsize           len)
+{
+  if (len == 0)
+    return;
+
+  broadway_output_send_cmd (output, TRUE, BROADWAY_WS_BINARY, buf, len);
+  output->bytes_sent += len;
+  output->frames++;
+}
+
 BroadwayOutput *
 broadway_output_new (GOutputStream *out, guint32 serial)
 {
@@ -176,6 +194,16 @@ guint32
 broadway_output_get_next_serial (BroadwayOutput *output)
 {
   return output->serial;
+}
+
+/* Peek the not-yet-flushed frame so the server can mirror it to shared clients
+ * before broadway_output_flush clears the buffer. */
+const char *
+broadway_output_peek_buffer (BroadwayOutput *output,
+                             gsize          *len)
+{
+  *len = output->buf->len;
+  return output->buf->str;
 }
 
 guint64

@@ -24,6 +24,11 @@ int             broadway_output_has_error           (BroadwayOutput *output);
 void            broadway_output_set_next_serial     (BroadwayOutput *output,
                                                      guint32         serial);
 guint32         broadway_output_get_next_serial     (BroadwayOutput *output);
+const char *    broadway_output_peek_buffer         (BroadwayOutput *output,
+                                                     gsize          *len);
+void            broadway_output_mirror_frame        (BroadwayOutput *output,
+                                                     const char     *buf,
+                                                     gsize           len);
 guint64         broadway_output_get_bytes_sent      (BroadwayOutput *output);
 guint32         broadway_output_get_frames          (BroadwayOutput *output);
 void            broadway_output_get_pacing          (BroadwayOutput *output,

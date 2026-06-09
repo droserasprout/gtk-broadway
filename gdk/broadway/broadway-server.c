@@ -95,6 +95,22 @@ struct _BroadwayServer {
   guint32 owner_id;
   guint32 next_client_id;
 
+  /* Shared-session mode (BROADWAY_SHARED=1): instead of rejecting a second
+   * client, it joins as a viewer-participant. Multiplayer broadway! Every
+   * connected client may send input (collaborative pair-control) and every
+   * client mirrors the SAME display output. The dimensions are LOCKED to
+   * whatever the first/owner client established; later clients letterbox.
+   *
+   * server->input / server->output stay the "primary" channel (the owner that
+   * drives serials and the differential node stream). shared_inputs holds the
+   * extra joined BroadwayInput*s. Their outputs receive a verbatim copy of the
+   * primary's flushed frames (see broadcast_frame_to_shared), so they stay in
+   * lockstep with the differential protocol. */
+  gboolean shared_mode;
+  gboolean size_locked; /* once TRUE, SCREEN_SIZE_CHANGED is ignored */
+  gboolean suppress_broadcast; /* set while doing a per-client resync */
+  GList *shared_inputs; /* BroadwayInput*, extra clients in shared mode */
+
   guint32 screen_scale;
 
   gint32 mouse_in_surface_id;
@@ -326,6 +342,10 @@ broadway_server_init (BroadwayServer *server)
   server->root = root;
   server->screen_scale = 1;
 
+  /* Multiplayer opt-in: BROADWAY_SHARED=1 lets extra clients join instead of
+   * being rejected. Off by default, so single-owner behavior is unchanged. */
+  server->shared_mode = (g_strcmp0 (g_getenv ("BROADWAY_SHARED"), "1") == 0);
+
   g_hash_table_insert (server->surface_id_hash,
                        GINT_TO_POINTER (root->id),
                        root);
@@ -346,6 +366,20 @@ broadway_server_finalize (GObject *object)
       g_free (de);
     }
   g_slist_free (server->deferred_enters);
+
+  /* Free any shared-session viewers still attached. */
+  {
+    GList *si;
+    for (si = server->shared_inputs; si != NULL; si = si->next)
+      {
+        BroadwayInput *in = si->data;
+        if (in->output)
+          broadway_output_free (in->output);
+        broadway_input_free (in);
+      }
+    g_list_free (server->shared_inputs);
+    server->shared_inputs = NULL;
+  }
 
   g_free (server->address);
   g_free (server->display);
@@ -519,9 +553,24 @@ update_event_state (BroadwayServer *server,
     /* No server-side state; forwarded to GTK to freeze/thaw rendering. */
     break;
   case BROADWAY_EVENT_SCREEN_SIZE_CHANGED:
+    /* Dimension lock: in shared mode the first client to report a size pins it
+     * for the whole session. Later joiners do NOT get to resize/reflow the
+     * shared session - they letterbox/scale on their end instead. This kills
+     * the multi-client "dimension fight" where each browser window would
+     * otherwise rewrite the root size.
+     *
+     * Simplification: input messages don't carry which client sent them here,
+     * so once locked we freeze the root size for EVERYONE (the owner included).
+     * The owner sets the size on its first SCREEN_SIZE_CHANGED, which locks it;
+     * later resizes (from any browser) are ignored. Live owner-driven resizing
+     * is rare in the WebUI and giving it up keeps all viewers consistent. */
+    if (server->shared_mode && server->size_locked)
+      break;
     server->root->width = message->screen_resize_notify.width;
     server->root->height = message->screen_resize_notify.height;
     server->screen_scale = message->screen_resize_notify.scale;
+    if (server->shared_mode)
+      server->size_locked = TRUE;
     break;
 
   default:
@@ -1452,6 +1501,19 @@ broadway_server_read_all_input_nonblocking (BroadwayInput *input)
 
           input->server->input = NULL;
         }
+      else if (g_list_find (input->server->shared_inputs, input))
+        {
+          /* A shared viewer left the session. Drop it from the broadcast list
+           * and free its own output (the primary path frees server->output
+           * elsewhere; shared inputs own theirs). */
+          input->server->shared_inputs =
+            g_list_remove (input->server->shared_inputs, input);
+          if (input->output)
+            {
+              broadway_output_free (input->output);
+              input->output = NULL;
+            }
+        }
       broadway_input_free (input);
       if (res < 0)
         {
@@ -1532,9 +1594,37 @@ broadway_server_fake_roundtrip_reply (BroadwayServer *server,
   queue_process_input_at_idle (server);
 }
 
+/* Mirror the primary's pending frame to every shared client, then flush them.
+ * Called from broadway_server_flush before the primary buffer is cleared so all
+ * viewers receive the identical byte stream. */
+static void
+broadcast_frame_to_shared (BroadwayServer *server)
+{
+  const char *buf;
+  gsize len;
+  GList *l;
+
+  if (server->suppress_broadcast ||
+      server->shared_inputs == NULL || server->output == NULL)
+    return;
+
+  buf = broadway_output_peek_buffer (server->output, &len);
+  if (len == 0)
+    return;
+
+  for (l = server->shared_inputs; l != NULL; l = l->next)
+    {
+      BroadwayInput *si = l->data;
+      if (si->output)
+        broadway_output_mirror_frame (si->output, buf, len);
+    }
+}
+
 void
 broadway_server_flush (BroadwayServer *server)
 {
+  broadcast_frame_to_shared (server);
+
   if (server->output &&
       !broadway_output_flush (server->output))
     {
@@ -1768,6 +1858,71 @@ send_outstanding_roundtrips (BroadwayServer *server)
   server->outstanding_roundtrips = NULL;
 }
 
+/* Disconnect and free every shared viewer (used when the session resets). */
+static void
+drop_shared_inputs (BroadwayServer *server)
+{
+  GList *l;
+
+  for (l = server->shared_inputs; l != NULL; l = l->next)
+    {
+      BroadwayInput *in = l->data;
+      if (in->output)
+        {
+          broadway_output_disconnected (in->output);
+          broadway_output_flush (in->output);
+          broadway_output_free (in->output);
+          in->output = NULL;
+        }
+      broadway_input_free (in);
+    }
+  g_list_free (server->shared_inputs);
+  server->shared_inputs = NULL;
+}
+
+/* Bring a second (or Nth) client into the live shared session as a mirror +
+ * input participant. Returns TRUE; the input source stays attached. */
+static gboolean
+join_shared (BroadwayInput *input)
+{
+  BroadwayServer *server = BROADWAY_SERVER (input->server);
+  BroadwayOutput *primary;
+
+  input->active = TRUE;
+  /* Reuse the owner's client id for routing - shared clients act on the same
+   * surfaces as the owner, so events resolve to the owner's surfaces. */
+  input->client_id = server->owner_id;
+
+  /* Continue this mirror's serial stream from where the primary is, so the
+   * verbatim frames it will later replay carry consistent serials.
+   * Simplification: roundtrip/ack serials are still authored by the primary;
+   * the secondary never originates requests, so this is display-only. */
+  if (server->output)
+    broadway_output_set_next_serial (input->output,
+                                     broadway_output_get_next_serial (server->output));
+
+  broadway_output_session (input->output, server->session_token, server->owner_id);
+  if (server->paint_flash)
+    broadway_output_debug_flash (input->output, TRUE);
+
+  /* Full state replay to THIS client only: temporarily point the primary slot
+   * at the joiner's output so resync writes there, then restore. resync ends
+   * with broadway_server_flush; with shared_inputs not yet holding this client,
+   * the broadcast step is a no-op for it, and we restore before any other
+   * client could be touched. */
+  primary = server->output;
+  server->output = input->output;
+  server->suppress_broadcast = TRUE;
+  broadway_server_resync_surfaces (server);
+  server->suppress_broadcast = FALSE;
+  server->output = primary;
+
+  /* Now register as an ongoing mirror; subsequent frames broadcast to it. */
+  server->shared_inputs = g_list_append (server->shared_inputs, input);
+
+  return TRUE;
+}
+
 static gboolean
 start (BroadwayInput *input)
 {
@@ -1784,7 +1939,22 @@ start (BroadwayInput *input)
   if (req != 0 && req == server->owner_id)
     ; /* owner resume */
   else if (server->owner_id == 0 || req == 0)
-    server->owner_id = ++server->next_client_id; /* fresh: new owner */
+    {
+      server->owner_id = ++server->next_client_id; /* fresh: new owner */
+      /* A brand-new owner resets the display; existing shared viewers were
+       * mirroring the old session, so drop them. They can reconnect and re-join
+       * the new session cleanly. */
+      drop_shared_inputs (server);
+    }
+  else if (server->shared_mode && server->input != NULL)
+    {
+      /* Multiplayer! Instead of rejecting this second client, let it join the
+       * live session as a viewer-participant: it mirrors the primary's display
+       * and its input is accepted into the same stream (see process_input_*).
+       * The primary keeps driving serials and the differential node protocol;
+       * this client just replays the primary's frames. */
+      return join_shared (input);
+    }
   else
     {
       /* Superseded by a newer load. Reject on its own connection (no race with
