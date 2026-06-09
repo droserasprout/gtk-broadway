@@ -104,6 +104,7 @@ typedef enum {
   BROADWAY_OP_PONG = 23,
   BROADWAY_OP_DEBUG_FLASH = 24,  /* daemon->client: toggle the paint-flash overlay */
   BROADWAY_OP_DEBUG_SET_SCREEN = 25, /* daemon->client: pin logical screen w,h,scale (0,0,0 = unpin) */
+  BROADWAY_OP_SET_CURSOR = 26,   /* daemon->client: set a surface's CSS cursor by name */
 } BroadwayOpType;
 
 typedef struct {
@@ -236,6 +237,7 @@ typedef enum {
   BROADWAY_REQUEST_REQUEST_CLIPBOARD,
   BROADWAY_REQUEST_SET_INPUT_REGION,
   BROADWAY_REQUEST_OPEN_URI,
+  BROADWAY_REQUEST_SET_CURSOR,
 } BroadwayRequestType;
 
 typedef struct {
@@ -342,6 +344,13 @@ typedef struct {
   char uri[1];
 } BroadwayRequestOpenUri;
 
+typedef struct {
+  BroadwayRequestBase base;
+  guint32 id;
+  guint32 len;
+  char name[1];
+} BroadwayRequestSetCursor;
+
 typedef union {
   BroadwayRequestBase base;
   BroadwayRequestNewSurface new_surface;
@@ -365,6 +374,7 @@ typedef union {
   BroadwayRequestSetInputRegion set_input_region;
   BroadwayRequestSetClipboard set_clipboard;
   BroadwayRequestOpenUri open_uri;
+  BroadwayRequestSetCursor set_cursor;
 } BroadwayRequest;
 
 typedef enum {

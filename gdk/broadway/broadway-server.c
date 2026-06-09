@@ -2397,6 +2397,19 @@ broadway_server_open_uri (BroadwayServer *server,
 }
 
 void
+broadway_server_surface_set_cursor (BroadwayServer *server,
+                                    int             id,
+                                    const char     *name,
+                                    gsize           len)
+{
+  if (server->output)
+    {
+      broadway_output_set_cursor (server->output, id, name, len);
+      broadway_server_flush (server);
+    }
+}
+
+void
 broadway_server_surface_lower (BroadwayServer *server,
                                int id)
 {
