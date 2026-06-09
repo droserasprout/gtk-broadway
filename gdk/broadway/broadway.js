@@ -46,6 +46,7 @@ const BROADWAY_OP_OPEN_URI = 21;
 const BROADWAY_OP_SESSION = 22;
 const BROADWAY_OP_PONG = 23;
 const BROADWAY_OP_DEBUG_FLASH = 24;
+const BROADWAY_OP_DEBUG_SET_SCREEN = 25;
 
 /* Latin 'v'/'V' keysyms, used to recognise the paste shortcut (Ctrl+V and
  * Ctrl+Shift+V) so the browser's native 'paste' event is allowed to fire. */
@@ -321,6 +322,7 @@ var lastPongTime = 0;
 var pingSentTime = 0;          /* when the last PING went out, for RTT measurement */
 var lastRtt = 0;               /* last measured round-trip (ms), reported to the daemon */
 var paintFlashing = false;     /* debug overlay: received (magenta), reused (green), uploaded (red) */
+var pinnedScreen = null;       /* debug: {w,h,s} forces logical screen size/scale, overriding window/dpr */
 const FLASH_MS = 100;          /* how long a flash stays up (no fade) */
 var textureBatch = 0;          /* bumped per message; a Texture's batch == this => uploaded now */
 var flashPool = [];            /* recycled paint-flash overlay divs (avoids per-node create/remove churn) */
@@ -1417,6 +1419,20 @@ function handleCommands(cmd, display_commands, new_textures, modified_trees)
 
         case BROADWAY_OP_DEBUG_FLASH:
             paintFlashing = cmd.get_uint8() != 0;
+            break;
+
+        case BROADWAY_OP_DEBUG_SET_SCREEN:
+            var psw = cmd.get_16(), psh = cmd.get_16(), pss = cmd.get_uint8();
+            /* scale 0 = unpin (reset zoom); otherwise drive the normal resize path
+             * with the pinned values so the canvas rebuilds (no blank-until-zoom). */
+            if (pss > 0) {
+                pinnedScreen = { w: psw, h: psh, s: pss };
+            } else {
+                pinnedScreen = null;
+                loadSavedZoom();   /* unpin: restore the user's committed zoom, not hard 1.0 */
+                applyZoomTransform(zoomFactor);
+            }
+            sendScreenSizeChanged();
             break;
 
         case BROADWAY_OP_DISCONNECTED:
@@ -3893,6 +3909,8 @@ function beginPinch() {
  * re-renders sharp; the wrapper transform already shows the magnified view. */
 function endPinch() {
     pinchActive = false;
+    if (pinnedScreen)      /* screen is pinned: zoom is fixed, nothing to commit */
+        return;
     saveZoom();
     sendScreenSizeChanged();
     applyZoomTransform(zoomFactor);
@@ -3980,13 +3998,17 @@ function onTouchMove(ev) {
     }
 
     if (pinchActive) {
-        var dist = activeTouchDistance();
-        if (pinchStartDist > 0 && dist > 0) {
-            /* Magnify live around the pinch midpoint, floating with the fingers
-             * (the bitmap may be briefly soft); the crisp reflow is committed on
-             * touch-end. */
-            zoomFactor = clampZoom(pinchStartZoom * (dist / pinchStartDist));
-            applyPinchPreview();
+        /* A pinned screen fixes the zoom: capture the two-finger gesture (no
+         * forward) but skip the preview, so it can't fight the pin or snap back. */
+        if (!pinnedScreen) {
+            var dist = activeTouchDistance();
+            if (pinchStartDist > 0 && dist > 0) {
+                /* Magnify live around the pinch midpoint, floating with the fingers
+                 * (the bitmap may be briefly soft); the crisp reflow is committed on
+                 * touch-end. */
+                zoomFactor = clampZoom(pinchStartZoom * (dist / pinchStartDist));
+                applyPinchPreview();
+            }
         }
         holdMenuCheckDrift();   /* finger movement = real pinch/pan, abort hold */
         return;
@@ -4248,9 +4270,21 @@ function sendScreenSizeChanged() {
      * the #zoomRoot transform then magnifies that back to fill the viewport.
      * At zoom 1 this is byte-identical to the unmodified behaviour (desktop,
      * which gets its own crisp zoom from the browser's native page-zoom). */
-    w = Math.round(window.innerWidth / zoomFactor);
-    h = Math.round(window.innerHeight / zoomFactor);
-    s = Math.max(1, Math.round(window.devicePixelRatio * zoomFactor));
+    if (pinnedScreen) {
+        /* Debug pin: report the exact requested logical size + integer scale, shown
+         * at natural size (1 logical px : 1 CSS px, no magnification) - a small
+         * screen is a small square top-left, like a browser zoom-out re-render.
+         * zoomFactor stays 1 so pointer remap (pageX/Y / zoomFactor) lines up. */
+        zoomFactor = 1.0;
+        applyZoomTransform(1.0);
+        w = pinnedScreen.w;
+        h = pinnedScreen.h;
+        s = pinnedScreen.s;
+    } else {
+        w = Math.round(window.innerWidth / zoomFactor);
+        h = Math.round(window.innerHeight / zoomFactor);
+        s = Math.max(1, Math.round(window.devicePixelRatio * zoomFactor));
+    }
     sendInput (BROADWAY_EVENT_SCREEN_SIZE_CHANGED, [w, h, s]);
 }
 
@@ -4370,7 +4404,10 @@ function onSessionToken(token, cid)
         sessionToken = token;
 
     if (firstTime || token === sessionToken) {
-        /* Same session (or first connect): resume in place. */
+        /* Same session (or first connect): resume in place. A confirmed session is
+         * the real success signal, so reset the reconnect backoff here (not on raw
+         * socket open) - that's what keeps a flapping network from looping. */
+        reconnectDelay = 0;
         if (reconnecting) {
             if (!firstTime)
                 resetClientState();
@@ -4560,8 +4597,12 @@ function connect()
 
     ws.onopen = function() {
         inputSocket = ws;
-        reconnectDelay = 0;        /* reset backoff on a successful open */
         lastPongTime = Date.now(); /* fresh socket: don't immediately time out */
+        /* Backoff is NOT reset here. A raw socket open is not a working session:
+         * after a network switch the daemon may reject/close us (lost ownership,
+         * or a flaky path drops the socket before SESSION). Resetting here would
+         * make open-then-close flapping retry forever at the 250ms floor. The
+         * reset lives in onSessionToken, gated on a confirmed resume. */
     };
     ws.onerror = function() {
         /* onclose follows and drives the reconnect. */
