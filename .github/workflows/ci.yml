@@ -9,7 +9,7 @@ on:
 
 jobs:
   build:
-    uses: droserasprout/gtk-broadway/.github/workflows/build.yml@ci
+    uses: droserasprout/gtk-brotway/.github/workflows/build.yml@ci
     with:
       ref: ${{ github.sha }}
       gtk: "4.22.2"
