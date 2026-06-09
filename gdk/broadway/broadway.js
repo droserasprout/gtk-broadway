@@ -73,6 +73,11 @@ const BROADWAY_EVENT_PING = 16;
 /* Browser->daemon "summon the debug menu". The daemon intercepts it (like
  * CLIPBOARD_CONTENTS) and never forwards it to GTK clients. */
 const BROADWAY_EVENT_MENU = 17;
+/* Browser->daemon visibility hints. The daemon forwards them to GTK, which
+ * freezes (SUSPEND) / thaws (RESUME) rendering so a backgrounded tab costs no
+ * frames; the open socket lets RESUME repaint just the delta (no reconnect). */
+const BROADWAY_EVENT_SUSPEND = 18;
+const BROADWAY_EVENT_RESUME = 19;
 
 const DISPLAY_OP_REPLACE_CHILD = 0;
 const DISPLAY_OP_APPEND_CHILD = 1;
@@ -307,6 +312,7 @@ var sessionToken = null;       /* daemon id from BROADWAY_OP_SESSION; null until
 var clientId = 0;              /* server-assigned id; sent back as ?cid= on reconnect */
 var sessionInvalidated = false;/* true => give up, show disconnected until manual refresh */
 var reconnecting = false;      /* true while the dim+spinner overlay is up */
+var tabSuspended = false;       /* true while we've told GTK to freeze rendering (tab hidden) */
 var reconnectTimer = null;
 var reconnectDelay = 0;        /* backoff in ms */
 var awaitFirstFrame = false;   /* drop the overlay once the resync repaints */
@@ -4301,8 +4307,12 @@ function start()
     /* Recovery triggers: visibility/pageshow reconnect if down, online forces
      * it, offline shows the overlay. Heartbeat covers what fires none of these. */
     document.addEventListener("visibilitychange", function () {
-        if (document.visibilityState === "visible")
+        if (document.visibilityState === "visible") {
+            sendVisibility(true);
             onVisible();
+        } else {
+            sendVisibility(false);
+        }
     });
     window.addEventListener("pageshow", onVisible);
     window.addEventListener("online", reconnectNow);
@@ -4515,6 +4525,22 @@ function onVisible()
     reconnectIfDown();
 }
 
+/* Tell GTK to freeze (visible=false) or thaw (visible=true) rendering so a
+ * backgrounded tab streams no frames. Only meaningful on a live socket: if the
+ * link is down, RESUME is moot (the reconnect resync repaints anyway) and
+ * SUSPEND is moot (nothing is being sent). Guarded against redundant sends so
+ * we don't spam the daemon on rapid focus toggles. */
+function sendVisibility(visible)
+{
+    var want = !visible;           /* desired GTK-suspended state */
+    if (tabSuspended === want)
+        return;                    /* already in the requested state */
+    if (!ws || ws.readyState !== WebSocket.OPEN || inputSocket == null)
+        return;                    /* can't signal now; ws.onopen re-asserts on reconnect */
+    tabSuspended = want;           /* only flip once the signal is actually out */
+    sendInput(visible ? BROADWAY_EVENT_RESUME : BROADWAY_EVENT_SUSPEND, []);
+}
+
 /* Reconnect only if the link looks down, so a tab switch on a healthy socket
  * doesn't force a needless resync. */
 function reconnectIfDown()
@@ -4603,6 +4629,16 @@ function connect()
          * or a flaky path drops the socket before SESSION). Resetting here would
          * make open-then-close flapping retry forever at the 250ms floor. The
          * reset lives in onSessionToken, gated on a confirmed resume. */
+        /* The app<->daemon link never dropped, so GTK keeps whatever freeze
+         * state a prior socket left it in. Re-assert our visibility on every
+         * fresh socket so a tab that reconnects while visible gets thawed (and a
+         * background reconnect stays frozen). tabSuspended is reset so the next
+         * visibilitychange transition still fires. */
+        if (document.visibilityState === "visible") {
+            if (tabSuspended) { tabSuspended = false; sendInput(BROADWAY_EVENT_RESUME, []); }
+        } else {
+            if (!tabSuspended) { tabSuspended = true; sendInput(BROADWAY_EVENT_SUSPEND, []); }
+        }
     };
     ws.onerror = function() {
         /* onclose follows and drives the reconnect. */

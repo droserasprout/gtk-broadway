@@ -512,6 +512,10 @@ update_event_state (BroadwayServer *server,
     break;
   case BROADWAY_EVENT_ROUNDTRIP_NOTIFY:
     break;
+  case BROADWAY_EVENT_SUSPEND:
+  case BROADWAY_EVENT_RESUME:
+    /* No server-side state; forwarded to GTK to freeze/thaw rendering. */
+    break;
   case BROADWAY_EVENT_SCREEN_SIZE_CHANGED:
     server->root->width = message->screen_resize_notify.width;
     server->root->height = message->screen_resize_notify.height;
@@ -590,6 +594,8 @@ process_input_message (BroadwayServer *server,
     /* TODO: Send to keys focused clients only... */
   case BROADWAY_EVENT_FOCUS:
   case BROADWAY_EVENT_SCREEN_SIZE_CHANGED:
+  case BROADWAY_EVENT_SUSPEND:
+  case BROADWAY_EVENT_RESUME:
   default:
     surface = NULL;
     break;
@@ -1218,6 +1224,11 @@ parse_input_message (BroadwayInput *input, const unsigned char *message, gsize p
     msg.screen_resize_notify.width = ntohl (*p++);
     msg.screen_resize_notify.height = ntohl (*p++);
     msg.screen_resize_notify.scale = ntohl (*p++);
+    break;
+
+  case BROADWAY_EVENT_SUSPEND:
+  case BROADWAY_EVENT_RESUME:
+    /* No payload beyond the base header; forward to GTK to freeze/thaw. */
     break;
 
   case BROADWAY_EVENT_CLIPBOARD_CONTENTS:
