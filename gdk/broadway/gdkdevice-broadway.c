@@ -65,11 +65,52 @@ gdk_broadway_device_init (GdkBroadwayDevice *device_core)
   _gdk_device_add_axis (device, GDK_AXIS_Y, 0, 0, 1);
 }
 
+/* GDK cursor names are CSS-aligned in GTK4, so the resolved name is sent
+ * straight to the browser's CSS cursor. Walk the fallback chain to the first
+ * named cursor; a nameless (texture-only) cursor falls back to "default". */
+static const char *
+broadway_cursor_css_name (GdkCursor *cursor)
+{
+  while (cursor)
+    {
+      const char *name = gdk_cursor_get_name (cursor);
+      if (name)
+        return name;
+      cursor = gdk_cursor_get_fallback (cursor);
+    }
+  return "default";
+}
+
 static void
 gdk_broadway_device_set_surface_cursor (GdkDevice *device,
                                         GdkSurface *surface,
                                         GdkCursor *cursor)
 {
+  GdkBroadwaySurface *impl;
+  GdkBroadwayDisplay *broadway_display;
+  const char *name;
+
+  if (surface == NULL || GDK_SURFACE_DESTROYED (surface))
+    return;
+
+  /* Only the logical pointer carries a cursor; ignore touch etc. */
+  if (gdk_device_get_source (device) != GDK_SOURCE_MOUSE)
+    return;
+
+  impl = GDK_BROADWAY_SURFACE (surface);
+  name = broadway_cursor_css_name (cursor);
+
+  /* This fires on every motion event, so only hit the wire when the resolved
+   * cursor name actually changes. */
+  if (g_strcmp0 (impl->cursor_name, name) == 0)
+    return;
+
+  g_free (impl->cursor_name);
+  impl->cursor_name = g_strdup (name);
+
+  broadway_display = GDK_BROADWAY_DISPLAY (gdk_surface_get_display (surface));
+  _gdk_broadway_server_surface_set_cursor (broadway_display->server,
+                                           impl->id, name);
 }
 
 void

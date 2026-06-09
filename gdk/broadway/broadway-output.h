@@ -101,4 +101,8 @@ void            broadway_output_request_clipboard   (BroadwayOutput *output,
 void            broadway_output_open_uri             (BroadwayOutput *output,
                                                      const char     *uri,
                                                      gsize           len);
+void            broadway_output_set_cursor           (BroadwayOutput *output,
+                                                     int             id,
+                                                     const char     *name,
+                                                     gsize           len);
 
