@@ -2,7 +2,17 @@
 
 All notable changes to the GTK Broadway fork. Format based on [Keep a Changelog](https://keepachangelog.com/).
 
+Versioning is not semver: release tags are `vA[.B]` (fork revision), debs are `<gtk-base>-A[.B]`, e.g. `4.22.2-2.1`. See [Supported versions](https://github.com/droserasprout/gtk-broadway/blob/ci/docs/src/guide/versions.md).
+
 ## [Unreleased]
+
+## [v2.1] - 2026-06-09
+
+### Fixed
+
+- Include `gtk4-broadway-debugmenu` in deb packages
+
+## [v2] - 2026-06-08
 
 ### Added
 
@@ -49,9 +59,9 @@ All notable changes to the GTK Broadway fork. Format based on [Keep a Changelog]
 - Touch: dropdowns select the tapped row, not the first.
 - Touch: no crash when reopening the selection bubble.
 - Touch: Copy reappears after Select-All.
-- Touch: pressing a selected row keeps the whole multi-selection, not just that row.
-- Clicking empty space in a list clears the selection.
 - Desktop: horizontal two-finger swipe scrolls instead of browser back/forward.
 - Desktop: drags survive the cursor leaving the widget.
 
+[v2.1]: https://github.com/droserasprout/gtk-broadway/releases/tag/v2.1
+[v2]: https://github.com/droserasprout/gtk-broadway/releases/tag/v2
 [v1]: https://github.com/droserasprout/gtk-broadway/releases/tag/v1

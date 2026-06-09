@@ -12,8 +12,6 @@ built the `GdkTouchEvent` with `core_pointer`, a `GDK_SOURCE_MOUSE` device, so t
 The fix emits touch events from Broadway's existing-but-unused `touchscreen` device. *(libgtk.)* The
 cursor and handles now appear, and most other fixes build on this.
 
-*TODO: add screenshot*
-
 ## Reliable taps
 
 Touch listeners on `document` are passive by default in Firefox, so `ev.preventDefault()` did nothing.

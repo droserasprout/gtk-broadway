@@ -17,7 +17,7 @@ Each arch builds natively inside the matching Ubuntu container, which keeps the 
 
 ## Assembling the `.deb`
 
-The package is built by hand from the Meson output, with no `dh`/`debhelper` involved:
+The package is built by hand from the Meson output, with no `dh`/`debhelper` involved.
 
 The SONAME comes straight from the build output via `find _build/gtk -name 'libgtk-4.so.1.*.*'`, so a GTK point-release bump needs no edit. The script lays out `usr/lib/<multiarch>/<soname>`, re-points the `libgtk-4.so.1` symlink at it, and adds `usr/bin/gtk4-broadwayd`. The `control` file sets `Package: gtk4-broadway-fork` and lists `libgtk-4-1, libgtk-4-bin` under both `Depends` and `Replaces`, so the package overlays the stock runtime files and leaves the rest of GTK alone. `postinst` is just `ldconfig`. Everything is built with `dpkg-deb --root-owner-group --build` and uploaded as artifact `deb-<gtk>-<arch>`.
 

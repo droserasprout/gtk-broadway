@@ -54,12 +54,12 @@ Genuine per-frame animation, where each frame really is different pixels, still 
 to a cairo texture; the dedup catches only their settled states. Native radial-gradient support in the
 Broadway renderer would remove the rest, but that is out of scope here.
 
-# Transport and resources
+## Transport and resources
 
 The reuse tiers above cut *texture* traffic. A second pass trims the rest of the per-frame cost:
 redundant wire ops, input latency, syscalls, and unbounded buffers.
 
-## Wire: drop empty frames
+### Wire: drop empty frames
 
 *New in v2*
 
@@ -74,7 +74,7 @@ stale OSK or empty-input-region state on the new client that popped the keyboard
 swallowed taps on mobile. Dedup here is only safe once disconnect resets the flags, or once the reconnect
 sync re-asserts both states rather than just the active one.
 
-## Input latency: pointer-move coalescing
+### Input latency: pointer-move coalescing
 
 *New in v2*
 
@@ -84,7 +84,7 @@ can't fill the websocket and delay a following click or key ([head-of-line
 blocking](https://en.wikipedia.org/wiki/Head-of-line_blocking)). Any discrete event flushes the
 pending move first, preserving order.
 
-## CPU: fewer syscalls and allocations
+### CPU: fewer syscalls and allocations
 
 *New in v2*
 
@@ -94,7 +94,7 @@ Three hot-path trims. In `broadway-output.c` the WebSocket header and payload no
 on the move/wheel hot path. And in `broadway-server.c`, since only texture nodes carry a client texture
 id, the remap moved out of the node-data copy loop so the common case skips a per-word comparison.
 
-## Memory bounding
+### Memory bounding
 
 *New in v2*
 

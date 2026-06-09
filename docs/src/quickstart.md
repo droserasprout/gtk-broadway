@@ -9,7 +9,7 @@ Pick the asset matching your Ubuntu base ([4.14.5 on `ubuntu:24.04`, 4.22.2 on
 `ubuntu:26.04`](guide/versions.md)) and architecture:
 
 ```sh
-rel=v1           # the release to install
+rel=v2.1         # the release to install - see the Releases page for the latest tag
 gtk_ver=4.14.5   # use 4.22.2 on an ubuntu:26.04 base
 arch="$(dpkg --print-architecture)"
 wget -O gtk.deb "https://github.com/droserasprout/gtk-broadway/releases/download/${rel}/gtk4-broadway-fork_${gtk_ver}-${rel#v}_${arch}.deb"
@@ -35,6 +35,11 @@ GDK_BACKEND=broadway BROADWAY_DISPLAY=:5 your-gtk4-app
 ```
 
 Open `http://localhost:8085` in a browser. Copy/paste, touch text editing, and pinch-zoom now work.
+The fork is app-agnostic - any GTK4 binary works - but for a complete, real-world deployment (the
+app this fork was built to serve, packaged with the `.deb` and a TLS terminator) see
+[`nicotineplus-proper`](https://github.com/droserasprout/nicotineplus-proper), which runs Nicotine+
+as a browser WebUI on this stack.
+
 See [Running broadwayd](guide/running.md) for how the pieces fit, and
 [Deploying behind TLS](guide/deployment.md) for a real (non-localhost) deployment, which the
 [clipboard's secure-context requirement](features/clipboard.md#limitations) needs.

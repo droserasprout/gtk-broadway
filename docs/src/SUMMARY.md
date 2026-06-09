@@ -1,6 +1,7 @@
 # Summary
 
 [Introduction](introduction.md)
+[What is Broadway?](broadway.md)
 [Quickstart](quickstart.md)
 
 # Using the fork
@@ -10,6 +11,7 @@
 - [Running broadwayd](guide/running.md)
 - [Deploying behind TLS](guide/deployment.md)
 - [Configuration reference](guide/config.md)
+- [Troubleshooting](guide/troubleshooting.md)
 - [Known issues & tested configs](guide/known-issues.md)
 
 # Features
@@ -48,4 +50,5 @@
 
 ---
 
+[Glossary](glossary.md)
 [Changelog](changelog.md)

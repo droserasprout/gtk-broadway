@@ -11,6 +11,14 @@ backend details noted below.
 
 **Supported architectures:** `amd64`, `arm64`.
 
+## Release versioning
+
+Not semver. Each GitHub release is tagged `vA[.B]` - a fork revision counter, where `A`
+increments per release and the optional `.B` is a packaging/point release (e.g. `v2.1`). A
+release publishes per-base debs named `X.Y.Z-A[.B]`: `X.Y.Z` is the upstream GTK base
+(`4.14.5`, `4.22.2`) and `A[.B]` the fork revision. So `gtk4-broadway-fork_4.22.2-2.1` is the
+GTK 4.22.2 base at fork revision 2.1.
+
 ## Picking a base
 
 Pick the base that matches the GTK already installed in your target environment. The `.deb`

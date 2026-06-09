@@ -4,8 +4,6 @@ Two-finger pinch zooms the whole UI (0.25x-5x) with a real re-layout and re-rend
 desktop Firefox's Ctrl+scroll page-zoom - not a stretched bitmap. Mobile browsers refuse to
 page-zoom a `user-scalable=no` page, so the fork drives it manually.
 
-*TODO: add screenshot*
-
 ## What works
 
 - **Two-finger pinch** zooms the whole UI from 0.25x to 5x, re-rendering crisply at the new scale.

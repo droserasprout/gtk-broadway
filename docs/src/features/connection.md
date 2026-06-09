@@ -6,8 +6,6 @@ Any WebSocket interruption drops the session in stock Broadway: screen-off, a Wi
 4G<->Wi-Fi handover. The only recovery is a full page reload, which loses UI state. The fork
 reconnects the browser client in place.
 
-*TODO: add screenshot*
-
 ## What works
 
 - **In-place reconnect** after screen-off or a network change - the session resumes without a reload.

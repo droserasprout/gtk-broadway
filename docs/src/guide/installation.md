@@ -21,7 +21,7 @@ why the package and your system must agree on the GTK base version. See
 Pick the asset matching your Ubuntu base and architecture:
 
 ```sh
-rel=v1           # the release to install
+rel=v2.1         # the release to install - see the Releases page for the latest tag
 gtk_ver=4.14.5   # use 4.22.2 on an ubuntu:26.04 base
 arch="$(dpkg --print-architecture)"
 wget -O gtk.deb "https://github.com/droserasprout/gtk-broadway/releases/download/${rel}/gtk4-broadway-fork_${gtk_ver}-${rel#v}_${arch}.deb"
@@ -30,7 +30,14 @@ apt-mark hold libgtk-4-1 libgtk-4-bin
 ```
 
 The asset name encodes base and architecture:
-`gtk4-broadway-fork_<gtk>-<rev>_<arch>.deb` (e.g. `gtk4-broadway-fork_4.22.2-1_amd64.deb`).
+`gtk4-broadway-fork_<gtk>-<rev>_<arch>.deb` (e.g. `gtk4-broadway-fork_4.22.2-2.1_amd64.deb`).
+
+> To always grab the newest release without hardcoding the tag, resolve it from the GitHub API
+> first:
+> ```sh
+> rel="$(curl -fsSL https://api.github.com/repos/droserasprout/gtk-broadway/releases/latest \
+>   | grep -oP '"tag_name":\s*"\K[^"]+')"
+> ```
 
 ## Hold the stock packages
 

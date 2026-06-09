@@ -26,6 +26,12 @@ Broadway backend was [deprecated](https://www.phoronix.com/news/GTK-X11-Now-Depr
 
 Supported architectures: `amd64`, `arm64`.
 
+GTK **older than 4.14 is not supported and won't be**. Pre-4.14 (4.6 on
+`ubuntu:22.04`, 4.8 on `debian:12`) predates the Broadway renderer changes the
+fork patches against, so the backports are high-conflict and ugly for little
+gain. 4.14 is the hard floor: develop on the latest supported version and mirror
+patches down to 4.14.
+
 ## Installation
 
 A Debian package `gtk4-broadway-fork` is built by CI and published to [GitHub Releases](https://github.com/droserasprout/gtk-broadway/releases). It Depends/Replaces `libgtk-4-1` and `libgtk-4-bin`, overlaying only the patched `libgtk-4.so` and `gtk4-broadwayd` keeping the rest of GTK in place.

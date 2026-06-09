@@ -1,7 +1,7 @@
 # Backend comparison
 
 Where our Broadway fork sits next to the other GTK4 backends, feature by feature. The fork column
-is `4.22.2-fork` (a branch, 28 commits on top of the stock `4.22.2` tag). "Broadway (stock)" is
+is `4.22.2-fork` (the fork commits on top of the stock `4.22.2` tag). "Broadway (stock)" is
 upstream unpatched Broadway, the baseline the fork improves on.
 
 Rows are grouped by category. Most of the bottom half (windowing, platform integration) are
