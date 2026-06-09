@@ -1,4 +1,4 @@
-/* gtk4-broadway-debugmenu - the native GTK4 debug menu for the Broadway daemon.
+/* gtk4-brotway-debugmenu - the native GTK4 debug menu for the Broadway daemon.
  *
  * Spawned on demand by gtk4-broadwayd (BROADWAY_EVENT_MENU) with GDK_BACKEND
  * and BROADWAY_DISPLAY pointed at that daemon, so this window composites into
