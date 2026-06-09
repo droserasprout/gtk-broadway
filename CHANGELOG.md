@@ -2,6 +2,35 @@
 
 All notable changes to the GTK Broadway fork. Format based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased]
+
+## [v2] - 2026-06-08
+
+### Added
+
+- **Connection management** - auto-reconnect after screen-off or network change, sessions token, ping-pong heartbeat, single-display arbitration.
+- **Label touch selection** - read-only labels get selection handles and a Copy/Select-all bubble like entries; tap outside or use the mouse to dismiss.
+- **Debug menu** - Triple-Shift opens a server-side overlay with live performance stats and a paint-flash profiler that visualizes re-rendered areas.
+
+### Fixed
+
+- Icons stay crisp under scale transforms and HiDPI.
+- No crash when starting a drag from a text selection.
+- Rendering no longer freezes under heavy scrolling or on a stale node/texture reference.
+- Touch: long-pressing a multi-row selection keeps it.
+- Desktop: clicking empty space in a list clears the selection.
+- Popovers and menus land on their anchor, not offset by their shadow.
+- A popover's shadow passes clicks through instead of swallowing them.
+- Widget borders render crisp: no 1px seam or corner sliver against the background.
+
+### Performance
+
+- Reuse re-rendered-but-identical content (text scrolled into view, re-hovered rows, repeated icons).
+- Drop empty `SET_NODES` no-op frames from the wire.
+- Coalesce pointer-move events to one per frame, so a motion flood can't delay a following click or keypress.
+- Lower per-frame CPU: header and payload go out in a single socket write, and input events are packed without per-event allocation.
+- Bound memory: the output buffer is released after an oversized frame, and the per-texture recolor cache is LRU-capped.
+
 ## [v1] - 2026-06-05
 
 ### Added
@@ -25,4 +54,5 @@ All notable changes to the GTK Broadway fork. Format based on [Keep a Changelog]
 - Desktop: horizontal two-finger swipe scrolls instead of browser back/forward.
 - Desktop: drags survive the cursor leaving the widget.
 
+[v2]: https://github.com/droserasprout/gtk-broadway/releases/tag/v2
 [v1]: https://github.com/droserasprout/gtk-broadway/releases/tag/v1

@@ -6,7 +6,12 @@
 # published, per base x arch, as:
 #   gtk4-broadway-fork_<gtk>-<N>_<arch>.deb     (e.g. ..._4.22.2-123_amd64.deb)
 #
+# Release notes come from the `## [vN]` section of CHANGELOG.md on this `ci` branch
+# (single source of truth), so promote [Unreleased] -> [v123] and commit it here
+# BEFORE tagging - the v123 tag must point at the commit that has the section.
+#
 # Cutting v123:
+#   # on ci: promote [Unreleased] -> ## [v123] - <date> in CHANGELOG.md, commit, push
 #   git tag 4.14.5-123 <commit> && git push origin 4.14.5-123
 #   git tag 4.22.2-123 <commit> && git push origin 4.22.2-123
 #   git tag v123 ci             && git push origin v123
@@ -53,11 +58,32 @@ jobs:
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
+      # The v* tag points at this `ci` commit, so the checkout carries CHANGELOG.md.
+      - uses: actions/checkout@v4
+
       - name: Download all .deb artifacts
         uses: actions/download-artifact@v4
         with:
           pattern: deb-*
           merge-multiple: true
+
+      # Pull the `## [vN]` section out of CHANGELOG.md as the release body. Falls
+      # back to a generic line if the section is missing, so a release never fails
+      # just because the changelog wasn't updated.
+      - name: Build release notes from CHANGELOG
+        run: |
+          set -eu
+          TAG="${GITHUB_REF_NAME}"; REV="${TAG#v}"
+          awk -v ver="## [${TAG}]" '
+            index($0, ver)==1 {flag=1; next}
+            flag && /^## \[/ {exit}
+            flag {print}
+          ' CHANGELOG.md | sed -e '/./,$!d' > notes.md   # strip leading blank lines
+          # Fall back to a generic line if the section was missing/empty.
+          if [ ! -s notes.md ]; then
+            echo "Multi-base (4.14.5, 4.22.2) multi-arch (amd64, arm64) Broadway GTK fork, revision ${REV}." > notes.md
+          fi
+          echo "--- release notes for ${TAG} ---"; cat notes.md
 
       - name: Publish ${{ github.ref_name }} release
         run: |
@@ -74,5 +100,5 @@ jobs:
           ls -l ./versioned/*.deb
           gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 \
             || gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --title "Broadway GTK fork ${TAG}" \
-                 --notes "Multi-base (4.14.5, 4.22.2) multi-arch (amd64, arm64) Broadway GTK fork, revision ${REV}."
+                 --notes-file notes.md
           gh release upload "$TAG" ./versioned/*.deb --repo "$GITHUB_REPOSITORY" --clobber
