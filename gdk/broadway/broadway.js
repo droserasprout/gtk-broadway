@@ -90,6 +90,7 @@ const BROADWAY_EVENT_MENU = 17;
  * frames; the open socket lets RESUME repaint just the delta (no reconnect). */
 const BROADWAY_EVENT_SUSPEND = 18;
 const BROADWAY_EVENT_RESUME = 19;
+const BROADWAY_EVENT_MAXIMIZE = 20;
 
 const DISPLAY_OP_REPLACE_CHILD = 0;
 const DISPLAY_OP_APPEND_CHILD = 1;
@@ -545,6 +546,10 @@ function cmdCreateSurface(id, x, y, width, height)
     var surface = { id: id, x: x, y:y, width: width, height: height };
     surface.transientParent = 0;
     surface.visible = false;
+    /* WM-level maximize bit, mirrored for our own UI feedback. The authoritative
+     * state lives server-side; geometry changes arrive via the normal move/resize
+     * ops, so we never compute geometry here. */
+    surface.maximized = false;
     surface.imageData = null;
     surface.nodes = {};
 
@@ -2200,6 +2205,28 @@ function doUngrab() {
         surfaceWithMouse = realSurfaceWithMouse;
     }
     grab.surface = null;
+}
+
+/* WM-level maximize toggle. We can't reliably tell a GTK headerbar from content
+ * (everything is composited client-side), so the affordance is a double-click on
+ * a real toplevel surface. We flip our local bit optimistically; the server is
+ * authoritative and the resulting geometry arrives via the normal resize ops. */
+function requestMaximizeToggle (id) {
+    var surface = surfaces[id];
+    if (!surface)
+        return;
+    /* Only toplevels: popups/menus have a transient parent and must not maximize. */
+    if (surface.transientParent != 0)
+        return;
+    surface.maximized = !surface.maximized;
+    sendInput (BROADWAY_EVENT_MAXIMIZE, [id]);
+}
+
+function onDoubleClick (ev) {
+    var id = getSurfaceId(ev);
+    if (id != 0)
+        requestMaximizeToggle (id);
+    return false;
 }
 
 function onMouseDown (ev) {
@@ -4228,6 +4255,7 @@ function setupDocument(document)
     document.onmouseout = onMouseOut;
     document.onmousedown = onMouseDown;
     document.onmouseup = onMouseUp;
+    document.ondblclick = onDoubleClick;
     document.onkeydown = onKeyDown;
     document.onkeypress = onKeyPress;
     document.onkeyup = onKeyUp;

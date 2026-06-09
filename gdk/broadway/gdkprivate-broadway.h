@@ -127,6 +127,9 @@ BroadwayInputMsg * _gdk_broadway_display_block_for_input (GdkDisplay *display,
 /* Surface methods - testing */
 void _gdk_broadway_surface_resize_surface        (GdkSurface *surface);
 
+/* WM-level maximize toggle, driven by BROADWAY_EVENT_MAXIMIZE from the browser. */
+void _gdk_broadway_surface_toggle_maximize       (GdkSurface *surface);
+
 void _gdk_broadway_cursor_update_theme (GdkCursor *cursor);
 void _gdk_broadway_cursor_display_finalize (GdkDisplay *display);
 

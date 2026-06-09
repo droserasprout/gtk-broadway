@@ -348,6 +348,12 @@ _gdk_broadway_events_got_input (GdkDisplay *display,
     _gdk_broadway_display_set_suspended (display, FALSE);
     break;
 
+  case BROADWAY_EVENT_MAXIMIZE:
+    surface = g_hash_table_lookup (display_broadway->id_ht, GINT_TO_POINTER (message->maximize.id));
+    if (surface)
+      _gdk_broadway_surface_toggle_maximize (surface);
+    break;
+
   case BROADWAY_EVENT_FOCUS:
     surface = g_hash_table_lookup (display_broadway->id_ht, GINT_TO_POINTER (message->focus.old_id));
     if (surface)

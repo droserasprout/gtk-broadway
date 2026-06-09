@@ -955,6 +955,25 @@ gdk_broadway_surface_unmaximize (GdkSurface *surface)
                                     impl->pre_maximize_height);
 }
 
+/* WM-level toggle entry point. The browser sends BROADWAY_EVENT_MAXIMIZE; the
+ * event source routes it here. We just dispatch to the existing maximize /
+ * unmaximize path based on the surface's current state - no new state. */
+void
+_gdk_broadway_surface_toggle_maximize (GdkSurface *surface)
+{
+  GdkBroadwaySurface *impl;
+
+  if (GDK_SURFACE_DESTROYED (surface))
+    return;
+
+  impl = GDK_BROADWAY_SURFACE (surface);
+
+  if (impl->maximized)
+    gdk_broadway_surface_unmaximize (surface);
+  else
+    gdk_broadway_surface_maximize (surface);
+}
+
 typedef struct _MoveResizeData MoveResizeData;
 
 struct _MoveResizeData

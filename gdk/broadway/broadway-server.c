@@ -523,6 +523,9 @@ update_event_state (BroadwayServer *server,
     server->root->height = message->screen_resize_notify.height;
     server->screen_scale = message->screen_resize_notify.scale;
     break;
+  case BROADWAY_EVENT_MAXIMIZE:
+    /* No server-side state to track; forwarded to the owning client. */
+    break;
 
   default:
     g_printerr ("update_event_state - Unknown input command %c\n", message->base.type);
@@ -590,6 +593,9 @@ process_input_message (BroadwayServer *server,
     break;
   case BROADWAY_EVENT_ROUNDTRIP_NOTIFY:
     surface = broadway_server_lookup_surface (server, message->roundtrip_notify.id);
+    break;
+  case BROADWAY_EVENT_MAXIMIZE:
+    surface = broadway_server_lookup_surface (server, message->maximize.id);
     break;
   case BROADWAY_EVENT_KEY_PRESS:
   case BROADWAY_EVENT_KEY_RELEASE:
@@ -1270,6 +1276,13 @@ parse_input_message (BroadwayInput *input, const unsigned char *message, gsize p
     /* Daemon-intercepted: spawn/toggle the menu, never forward to clients. */
     broadway_server_summon_menu (server);
     return;
+
+  case BROADWAY_EVENT_MAXIMIZE:
+    /* WM-level maximize toggle. The daemon only knows surface ids; the maximize
+     * state machine lives client-side, so just forward the id and let the GDK
+     * surface toggle itself. */
+    msg.maximize.id = ntohl (*p++);
+    break;
 
   default:
     g_printerr ("parse_input_message - Unknown input command %c (%s)\n", msg.base.type, message);

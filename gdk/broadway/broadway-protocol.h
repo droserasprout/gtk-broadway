@@ -75,6 +75,7 @@ typedef enum {
   BROADWAY_EVENT_MENU = 17, /* daemon-intercepted: summon the debug menu */
   BROADWAY_EVENT_SUSPEND = 18, /* tab hidden: freeze app rendering (no payload) */
   BROADWAY_EVENT_RESUME = 19,  /* tab visible again: thaw rendering (no payload) */
+  BROADWAY_EVENT_MAXIMIZE = 20, /* WM-level maximize toggle for one surface */
 } BroadwayEventType;
 
 typedef enum {
@@ -198,6 +199,11 @@ typedef struct {
   gint32 old_id;
 } BroadwayInputFocusMsg;
 
+typedef struct {
+  BroadwayInputBaseMsg base;
+  guint32 id; /* surface to toggle maximize on */
+} BroadwayInputMaximizeMsg;
+
 typedef union {
   BroadwayInputBaseMsg base;
   BroadwayInputPointerMsg pointer;
@@ -212,6 +218,7 @@ typedef union {
   BroadwayInputDeleteNotify delete_notify;
   BroadwayInputScreenResizeNotify screen_resize_notify;
   BroadwayInputFocusMsg focus;
+  BroadwayInputMaximizeMsg maximize;
 } BroadwayInputMsg;
 
 typedef enum {
