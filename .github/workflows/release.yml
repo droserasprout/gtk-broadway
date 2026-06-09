@@ -81,7 +81,7 @@ jobs:
           ' CHANGELOG.md | sed -e '/./,$!d' > notes.md   # strip leading blank lines
           # Fall back to a generic line if the section was missing/empty.
           if [ ! -s notes.md ]; then
-            echo "Multi-base (4.14.5, 4.22.2) multi-arch (amd64, arm64) Broadway GTK fork, revision ${REV}." > notes.md
+            echo "Multi-base (4.14.5, 4.22.2) multi-arch (amd64, arm64) GTK Brotway, revision ${REV}." > notes.md
           fi
           echo "--- release notes for ${TAG} ---"; cat notes.md
 
@@ -99,6 +99,6 @@ jobs:
           done
           ls -l ./versioned/*.deb
           gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 \
-            || gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --title "GTK Brotway ${TAG}" \
+            || gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --title "${TAG}" \
                  --notes-file notes.md
           gh release upload "$TAG" ./versioned/*.deb --repo "$GITHUB_REPOSITORY" --clobber
