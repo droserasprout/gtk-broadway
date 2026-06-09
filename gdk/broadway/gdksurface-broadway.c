@@ -904,6 +904,7 @@ gdk_broadway_surface_maximize (GdkSurface *surface)
 {
   GdkBroadwaySurface *impl;
   GdkDisplay *display;
+  GdkMonitor *monitor;
   GdkRectangle geom;
 
   if (GDK_SURFACE_DESTROYED (surface))
@@ -923,8 +924,15 @@ gdk_broadway_surface_maximize (GdkSurface *surface)
   impl->pre_maximize_width = surface->width;
   impl->pre_maximize_height = surface->height;
 
+  /* No WM here, so we fill the monitor ourselves. Use the monitor the surface
+   * is actually on (same source as compute_toplevel_size) instead of the
+   * display default - keeps the maximized bounds consistent with the size the
+   * toplevel computes against. */
   display = gdk_surface_get_display (surface);
-  gdk_monitor_get_geometry (GDK_BROADWAY_DISPLAY (display)->monitor, &geom);
+  monitor = gdk_display_get_monitor_at_surface (display, surface);
+  if (monitor == NULL)
+    monitor = GDK_BROADWAY_DISPLAY (display)->monitor;
+  gdk_monitor_get_geometry (monitor, &geom);
 
   gdk_broadway_surface_move_resize (surface,
                                     geom.x, geom.y,
