@@ -57,7 +57,7 @@ G_DEFINE_TYPE (GdkBroadwayDisplay, gdk_broadway_display, GDK_TYPE_DISPLAY)
  * the renderer's node-level reuse: catches re-rasterized-but-identical pixels
  * (text moved by scroll, re-hovered rows, repeated icons) that get a fresh
  * GdkTexture object and would otherwise re-encode + re-upload the same PNG. */
-#define BROADWAY_CONTENT_CACHE_MAX        512        /* distinct cached textures */
+#define BROADWAY_CONTENT_CACHE_MAX        4096       /* distinct cached textures */
 #define BROADWAY_CONTENT_CACHE_MAX_PIXELS (512 * 512) /* skip dedup above this area */
 
 typedef struct {
