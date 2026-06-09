@@ -21,7 +21,12 @@ static GtkWidget *traffic_label;
 static GtkWidget *fps_label;
 static GtkWidget *latency_label;
 static GtkWidget *textures_label;
+static GtkWidget *pacing_label;
+static GtkWidget *cost_label;
 static GtkWidget *paint_flash_switch;
+static GtkWidget *screen_w_spin;
+static GtkWidget *screen_h_spin;
+static GtkWidget *screen_scale_spin;
 static GSocket   *control_sock;
 
 static void
@@ -51,12 +56,6 @@ on_key_pressed (GtkEventControllerKey *controller,
   return FALSE;
 }
 
-static void
-on_close_clicked (GtkButton *button, gpointer user_data)
-{
-  quit ();
-}
-
 /* Send a newline-terminated command back to the daemon over the control fd. */
 static void
 send_command (const char *cmd)
@@ -81,6 +80,23 @@ static void
 on_test_uri_clicked (GtkButton *button, gpointer user_data)
 {
   send_command ("open-uri\n");
+}
+
+static void
+on_screen_apply_clicked (GtkButton *button, gpointer user_data)
+{
+  char cmd[64];
+  int w = gtk_spin_button_get_value_as_int (GTK_SPIN_BUTTON (screen_w_spin));
+  int h = gtk_spin_button_get_value_as_int (GTK_SPIN_BUTTON (screen_h_spin));
+  int s = gtk_spin_button_get_value_as_int (GTK_SPIN_BUTTON (screen_scale_spin));
+  g_snprintf (cmd, sizeof cmd, "screen %d %d %d\n", w, h, s);
+  send_command (cmd);
+}
+
+static void
+on_screen_reset_clicked (GtkButton *button, gpointer user_data)
+{
+  send_command ("screen 0 0 0\n");  /* scale 0 = unpin */
 }
 
 static gboolean
@@ -130,9 +146,15 @@ on_control_readable (GSocket *sock, GIOCondition cond, gpointer user_data)
       int flash = 0;
       unsigned int tex_count = 0;
       guint64 tex_bytes = 0;
+      unsigned int iv_p95 = 0, iv_max = 0, w_avg = 0, w_max = 0, bpf = 0;
+      double up_s = 0, rel_s = 0;   /* texture uploads (= cache misses) / releases per sec */
+      int got;
 
-      if (sscanf (p, "stats %x %" G_GUINT64_FORMAT " %lf %u %d %u %" G_GUINT64_FORMAT,
-                  &sid, &bytes, &fps, &latency, &flash, &tex_count, &tex_bytes) == 7)
+      got = sscanf (p, "stats %x %" G_GUINT64_FORMAT " %lf %u %d %u %" G_GUINT64_FORMAT
+                       " %u %u %u %u %u %lf %lf",
+                    &sid, &bytes, &fps, &latency, &flash, &tex_count, &tex_bytes,
+                    &iv_p95, &iv_max, &w_avg, &w_max, &bpf, &up_s, &rel_s);
+      if (got >= 7)
         {
           /* Traffic rate from the byte delta since the last push (the daemon
            * sends cumulative bytes ~every 500ms). */
@@ -150,7 +172,34 @@ on_control_readable (GSocket *sock, GIOCondition cond, gpointer user_data)
           /* "fps" here is non-empty flushes per second, i.e. pushes to the browser. */
           char *f = g_strdup_printf ("Pushes: %.1f/s", fps);
           char *l = g_strdup_printf ("Latency: %u ms", latency);
-          char *x = g_strdup_printf ("Textures: %u (%s)", tex_count, texbuf);
+          /* Upload rate = client content-cache miss rate; releases = evictions
+           * (only sent by newer daemons; got==14). Sustained up/s on a static
+           * screen = the dedup cache is thrashing and may want a bigger cap. */
+          char *x = (got >= 14)
+            ? g_strdup_printf ("Textures: %u (%s) · %.1f up/s · %.1f rel/s",
+                               tex_count, texbuf, up_s, rel_s)
+            : g_strdup_printf ("Textures: %u (%s)", tex_count, texbuf);
+
+          /* Smoothness (only sent by newer daemons; got==12). p95/max in ms. */
+          char *pace, *cost;
+          if (got >= 12)
+            {
+              char *bpf_s = format_bytes (bpf);
+              /* Empty pacing ring (iv_max==0) => no back-to-back frames = idle. */
+              if (iv_max == 0)
+                pace = g_strdup ("Frame: idle");
+              else
+                pace = g_strdup_printf ("Frame: p95 %.1f / max %.1f ms",
+                                        iv_p95 / 1000.0, iv_max / 1000.0);
+              cost = g_strdup_printf ("Write: %.1f / max %.1f ms · %s/f",
+                                      w_avg / 1000.0, w_max / 1000.0, bpf_s);
+              g_free (bpf_s);
+            }
+          else
+            {
+              pace = g_strdup ("Frame: --");
+              cost = g_strdup ("Write: --");
+            }
 
           prev_bytes = bytes;
           prev_time = now;
@@ -160,6 +209,8 @@ on_control_readable (GSocket *sock, GIOCondition cond, gpointer user_data)
           gtk_label_set_text (GTK_LABEL (fps_label), f);
           gtk_label_set_text (GTK_LABEL (latency_label), l);
           gtk_label_set_text (GTK_LABEL (textures_label), x);
+          gtk_label_set_text (GTK_LABEL (pacing_label), pace);
+          gtk_label_set_text (GTK_LABEL (cost_label), cost);
 
           /* Reflect the daemon's real paint-flash state (a freshly spawned menu
            * starts with the switch off; restore it without re-sending). */
@@ -181,6 +232,8 @@ on_control_readable (GSocket *sock, GIOCondition cond, gpointer user_data)
           g_free (f);
           g_free (l);
           g_free (x);
+          g_free (pace);
+          g_free (cost);
         }
     }
   return G_SOURCE_CONTINUE;
@@ -236,6 +289,22 @@ add_switch_row (GtkWidget *section, const char *label, GCallback state_set_cb)
   return sw;
 }
 
+/* A labelled row with a trailing GtkSpinButton (integer range). */
+static GtkWidget *
+add_spin_row (GtkWidget *section, const char *label, int min, int max, int value)
+{
+  GtkWidget *row = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 8);
+  GtkWidget *spin = gtk_spin_button_new_with_range (min, max, 1);
+
+  gtk_spin_button_set_value (GTK_SPIN_BUTTON (spin), value);
+  gtk_widget_set_halign (spin, GTK_ALIGN_END);
+  gtk_widget_set_hexpand (spin, TRUE);
+  gtk_box_append (GTK_BOX (row), left_label (label));
+  gtk_box_append (GTK_BOX (row), spin);
+  gtk_box_append (GTK_BOX (section), row);
+  return spin;
+}
+
 static void
 connect_control_channel (void)
 {
@@ -264,8 +333,9 @@ connect_control_channel (void)
 int
 main (void)
 {
-  GtkWidget *window, *box, *perf, *actions, *close;
+  GtkWidget *window, *root, *left, *right, *perf, *smooth, *actions, *screen, *screen_btns;
   GtkEventController *keys;
+  GtkCssProvider *css;
 
   gtk_init ();
 
@@ -273,19 +343,39 @@ main (void)
   g_object_set (gtk_settings_get_default (),
                 "gtk-application-prefer-dark-theme", TRUE, NULL);
 
+  /* Compact: trim default padding/font so this dense overlay stays small. */
+  css = gtk_css_provider_new ();
+  gtk_css_provider_load_from_string (css,
+      "* { font-size: 11px; }"
+      "button { min-height: 0; padding: 1px 6px; }"
+      "spinbutton, spinbutton entry { min-height: 0; }"
+      "spinbutton button { min-width: 0; padding: 0 2px; }"
+      "switch { min-height: 16px; }"
+      "frame > border { padding: 2px; }");
+  gtk_style_context_add_provider_for_display (gdk_display_get_default (),
+      GTK_STYLE_PROVIDER (css), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+  g_object_unref (css);
+
   window = gtk_window_new ();
   gtk_window_set_title (GTK_WINDOW (window), "Broadway debug");
   gtk_window_set_resizable (GTK_WINDOW (window), FALSE);
 
-  box = gtk_box_new (GTK_ORIENTATION_VERTICAL, 8);
-  gtk_widget_set_margin_top (box, 8);
-  gtk_widget_set_margin_bottom (box, 8);
-  gtk_widget_set_margin_start (box, 8);
-  gtk_widget_set_margin_end (box, 8);
-  gtk_widget_set_size_request (box, 240, -1);
+  /* Two columns: live metrics left, controls right - keeps the window short. */
+  root = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6);
+  gtk_widget_set_margin_top (root, 6);
+  gtk_widget_set_margin_bottom (root, 6);
+  gtk_widget_set_margin_start (root, 6);
+  gtk_widget_set_margin_end (root, 6);
+
+  left = gtk_box_new (GTK_ORIENTATION_VERTICAL, 6);
+  right = gtk_box_new (GTK_ORIENTATION_VERTICAL, 6);
+  gtk_widget_set_valign (left, GTK_ALIGN_START);
+  gtk_widget_set_valign (right, GTK_ALIGN_START);
+  gtk_box_append (GTK_BOX (root), left);
+  gtk_box_append (GTK_BOX (root), right);
 
   /* Performance: live stats from the daemon's control channel. */
-  perf = add_section (box, "Performance");
+  perf = add_section (left, "Performance");
   session_label = left_label ("Session: --------");
   traffic_label = left_label ("Traffic: -- (--/s)");
   fps_label = left_label ("Pushes: --/s");
@@ -297,8 +387,15 @@ main (void)
   gtk_box_append (GTK_BOX (perf), latency_label);
   gtk_box_append (GTK_BOX (perf), textures_label);
 
+  /* Smoothness: frame pacing + transmit cost (newer daemons only). */
+  smooth = add_section (left, "Smoothness");
+  pacing_label = left_label ("Frame: p95 -- / max -- ms");
+  cost_label = left_label ("Write: -- / max -- ms");
+  gtk_box_append (GTK_BOX (smooth), pacing_label);
+  gtk_box_append (GTK_BOX (smooth), cost_label);
+
   /* Actions: commands sent back to the daemon. */
-  actions = add_section (box, "Actions");
+  actions = add_section (right, "Actions");
   add_action_button (actions, "Reconnect", G_CALLBACK (on_reconnect_clicked));
   add_action_button (actions, "Drop session", G_CALLBACK (on_drop_session_clicked));
   add_action_button (actions, "Open test URL", G_CALLBACK (on_test_uri_clicked));
@@ -307,11 +404,18 @@ main (void)
                                        G_CALLBACK (on_paint_flash_state_set));
   add_switch_row (actions, "Debug logging", NULL);  /* no-op for now */
 
-  close = gtk_button_new_with_label ("Close");
-  g_signal_connect (close, "clicked", G_CALLBACK (on_close_clicked), NULL);
-  gtk_box_append (GTK_BOX (box), close);
+  /* Screen: pin the browser's logical size + integer render scale (natural size). */
+  screen = add_section (right, "Screen");
+  screen_w_spin = add_spin_row (screen, "Width", 64, 8192, 1280);
+  screen_h_spin = add_spin_row (screen, "Height", 64, 8192, 800);
+  screen_scale_spin = add_spin_row (screen, "Scale", 1, 4, 1);
+  screen_btns = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6);
+  gtk_box_set_homogeneous (GTK_BOX (screen_btns), TRUE);
+  add_action_button (screen_btns, "Apply", G_CALLBACK (on_screen_apply_clicked));
+  add_action_button (screen_btns, "Reset", G_CALLBACK (on_screen_reset_clicked));
+  gtk_box_append (GTK_BOX (screen), screen_btns);
 
-  gtk_window_set_child (GTK_WINDOW (window), box);
+  gtk_window_set_child (GTK_WINDOW (window), root);
 
   keys = gtk_event_controller_key_new ();
   g_signal_connect (keys, "key-pressed", G_CALLBACK (on_key_pressed), NULL);
