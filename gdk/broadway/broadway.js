@@ -47,6 +47,18 @@ const BROADWAY_OP_SESSION = 22;
 const BROADWAY_OP_PONG = 23;
 const BROADWAY_OP_DEBUG_FLASH = 24;
 const BROADWAY_OP_DEBUG_SET_SCREEN = 25;
+const BROADWAY_OP_SET_CURSOR = 26;
+
+/* CSS cursor keywords GTK can ask for via gdk_cursor_get_name. An unknown name
+ * is dropped to "default" so the browser never silently keeps a stale cursor. */
+const CSS_CURSOR_NAMES = new Set([
+    "default", "none", "context-menu", "help", "pointer", "progress", "wait",
+    "cell", "crosshair", "text", "vertical-text", "alias", "copy", "move",
+    "no-drop", "not-allowed", "grab", "grabbing", "all-scroll", "col-resize",
+    "row-resize", "n-resize", "e-resize", "s-resize", "w-resize", "ne-resize",
+    "nw-resize", "se-resize", "sw-resize", "ew-resize", "ns-resize",
+    "nesw-resize", "nwse-resize", "zoom-in", "zoom-out"
+]);
 
 /* Latin 'v'/'V' keysyms, used to recognise the paste shortcut (Ctrl+V and
  * Ctrl+Shift+V) so the browser's native 'paste' event is allowed to fire. */
@@ -1587,6 +1599,19 @@ function handleCommands(cmd, display_commands, new_textures, modified_trees)
             var _uridata = cmd.get_data();
             var _uri = new TextDecoder("utf-8").decode(_uridata);
             window.open(_uri, "_blank", "noopener");
+            break;
+
+        case BROADWAY_OP_SET_CURSOR:
+            /* GTK drives the cursor per surface (resize edges, text, links, ...).
+             * Mirror it onto the surface div's CSS cursor; children inherit it. */
+            id = cmd.get_16();
+            var _curname = new TextDecoder("utf-8").decode(cmd.get_data());
+            surface = surfaces[id];
+            if (surface) {
+                if (!CSS_CURSOR_NAMES.has(_curname))
+                    _curname = "default";
+                surface.div.style.cursor = _curname;
+            }
             break;
 
         case BROADWAY_OP_REQUEST_CLIPBOARD:

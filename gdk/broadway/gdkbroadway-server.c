@@ -926,3 +926,27 @@ _gdk_broadway_server_open_uri (GdkBroadwayServer *server,
                                               size, BROADWAY_REQUEST_OPEN_URI, -1);
   g_free (msg);
 }
+
+void
+_gdk_broadway_server_surface_set_cursor (GdkBroadwayServer *server,
+                                         int                id,
+                                         const char        *name)
+{
+  gsize len = name ? strlen (name) : 0;
+  gsize size;
+  BroadwayRequestSetCursor *msg;
+
+  size = G_STRUCT_OFFSET (BroadwayRequestSetCursor, name) + len;
+  /* Allocate at least the full struct so accessing msg->len stays in bounds
+   * (the name[1] member makes sizeof larger than size when len is small). */
+  msg = g_malloc0 (MAX (size + 1, sizeof *msg));
+
+  msg->id = id;
+  msg->len = (guint32) len;
+  if (len > 0)
+    memcpy (msg->name, name, len);
+
+  gdk_broadway_server_send_message_with_size (server, (BroadwayRequestBase *) msg,
+                                              size, BROADWAY_REQUEST_SET_CURSOR, -1);
+  g_free (msg);
+}
