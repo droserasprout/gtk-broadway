@@ -29,6 +29,8 @@ Stock events are `0`-`14` (`ENTER` ... `ROUNDTRIP_NOTIFY`); `TOUCH` (5) already 
 | `BROADWAY_EVENT_CLIPBOARD_CONTENTS` | 15 | browser's reply to `REQUEST_CLIPBOARD`, routed to the one client that asked ([Clipboard](../features/clipboard.md)) |
 | `BROADWAY_EVENT_PING`               | 16 | heartbeat from the browser; the app answers with `PONG` ([Connection management](../features/connection.md)) |
 | `BROADWAY_EVENT_MENU`               | 17 | Triple-Shift; the daemon intercepts it to spawn the debug menu, so it never reaches the app ([Debug menu](debug-menu.md)) |
+| `BROADWAY_EVENT_SUSPEND`            | 18 | tab hidden; forwarded to GTK to freeze rendering ([Connection management](../features/connection.md)) |
+| `BROADWAY_EVENT_RESUME`             | 19 | tab visible again; thaws rendering ([Connection management](../features/connection.md)) |
 
 ## Requests, app to daemon (`BROADWAY_REQUEST_*`)
 

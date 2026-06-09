@@ -8,6 +8,7 @@ Versioning is not semver: release tags are `vA[.B]` (fork revision), debs are `<
 
 ### Added
 
+- Freeze rendering on a hidden browser tab; resume repaints a delta, no reconnect
 - Debug menu: frame-pacing metrics and texture up/rel rates
 - Debug menu: pin fixed screen size and scale
 
