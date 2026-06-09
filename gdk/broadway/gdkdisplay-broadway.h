@@ -67,6 +67,8 @@ struct _GdkBroadwayDisplay
   gsize       content_texture_count;
 
   guint idle_flush_id;
+
+  gboolean suspended; /* tab hidden: surfaces frozen so we stream no frames */
 };
 
 struct _GdkBroadwayDisplayClass

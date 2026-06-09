@@ -339,6 +339,14 @@ _gdk_broadway_events_got_input (GdkDisplay *display,
     _gdk_broadway_display_size_changed (display, &message->screen_resize_notify);
     break;
 
+  case BROADWAY_EVENT_SUSPEND:
+    _gdk_broadway_display_set_suspended (display, TRUE);
+    break;
+
+  case BROADWAY_EVENT_RESUME:
+    _gdk_broadway_display_set_suspended (display, FALSE);
+    break;
+
   case BROADWAY_EVENT_FOCUS:
     surface = g_hash_table_lookup (display_broadway->id_ht, GINT_TO_POINTER (message->focus.old_id));
     if (surface)
