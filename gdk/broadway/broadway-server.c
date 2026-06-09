@@ -65,7 +65,9 @@ struct _BroadwayServer {
   GList *surfaces;
   BroadwaySurface *root;
   gint32 focused_surface_id; /* -1 => none */
-  gint32 keep_on_top_surface_id; /* -1 => none; pinned above all others */
+  guint32 menu_owner; /* GTK client id of the spawned debug menu; all its
+                       * toplevels (menu, gallery, dialogs) stay pinned above
+                       * other surfaces, newest on top (0 => none) */
   gboolean expecting_menu_surface; /* tag the next toplevel as the debug menu */
   int show_keyboard;
 
@@ -300,7 +302,7 @@ broadway_server_init (BroadwayServer *server)
 
   server->service = g_socket_service_new ();
   server->pointer_grab_surface_id = -1;
-  server->keep_on_top_surface_id = -1;
+  server->menu_owner = 0;
   do
     server->session_id = g_random_int ();
   while (server->session_id == 0);
@@ -2169,6 +2171,8 @@ broadway_server_query_mouse (BroadwayServer *server,
     *surface = server->mouse_in_surface_id;
 }
 
+static void restack_menu_on_top (BroadwayServer *server);
+
 void
 broadway_server_destroy_surface (BroadwayServer *server,
                                  int id,
@@ -2188,9 +2192,6 @@ broadway_server_destroy_surface (BroadwayServer *server,
   if (server->pointer_grab_surface_id == id)
     server->pointer_grab_surface_id = -1;
 
-  if (server->keep_on_top_surface_id == id)
-    server->keep_on_top_surface_id = -1;
-
   if (server->output)
     broadway_output_destroy_surface (server->output, id);
 
@@ -2208,6 +2209,10 @@ broadway_server_destroy_surface (BroadwayServer *server,
                            GINT_TO_POINTER (id));
       broadway_surface_free (server, surface);
     }
+
+  /* If a menu toplevel just closed, re-pin the rest (or drop menu_owner when
+   * its last toplevel is gone). Harmless no-op for ordinary surfaces. */
+  restack_menu_on_top (server);
 
   if (is_popup && transient_for > 0 && !disconnected)
     {
@@ -2276,31 +2281,51 @@ broadway_server_surface_hide (BroadwayServer *server,
   return sent;
 }
 
-/* Re-raise the pinned (always-on-top) surface so it stays above everything.
- * No-op if nothing is pinned or it is already topmost. */
+/* Keep the debug-menu client's toplevels (menu window, gallery, dialogs) above
+ * every other surface, preserving their relative order so the most recently
+ * mapped one stays on top. No-op if no menu client is active; clears menu_owner
+ * once its last toplevel is gone. */
 static void
-restack_kept_on_top (BroadwayServer *server)
+restack_menu_on_top (BroadwayServer *server)
 {
-  BroadwaySurface *surface;
+  GList *l, *menu = NULL;
 
-  if (server->keep_on_top_surface_id == -1)
+  if (server->menu_owner == 0)
     return;
 
-  surface = broadway_server_lookup_surface (server, server->keep_on_top_surface_id);
-  if (surface == NULL)
+  /* Collect the menu client's non-popup surfaces in current stacking order. */
+  for (l = server->surfaces; l != NULL; l = l->next)
     {
-      server->keep_on_top_surface_id = -1;
+      BroadwaySurface *s = l->data;
+      if (s->owner == server->menu_owner && !s->is_popup)
+        menu = g_list_append (menu, s);
+    }
+
+  if (menu == NULL)
+    {
+      server->menu_owner = 0; /* the menu client is gone */
       return;
     }
 
-  if (server->surfaces != NULL && g_list_last (server->surfaces)->data == surface)
-    return; /* already on top */
+  /* Already the topmost block, in order? Avoid redundant raises. */
+  {
+    GList *a = g_list_last (server->surfaces);
+    GList *b = g_list_last (menu);
+    while (b != NULL && a != NULL && a->data == b->data) { a = a->prev; b = b->prev; }
+    if (b == NULL) { g_list_free (menu); return; }
+  }
 
-  server->surfaces = g_list_remove (server->surfaces, surface);
-  server->surfaces = g_list_append (server->surfaces, surface);
+  /* Move them to the top, keeping their order, and raise each in the browser. */
+  for (l = menu; l != NULL; l = l->next)
+    {
+      BroadwaySurface *s = l->data;
+      server->surfaces = g_list_remove (server->surfaces, s);
+      server->surfaces = g_list_append (server->surfaces, s);
+      if (server->output)
+        broadway_output_raise_surface (server->output, s->id);
+    }
 
-  if (server->output)
-    broadway_output_raise_surface (server->output, surface->id);
+  g_list_free (menu);
 }
 
 void
@@ -2319,9 +2344,8 @@ broadway_server_surface_raise (BroadwayServer *server,
   if (server->output)
     broadway_output_raise_surface (server->output, surface->id);
 
-  /* Keep the pinned surface above the one just raised. */
-  if (id != server->keep_on_top_surface_id)
-    restack_kept_on_top (server);
+  /* Keep the debug-menu toplevels above the one just raised. */
+  restack_menu_on_top (server);
 }
 
 void
@@ -2840,15 +2864,15 @@ broadway_server_new_surface (BroadwayServer *server,
 
   if (server->expecting_menu_surface && !is_popup)
     {
-      /* The toplevel the spawned debug menu just mapped: pin it on top. */
+      /* First toplevel from the spawned debug menu: pin its whole client
+       * (menu window + gallery + dialogs) above all other surfaces. */
       server->expecting_menu_surface = FALSE;
-      server->keep_on_top_surface_id = surface->id;
+      server->menu_owner = surface->owner;
     }
-  else
-    {
-      /* A new surface lands on top; keep the pinned one above it. */
-      restack_kept_on_top (server);
-    }
+
+  /* Keep the menu toplevels on top; a freshly mapped one (e.g. the gallery) was
+   * just appended last, so it stacks above the earlier menu windows. */
+  restack_menu_on_top (server);
 
   return surface->id;
 }
