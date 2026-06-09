@@ -28,6 +28,7 @@ static GtkWidget *screen_w_spin;
 static GtkWidget *screen_h_spin;
 static GtkWidget *screen_scale_spin;
 static GSocket   *control_sock;
+static GtkWidget *debug_window;     /* the stats overlay; owns the labels above */
 static GtkWidget *gallery_window;   /* the on-demand widget gallery, or NULL */
 static int        open_windows;     /* live top-levels; quit at zero */
 
@@ -46,6 +47,18 @@ on_window_destroy (GtkWidget *window, gpointer user_data)
 {
   if (window == gallery_window)
     gallery_window = NULL;
+
+  /* The stats labels live in the debug window. If it closes while the gallery
+   * stays open, drop the dangling pointers so the still-live control channel
+   * (on_control_readable) stops writing to freed widgets. */
+  if (window == debug_window)
+    {
+      debug_window = NULL;
+      session_label = traffic_label = fps_label = NULL;
+      latency_label = textures_label = pacing_label = cost_label = NULL;
+      paint_flash_switch = NULL;
+    }
+
   if (--open_windows <= 0)
     quit ();
 }
@@ -141,6 +154,11 @@ on_control_readable (GSocket *sock, GIOCondition cond, gpointer user_data)
   char buf[256];
   char *p;
   gssize n;
+
+  /* Debug window closed (gallery left open)? The stats widgets are gone -
+   * nothing to update, so drop the source instead of touching freed memory. */
+  if (debug_window == NULL)
+    return G_SOURCE_REMOVE;
 
   n = g_socket_receive (sock, buf, sizeof buf - 1, NULL, NULL);
   if (n <= 0)
@@ -530,6 +548,7 @@ main (void)
   g_object_unref (css);
 
   window = new_tracked_window ("Broadway debug");
+  debug_window = window;
   gtk_window_set_resizable (GTK_WINDOW (window), FALSE);
 
   /* Two columns: live metrics left, controls right - keeps the window short. */
