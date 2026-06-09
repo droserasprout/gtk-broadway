@@ -44,6 +44,8 @@ Pins the browser's logical screen **Width × Height × Scale** (integer scale on
 
 The menu and the windows it opens share one main loop, but it quits only when the **last** window closes - so you can close the stats overlay and keep just the gallery up for a clean recording. Escape or Close dismisses whichever window has focus.
 
+**Stacking.** `broadwayd` pins every toplevel owned by the debug-menu client (the stats overlay, the gallery, the test dialog) above the app's windows, with the most recently mapped one on top - so opening the gallery floats it over the overlay, and the dialog floats over both (`menu_owner` / `restack_menu_on_top` in `broadway-server.c`). Closing the stats overlay while the gallery stays open used to crash the menu: the control channel kept writing stats into the overlay's freed labels. The labels are now cleared on overlay close and the stats source torn down.
+
 ## Paint-flash profiler
 
 With Paint flashing on, every changed node gets a translucent overlay so you can *see* Broadway's upload traffic, coloured by cost:

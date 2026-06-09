@@ -8,9 +8,10 @@ Versioning is not semver: release tags are `vA[.B]` (fork revision), debs are `<
 
 ### Added
 
-- Freeze rendering on a hidden browser tab; resume repaints a delta, no reconnect
+- Debug menu: Test gallery window - one clean widget per fork feature, pinned above the app
 - Debug menu: frame-pacing metrics and texture up/rel rates
 - Debug menu: pin fixed screen size and scale
+- Freeze rendering on a hidden browser tab; resume repaints a delta without reconnect
 
 ### Performance
 
@@ -18,7 +19,7 @@ Versioning is not semver: release tags are `vA[.B]` (fork revision), debs are `<
 
 ### Fixed
 
-- Reconnect loop after a network switch (backoff resets only on a confirmed session)
+- Fixed reconnect loop after a network switch (backoff resets only on a confirmed session)
 
 ## [v2.1] - 2026-06-09
 
