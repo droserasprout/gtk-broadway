@@ -33,6 +33,7 @@
 #include "gdkdeviceprivate.h"
 #include <gdk/gdktextureprivate.h>
 #include "gdkprivate.h"
+#include "gdksurface-broadway.h"
 
 #include <glib.h>
 #include <glib/gprintf.h>
@@ -292,6 +293,55 @@ _gdk_broadway_display_size_changed (GdkDisplay                      *display,
       if (scale_changed)
         gdk_surface_invalidate_rect (surface, NULL);
     }
+}
+
+static void
+freeze_surface_for_suspend (gpointer key, gpointer value, gpointer user_data)
+{
+  GdkSurface *surface = value;
+  GdkBroadwaySurface *impl = GDK_BROADWAY_SURFACE (surface);
+
+  if (impl->suspend_frozen)
+    return;
+  impl->suspend_frozen = TRUE;
+  gdk_surface_freeze_updates (surface);
+}
+
+static void
+thaw_surface_for_suspend (gpointer key, gpointer value, gpointer user_data)
+{
+  GdkSurface *surface = value;
+  GdkBroadwaySurface *impl = GDK_BROADWAY_SURFACE (surface);
+
+  if (!impl->suspend_frozen)
+    return;
+  impl->suspend_frozen = FALSE;
+  gdk_surface_thaw_updates (surface);
+}
+
+/* The browser tab went hidden (suspended=TRUE) or visible (FALSE). Freeze every
+ * surface's update cycle so the frame clock skips its paint phase: the GSK
+ * Broadway renderer never runs, so no frames stream while hidden AND its diff
+ * baseline (last_root) stays put - the first paint after thaw is an incremental
+ * delta, not a full resync. The per-surface suspend_frozen flag keeps our extra
+ * freeze/thaw balanced even if surfaces are created or destroyed meanwhile (we
+ * only ever thaw what we actually froze). Idempotent, so a duplicate
+ * SUSPEND/RESUME from a reconnecting client is a no-op. */
+void
+_gdk_broadway_display_set_suspended (GdkDisplay *display,
+                                     gboolean    suspended)
+{
+  GdkBroadwayDisplay *broadway_display = GDK_BROADWAY_DISPLAY (display);
+
+  suspended = !!suspended;
+  if (broadway_display->suspended == suspended)
+    return;
+  broadway_display->suspended = suspended;
+
+  g_hash_table_foreach (broadway_display->id_ht,
+                        suspended ? freeze_surface_for_suspend
+                                  : thaw_surface_for_suspend,
+                        NULL);
 }
 
 static GdkDevice *

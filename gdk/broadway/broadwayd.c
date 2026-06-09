@@ -764,6 +764,9 @@ get_event_size (int type)
       return sizeof (BroadwayInputScreenResizeNotify);
     case BROADWAY_EVENT_FOCUS:
       return sizeof (BroadwayInputFocusMsg);
+    case BROADWAY_EVENT_SUSPEND:
+    case BROADWAY_EVENT_RESUME:
+      return sizeof (BroadwayInputBaseMsg);
     default:
       g_assert_not_reached ();
     }
