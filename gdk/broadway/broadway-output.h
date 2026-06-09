@@ -26,6 +26,9 @@ void            broadway_output_set_next_serial     (BroadwayOutput *output,
 guint32         broadway_output_get_next_serial     (BroadwayOutput *output);
 guint64         broadway_output_get_bytes_sent      (BroadwayOutput *output);
 guint32         broadway_output_get_frames          (BroadwayOutput *output);
+void            broadway_output_get_pacing          (BroadwayOutput *output,
+                                                     guint32 *iv_p95_us, guint32 *iv_max_us,
+                                                     guint32 *write_avg_us, guint32 *write_max_us);
 void            broadway_output_new_surface         (BroadwayOutput *output,
                                                      int             id,
                                                      int             x,
@@ -39,6 +42,8 @@ void            broadway_output_session             (BroadwayOutput *output,
 void            broadway_output_pong_msg            (BroadwayOutput *output);
 void            broadway_output_debug_flash         (BroadwayOutput *output,
                                                      gboolean        enabled);
+void            broadway_output_debug_set_screen    (BroadwayOutput *output,
+                                                     int w, int h, int scale);
 void            broadway_output_show_surface        (BroadwayOutput *output,
                                                      int             id);
 void            broadway_output_hide_surface        (BroadwayOutput *output,

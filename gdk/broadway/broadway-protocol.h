@@ -101,6 +101,7 @@ typedef enum {
   BROADWAY_OP_SESSION = 22,
   BROADWAY_OP_PONG = 23,
   BROADWAY_OP_DEBUG_FLASH = 24,  /* daemon->client: toggle the paint-flash overlay */
+  BROADWAY_OP_DEBUG_SET_SCREEN = 25, /* daemon->client: pin logical screen w,h,scale (0,0,0 = unpin) */
 } BroadwayOpType;
 
 typedef struct {

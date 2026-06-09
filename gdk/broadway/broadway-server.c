@@ -77,9 +77,12 @@ struct _BroadwayServer {
   guint32 session_frames;
   guint32 last_latency_ms;  /* client-measured ping round-trip, reported on EVENT_PING */
   gboolean paint_flash;     /* debug-menu: flash redrawn nodes pink in the browser */
+  int pinned_w, pinned_h, pinned_scale; /* debug-menu: forced screen size/scale (0 = unpinned) */
 
   guint32 next_texture_id;
   GHashTable *textures;
+  guint64 texture_uploads;  /* cumulative uploads = client content-cache misses */
+  guint64 texture_releases; /* cumulative texture frees (evicted from the browser) */
 
   /* Random per-daemon id sent on connect; lets a client tell a live session
    * apart from a restarted daemon. */
@@ -862,14 +865,21 @@ menu_push_stats (gpointer user_data)
 {
   BroadwayServer *server = user_data;
   static guint32 last_frames = 0;
+  static guint64 last_bytes = 0;
+  static guint64 last_uploads = 0;
+  static guint64 last_releases = 0;
   static gint64 last_time = 0;
   guint64 bytes;
   guint32 frames;
+  guint32 d_frames;
+  guint32 bpf = 0;       /* bytes per frame over the window = frame heaviness */
   gint64 now;
   double fps = 0;
+  double up_s = 0, rel_s = 0;   /* texture uploads (= cache misses) / releases per sec */
   guint tex_count;
   guint64 tex_bytes;
-  char line[160];
+  guint32 iv_p95 = 0, iv_max = 0, w_avg = 0, w_max = 0;   /* pacing, microseconds */
+  char line[256];
   int len;
 
   if (menu_sock == NULL)
@@ -878,17 +888,34 @@ menu_push_stats (gpointer user_data)
   menu_current_traffic (server, &bytes, &frames);
 
   now = g_get_monotonic_time ();
+  d_frames = frames - last_frames;
   if (last_time != 0 && now > last_time)
-    fps = (frames - last_frames) * (double) G_USEC_PER_SEC / (now - last_time);
+    fps = d_frames * (double) G_USEC_PER_SEC / (now - last_time);
+  if (d_frames > 0)
+    bpf = (guint32) ((bytes - last_bytes) / d_frames);
+  if (last_time != 0 && now > last_time)
+    {
+      double secs = (now - last_time) / (double) G_USEC_PER_SEC;
+      up_s = (server->texture_uploads - last_uploads) / secs;
+      rel_s = (server->texture_releases - last_releases) / secs;
+    }
   last_time = now;
   last_frames = frames;
+  last_bytes = bytes;
+  last_uploads = server->texture_uploads;
+  last_releases = server->texture_releases;
+
+  if (server->output)
+    broadway_output_get_pacing (server->output, &iv_p95, &iv_max, &w_avg, &w_max);
 
   menu_texture_buffer (server, &tex_count, &tex_bytes);
 
   len = g_snprintf (line, sizeof line,
-                    "stats %08x %" G_GUINT64_FORMAT " %.1f %u %d %u %" G_GUINT64_FORMAT "\n",
+                    "stats %08x %" G_GUINT64_FORMAT " %.1f %u %d %u %" G_GUINT64_FORMAT
+                    " %u %u %u %u %u %.1f %.1f\n",
                     server->session_id, bytes, fps, server->last_latency_ms,
-                    server->paint_flash ? 1 : 0, tex_count, tex_bytes);
+                    server->paint_flash ? 1 : 0, tex_count, tex_bytes,
+                    iv_p95, iv_max, w_avg, w_max, bpf, up_s, rel_s);
   g_socket_send (menu_sock, line, len, NULL, NULL); /* best-effort */
   return G_SOURCE_CONTINUE;
 }
@@ -924,6 +951,22 @@ broadway_server_set_paint_flash (BroadwayServer *server, gboolean on)
     }
 }
 
+/* Pin (or unpin, with 0s) the browser's logical screen size/scale. Remembered so
+ * it survives reconnects (re-sent in the connect handler). The browser applies it
+ * via its own resize path, so the canvas rebuilds and GTK relays out cleanly. */
+static void
+broadway_server_set_debug_screen (BroadwayServer *server, int w, int h, int scale)
+{
+  server->pinned_w = w;
+  server->pinned_h = h;
+  server->pinned_scale = scale;
+  if (server->output)
+    {
+      broadway_output_debug_set_screen (server->output, w, h, scale);
+      broadway_server_flush (server);
+    }
+}
+
 static gboolean
 menu_on_readable (GSocket *sock, GIOCondition cond, gpointer user_data)
 {
@@ -947,6 +990,16 @@ menu_on_readable (GSocket *sock, GIOCondition cond, gpointer user_data)
     broadway_server_drop_client (server, FALSE);
   else if (strncmp (buf, "paint-flash ", 12) == 0)
     broadway_server_set_paint_flash (server, buf[12] != '0');
+  else if (strncmp (buf, "screen ", 7) == 0)
+    {
+      char **p = g_strsplit (buf + 7, " ", 3);
+      if (p[0] && p[1] && p[2])
+        broadway_server_set_debug_screen (server,
+                                          (int) g_ascii_strtoll (p[0], NULL, 10),
+                                          (int) g_ascii_strtoll (p[1], NULL, 10),
+                                          (int) g_ascii_strtoll (p[2], NULL, 10));
+      g_strfreev (p);
+    }
   return G_SOURCE_CONTINUE;
 }
 
@@ -1767,6 +1820,11 @@ start (BroadwayInput *input)
   if (server->paint_flash)
     broadway_output_debug_flash (server->output, TRUE);
 
+  /* Restore a pinned debug screen size/scale too. */
+  if (server->pinned_scale != 0)
+    broadway_output_debug_set_screen (server->output, server->pinned_w,
+                                      server->pinned_h, server->pinned_scale);
+
   broadway_server_resync_surfaces (server);
 
   if (server->pointer_grab_surface_id != -1)
@@ -2571,6 +2629,7 @@ broadway_server_upload_texture (BroadwayServer   *server,
   g_hash_table_replace (server->textures,
                         GINT_TO_POINTER (texture->id),
                         texture);
+  server->texture_uploads++;
 
   if (server->output)
     broadway_output_upload_texture (server->output, texture->id, texture->bytes);
@@ -2600,6 +2659,7 @@ broadway_server_release_texture (BroadwayServer   *server,
   if (texture && g_ref_count_dec (&texture->refcount))
     {
       g_hash_table_remove (server->textures, GINT_TO_POINTER (id));
+      server->texture_releases++;
 
       if (server->output)
         broadway_output_release_texture (server->output, id);

@@ -14,6 +14,12 @@
  *                Basic I/O primitives                                  *
  ************************************************************************/
 
+#define BROADWAY_OUTPUT_IV_RING 64
+/* Intervals longer than this are treated as idle gaps (the app stopped pushing
+ * frames) rather than stutter, and are kept out of the pacing ring so p95/max
+ * reflect only back-to-back frames. 250ms = a 4fps floor for "still animating". */
+#define BROADWAY_OUTPUT_IDLE_CUTOFF_US (250 * 1000)
+
 struct BroadwayOutput {
   GOutputStream *out;
   GString *buf;
@@ -21,6 +27,17 @@ struct BroadwayOutput {
   guint32 serial;
   guint64 bytes_sent;   /* payload bytes flushed to the browser (this connection) */
   guint32 frames;       /* non-empty flushes ~ display pushes (this connection) */
+
+  /* Smoothness instrumentation for the debug menu (microseconds). Interval =
+   * gap between real flushes (pacing); write = time blocked in the socket
+   * writev (transmit + backpressure). */
+  gint64  last_flush_us;
+  guint32 iv_ring[BROADWAY_OUTPUT_IV_RING];   /* rolling frame-to-frame intervals */
+  guint8  iv_head;
+  guint8  iv_count;
+  guint64 write_us_sum;                       /* windowed: reset on read */
+  guint32 write_us_max;
+  guint32 write_samples;
 };
 
 static void
@@ -83,11 +100,38 @@ broadway_output_flush (BroadwayOutput *output)
 {
   gsize flushed_len;
 
+  gint64 t0;
+
   if (output->buf->len == 0)
     return TRUE;
 
+  /* Pacing: record the gap since the previous real flush, but skip idle gaps so
+   * p95/max measure stutter during continuous rendering, not time spent idle. */
+  t0 = g_get_monotonic_time ();
+  if (output->last_flush_us != 0)
+    {
+      guint32 iv = (guint32) (t0 - output->last_flush_us);
+      if (iv <= BROADWAY_OUTPUT_IDLE_CUTOFF_US)
+        {
+          output->iv_ring[output->iv_head] = iv;
+          output->iv_head = (output->iv_head + 1) % BROADWAY_OUTPUT_IV_RING;
+          if (output->iv_count < BROADWAY_OUTPUT_IV_RING)
+            output->iv_count++;
+        }
+    }
+  output->last_flush_us = t0;
+
   broadway_output_send_cmd (output, TRUE, BROADWAY_WS_BINARY,
                             output->buf->str, output->buf->len);
+
+  /* Write time: how long the (blocking) socket writev took = backpressure. */
+  {
+    guint32 w = (guint32) (g_get_monotonic_time () - t0);
+    output->write_us_sum += w;
+    output->write_samples++;
+    if (w > output->write_us_max)
+      output->write_us_max = w;
+  }
 
   output->bytes_sent += output->buf->len;
   output->frames++;
@@ -144,6 +188,44 @@ guint32
 broadway_output_get_frames (BroadwayOutput *output)
 {
   return output->frames;
+}
+
+static int
+cmp_u32 (const void *a, const void *b)
+{
+  guint32 x = *(const guint32 *) a, y = *(const guint32 *) b;
+  return (x > y) - (x < y);
+}
+
+/* Debug-menu pacing stats (microseconds). Interval p95/max are taken over a
+ * rolling ring of recent frames; write avg/max are windowed and reset on read. */
+void
+broadway_output_get_pacing (BroadwayOutput *output,
+                            guint32 *iv_p95_us, guint32 *iv_max_us,
+                            guint32 *write_avg_us, guint32 *write_max_us)
+{
+  guint32 sorted[BROADWAY_OUTPUT_IV_RING];
+  guint n = output->iv_count;
+
+  if (n > 0)
+    {
+      memcpy (sorted, output->iv_ring, n * sizeof (guint32));
+      qsort (sorted, n, sizeof (guint32), cmp_u32);
+      *iv_p95_us = sorted[(guint) ((n - 1) * 0.95)];
+      *iv_max_us = sorted[n - 1];
+    }
+  else
+    {
+      *iv_p95_us = 0;
+      *iv_max_us = 0;
+    }
+
+  *write_avg_us = output->write_samples ? (guint32) (output->write_us_sum / output->write_samples) : 0;
+  *write_max_us = output->write_us_max;
+
+  output->write_us_sum = 0;
+  output->write_samples = 0;
+  output->write_us_max = 0;
 }
 
 void
@@ -282,6 +364,16 @@ broadway_output_debug_flash (BroadwayOutput *output, gboolean enabled)
 {
   write_header (output, BROADWAY_OP_DEBUG_FLASH);
   append_uint8 (output, enabled ? 1 : 0);
+}
+
+/* Pin the browser's logical screen to w x h at integer scale; (0,0,0) unpins. */
+void
+broadway_output_debug_set_screen (BroadwayOutput *output, int w, int h, int scale)
+{
+  write_header (output, BROADWAY_OP_DEBUG_SET_SCREEN);
+  append_uint16 (output, w);
+  append_uint16 (output, h);
+  append_uint8 (output, scale);
 }
 
 void
