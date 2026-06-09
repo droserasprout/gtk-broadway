@@ -21,6 +21,7 @@ Stock ops are `0`-`16` (`GRAB_POINTER` ... `ROUNDTRIP`). The fork appends:
 | `BROADWAY_OP_SESSION`           | 22 | daemon -> browser | per-daemon session token for reconnect ([Connection management](../features/connection.md)) |
 | `BROADWAY_OP_PONG`              | 23 | daemon -> browser | heartbeat reply ([Connection management](../features/connection.md)) |
 | `BROADWAY_OP_DEBUG_FLASH`       | 24 | daemon -> browser | toggle the paint-flash profiler overlay ([Debug menu](debug-menu.md)) |
+| `BROADWAY_OP_DEBUG_SET_SCREEN`  | 25 | daemon -> browser | pin logical screen size + integer scale, `0,0,0` unpins ([Debug menu](debug-menu.md)) |
 
 ## Input events, browser to app (`BROADWAY_EVENT_*`)
 

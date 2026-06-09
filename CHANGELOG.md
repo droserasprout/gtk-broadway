@@ -6,6 +6,15 @@ Versioning is not semver: release tags are `vA[.B]` (fork revision), debs are `<
 
 ## [Unreleased]
 
+### Added
+
+- Debug menu: frame-pacing metrics and texture up/rel rates
+- Debug menu: pin fixed screen size and scale
+
+### Performance
+
+- Bump texture cache cap from 512 to 4096 (~16mb)
+
 ## [v2.1] - 2026-06-09
 
 ### Fixed

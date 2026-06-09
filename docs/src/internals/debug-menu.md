@@ -20,7 +20,25 @@ is the real browser-to-daemon round-trip: the client times its
 [heartbeat](../features/connection.md) PING/PONG and reports the last RTT in the next PING payload
 (`server->last_latency_ms`). **Textures** is the live texture buffer the browser holds (count plus
 summed PNG bytes across `server->textures`), the footprint kept warm by the
-[content texture cache](performance.md).
+[content texture cache](performance.md), with the per-second **upload** and **release** rates.
+`up/s` is every `broadway_server_upload_texture`, i.e. the client's content-cache *miss* rate (hits
+never cross the wire); sustained `up/s` on a static screen means the cache is thrashing.
+
+## Smoothness section
+
+Frame-pacing under load, since average FPS hides stutter. **Frame** is the p95 / max gap between real
+display pushes over a rolling 64-frame ring; gaps over 250 ms are treated as idle and dropped so the
+numbers reflect continuous rendering, not lulls. **Write** is the time blocked in the socket `writev`
+(≈0 on localhost; spikes = browser/network backpressure), plus bytes-per-frame. Note the debug menu
+repaints itself, so an idle reading is its own ~2/s noise floor - read these under load.
+
+## Screen section
+
+Pins the browser's logical screen **Width × Height × Scale** (integer scale only - Broadway monitors
+are not fractional), overriding the live window size and `devicePixelRatio`; **Reset** unpins. The
+daemon sends `BROADWAY_OP_DEBUG_SET_SCREEN` (25) and `broadway.js` drives its normal resize path with
+the pinned values, so the canvas rebuilds cleanly (no blank-until-zoom) and the app re-lays-out at the
+forced size. Useful for reproducing a device's geometry/HiDPI from a desktop browser.
 
 ## Actions
 
@@ -72,5 +90,8 @@ Triple-Shift in `broadway.js` sends `BROADWAY_EVENT_MENU` (17). `broadwayd` inte
 window renders into the same display and is pinned always-on-top via server-side stacking.
 
 The daemon hands the child one end of a control socketpair through the `BROADWAY_DEBUGMENU_FD` env
-var. Over it the daemon pushes a `stats <session> <bytes> <fps> <latency> <flash> <tex_count> <tex_bytes>`
-line every ~500 ms and reads back newline-terminated commands.
+var. Over it the daemon pushes a `stats` line (session, bytes, fps, latency, flash, tex count/bytes,
+then pacing: frame p95/max, write avg/max, bytes-per-frame, upload/s, release/s) every ~500 ms and
+reads back newline-terminated commands (`reconnect`, `drop-session`, `open-uri`, `paint-flash 0|1`,
+`screen W H S`). The menu has no Close button - the titlebar, Escape, and a second Triple-Shift all
+dismiss it.

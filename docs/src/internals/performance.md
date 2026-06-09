@@ -31,9 +31,14 @@ Pixels are hashed via `gdk_texture_download` (which normalizes to `GDK_MEMORY_DE
 encoding a PNG just to compute the key. Entries are refcounted: an id is released (and dropped from the
 browser) only once no live `GdkTexture` references it, and LRU eviction skips live entries. A live
 texture's id is never pulled out from under it, since an earlier non-refcounted cut crashed the browser
-exactly that way. The cache is LRU-capped at 512 entries, and textures larger than 512x512 px skip it
+exactly that way. The cache is LRU-capped at 4096 entries, and textures larger than 512x512 px skip it
 because the download and hash cost is not worth it and they rarely repeat. The fast path, an object
 already uploaded, returns its id with no re-hash, so steady-state cost is unchanged.
+
+The cap was raised from 512 after the debug menu's per-window upload rate showed it undersized: a
+dense treeview's live working set runs ~1-2k textures, so at 512 anything scrolled off-screen was
+evicted at once and re-uploaded on the way back. At 4096 the working set fits with headroom, so
+scroll-back is cache hits (cost is browser RAM only, ~4 KB/texture).
 
 Net effect: first paint of new content still uploads (red); re-scrolling or re-hovering seen content
 reuses (magenta/green) and the Traffic counter climbs far more slowly.
