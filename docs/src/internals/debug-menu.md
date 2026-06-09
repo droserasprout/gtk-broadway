@@ -1,6 +1,6 @@
 # Debug menu
 
-*New in v2*
+*New in v2.1*
 
 A **Triple-Shift** (press Shift three times quickly) summons a server-side debug overlay for the
 Broadway session: live stats, a paint-flash traffic profiler, and session actions. This is a native

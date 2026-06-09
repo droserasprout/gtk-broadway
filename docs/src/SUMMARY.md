@@ -26,7 +26,7 @@
 - [Deploying behind TLS](guide/deployment.md)
 - [Configuration reference](guide/config.md)
 - [Troubleshooting](guide/troubleshooting.md)
-- [Known issues & tested configs](guide/known-issues.md)
+- [Known issues](guide/known-issues.md)
 
 # Development
 

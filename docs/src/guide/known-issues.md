@@ -1,19 +1,15 @@
 # Known issues
 
-PRIMARY selection and middle-click paste are WONTFIX. Desktop browsers expose no JavaScript API
-for the X11-style PRIMARY selection, so there's no way to bridge it between host and guest.
+Bugs are tracked on the [issue tracker](https://github.com/droserasprout/gtk-broadway/issues). The
+items below are known limitations not currently planned for a fix.
 
-Two touch problems remain. The first tap can leak into a pinch or drag: when a second finger lands
-to start a pinch or pan, the first finger's tap still registers, and I haven't found a fix that
-avoids adding input latency. The emoji widget is also slow and ugly over Broadway.
+## WONTFIX
 
-Copy on insecure (`http`) origins may silently fail outside a user gesture, since
-`navigator.clipboard` is gated to secure contexts. Serve over `https://` or `http://localhost`.
+- **PRIMARY selection and middle-click paste.** Desktop browsers expose no JavaScript API for the
+  X11-style PRIMARY selection, so there's no way to bridge it between host and guest.
 
-A continuously-repainting surface such as a spinner or a transfer-progress animation makes Broadway
-round-trip after every paint, which can flood the socket. This is pre-existing upstream behaviour
-that busy apps amplify. Fixing it means throttling the frame clock or stopping the animation, which
-is out of scope for the fork.
+- **Clipboard copy on insecure origins.** Copy may silently fail outside a user gesture, since
+  `navigator.clipboard` is gated to secure contexts. Serve over `https://` or `http://localhost`.
 
 ## Tested configurations
 

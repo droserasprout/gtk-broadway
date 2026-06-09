@@ -1,6 +1,6 @@
 # Connection management
 
-*New in v2*
+*New in v2.1*
 
 Any WebSocket interruption drops the session in stock Broadway: screen-off, a Wi-Fi toggle, a
 4G<->Wi-Fi handover. The only recovery is a full page reload, which loses UI state. The fork

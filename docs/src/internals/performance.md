@@ -8,6 +8,8 @@ traffic.
 
 ## Reusing nodes/textures
 
+*New in v2.1*
+
 ### Tier 1: content node reuse
 
 `gskbroadwayrenderer.c` already reused nodes by `GskRenderNode` *pointer* identity across frames,
@@ -45,7 +47,7 @@ reuses (magenta/green) and the Traffic counter climbs far more slowly.
 
 ## Native notebook edge-fade
 
-*New in v2*
+*New in v2.1*
 
 The [notebook](../features/notebook.md) tab-scroll edge-fade used `gtk_snapshot_push_mask`, which
 Broadway rasterizes (there is no `GskMaskNode` renderer) into a texture re-uploaded every scroll frame.
@@ -66,7 +68,7 @@ redundant wire ops, input latency, syscalls, and unbounded buffers.
 
 ### Wire: drop empty frames
 
-*New in v2*
+*New in v2.1*
 
 When a surface's frame diff produces no ops, `broadway-output.c` drops the whole `SET_NODES` instead
 of sending an 11-byte no-op (and its forced flush); the serial is rolled back so the counter stays
@@ -81,7 +83,7 @@ sync re-asserts both states rather than just the active one.
 
 ### Input latency: pointer-move coalescing
 
-*New in v2*
+*New in v2.1*
 
 A high-Hz mouse or trackpad fires many `mousemove` events per displayed frame, but GTK only needs the
 latest position. `broadway.js` now buffers moves and sends one per animation frame, so a motion flood
@@ -91,7 +93,7 @@ pending move first, preserving order.
 
 ### CPU: fewer syscalls and allocations
 
-*New in v2*
+*New in v2.1*
 
 Three hot-path trims. In `broadway-output.c` the WebSocket header and payload now go out in one
 `g_output_stream_writev_all` instead of two `write_all`s, with no payload copy. In `broadway.js`,
@@ -101,7 +103,7 @@ id, the remap moved out of the node-data copy loop so the common case skips a pe
 
 ### Memory bounding
 
-*New in v2*
+*New in v2.1*
 
 Two caps. A frame uploading a large texture can grow the `broadway-output.c` output buffer to many MB,
 and `g_string_set_size(.., 0)` keeps that capacity for the connection's life; after an oversized flush

@@ -3,31 +3,28 @@
 A fork of GTK that fills in the missing pieces of the **Broadway** backend, GTK's HTML5 renderer
 that serves an app to a web browser over a WebSocket.
 
-Broadway was [deprecated](https://www.phoronix.com/news/GTK-X11-Now-Deprecated) in 4.18 (alongside
-X11) for lack of maintenance. This fork keeps it usable through the GTK4 lifecycle as a thin layer
-on stock GTK, with no intent to upstream. Stock Broadway is mouse-and-keyboard only: no clipboard,
-no touch, and it drops the session on any network blip.
+Broadway was deprecated by the GTK team in 4.18 (alongside X11) for lack of maintenance. This fork
+keeps it usable through the GTK4 lifecycle as a thin layer on stock GTK, with no intent to upstream.
 
-## Goals
+## Project Goals
 
-Stay a thin layer on GTK4. The patches touch only the Broadway backend, never app-facing GTK API,
+**Thin layer on GTK4.** The patches touch only the Broadway backend, never app-facing GTK API,
 and stay close to upstream so each GTK4 point release can be re-forked with a minimal diff. The fork
 lives only as long as GTK4 itself.
 
-Render accurately. What the browser shows should match what the app draws: correct scaling, no
+**Accurate rendering.** What the browser shows should match what the app draws: correct scaling, no
 white flashes, no stretched bitmaps, crisp output under HiDPI and zoom.
 
-Keep latency low by minimizing protocol roundtrips and bytes on the wire, so input and rendering
-hold up even over a real network.
+**Full touch and mobile support.** Treat touch and mobile as primary targets, not something bolted
+on after the fact. Touch text editing, the on-screen keyboard, IME, and pinch-zoom should work as
+well as mouse and keyboard.
 
-Treat touch and mobile as primary targets, not as something bolted on after the fact. Touch text
-editing, the on-screen keyboard, IME, and pinch-zoom should work as well as mouse and keyboard.
+**Match the GNOME/Mutter/Adwaita experience.** The same interactions should behave the way they do
+under a real compositor, so a Broadway session works like a normal GTK desktop rather than a degraded
+remote view.
 
-Match the GNOME/Mutter experience. The same interactions should behave the way they do under a real
-compositor, so a Broadway session works like a normal GTK desktop rather than a degraded remote view.
-
-Stay stable: no crashes, no wedged input, no dropped sessions. Reconnect in place and survive
-screen-off, network handovers, and surface churn.
+**Performance and stability.** Stay stable: no crashes, no wedged input, no dropped sessions.
+Reconnect in place and survive screen-off, network handovers, and surface churn.
 
 ## What the fork adds
 
@@ -52,19 +49,6 @@ that overlays stock `libgtk-4-1` / `libgtk-4-bin`. It replaces only `libgtk-4.so
 
 Two GTK bases are maintained in parallel (**4.14.5** and **4.22.2**), each built for **amd64** and
 **arm64** ([Supported versions](guide/versions.md)).
-
-## Layout
-
-The book is ordered by audience, shallow to deep:
-
-- **Using the fork:** pick a version, install the `.deb`, serve an app with `broadwayd`, deploy it
-  behind TLS. Start at the [Quickstart](quickstart.md).
-- **Features:** what each subsystem does and how it behaves. Every feature page links to its own
-  **Implementation** page for the wire-level detail.
-- **Internals:** [architecture](internals/architecture.md), the
-  [wire protocol](internals/protocol.md), input/pointer handling, rendering and performance.
-- **Building & releasing:** the Meson config, [re-forking a new GTK release](build/reforking.md),
-  the CI `.deb` build, and the release flow.
 
 > Both bases carry the same feature set (the 4.22 work is ported to 4.14). Chapters are
 > version-agnostic; base differences (e.g. a Meson flag rename) are called out inline.
