@@ -28,6 +28,9 @@ static GtkWidget *screen_w_spin;
 static GtkWidget *screen_h_spin;
 static GtkWidget *screen_scale_spin;
 static GSocket   *control_sock;
+static GtkWidget *debug_window;     /* the stats overlay; owns the labels above */
+static GtkWidget *gallery_window;   /* the on-demand widget gallery, or NULL */
+static int        open_windows;     /* live top-levels; quit at zero */
 
 static void
 quit (void)
@@ -36,24 +39,47 @@ quit (void)
     g_main_loop_quit (loop);
 }
 
-static gboolean
-on_close_request (GtkWindow *window, gpointer user_data)
+/* The menu and any windows it opens (the widget gallery, a test dialog) share
+ * one main loop; quit only when the last one is gone, so closing the debug
+ * window leaves an open gallery up - e.g. to record it without the overlay. */
+static void
+on_window_destroy (GtkWidget *window, gpointer user_data)
 {
-  quit ();
-  return FALSE;
+  if (window == gallery_window)
+    gallery_window = NULL;
+
+  /* The stats labels live in the debug window. If it closes while the gallery
+   * stays open, drop the dangling pointers so the still-live control channel
+   * (on_control_readable) stops writing to freed widgets. */
+  if (window == debug_window)
+    {
+      debug_window = NULL;
+      session_label = traffic_label = fps_label = NULL;
+      latency_label = textures_label = pacing_label = cost_label = NULL;
+      paint_flash_switch = NULL;
+    }
+
+  if (--open_windows <= 0)
+    quit ();
 }
 
 static gboolean
-on_key_pressed (GtkEventControllerKey *controller,
-                guint keyval, guint keycode,
-                GdkModifierType state, gpointer user_data)
+on_escape (GtkEventControllerKey *controller,
+           guint keyval, guint keycode,
+           GdkModifierType state, gpointer window)
 {
   if (keyval == GDK_KEY_Escape)
     {
-      quit ();
+      gtk_window_destroy (GTK_WINDOW (window));
       return TRUE;
     }
   return FALSE;
+}
+
+static void
+on_close_clicked (GtkButton *button, gpointer window)
+{
+  gtk_window_destroy (GTK_WINDOW (window));
 }
 
 /* Send a newline-terminated command back to the daemon over the control fd. */
@@ -128,6 +154,11 @@ on_control_readable (GSocket *sock, GIOCondition cond, gpointer user_data)
   char buf[256];
   char *p;
   gssize n;
+
+  /* Debug window closed (gallery left open)? The stats widgets are gone -
+   * nothing to update, so drop the source instead of touching freed memory. */
+  if (debug_window == NULL)
+    return G_SOURCE_REMOVE;
 
   n = g_socket_receive (sock, buf, sizeof buf - 1, NULL, NULL);
   if (n <= 0)
@@ -305,6 +336,167 @@ add_spin_row (GtkWidget *section, const char *label, int min, int max, int value
   return spin;
 }
 
+/* --- Widget gallery: clean, empty widgets for testing and recording --------
+ *
+ * One target per fork feature, so any Broadway session has a stable surface to
+ * exercise (and screencast) clipboard, touch, tabs, popups, scrolling, etc.
+ * without an app's data or layout in the way. Opened from the Actions section.
+ */
+
+static GtkWidget *
+new_tracked_window (const char *title)
+{
+  GtkWidget *window = gtk_window_new ();
+  GtkEventController *keys = gtk_event_controller_key_new ();
+
+  gtk_window_set_title (GTK_WINDOW (window), title);
+  g_signal_connect (keys, "key-pressed", G_CALLBACK (on_escape), window);
+  gtk_widget_add_controller (window, keys);
+  g_signal_connect (window, "destroy", G_CALLBACK (on_window_destroy), NULL);
+  open_windows++;
+  return window;
+}
+
+/* A real top-level (not a popup): exercises window centering and the is_popup
+ * classification, where a dialog must stay a toplevel, not a menu surface. */
+static void
+on_open_dialog_clicked (GtkButton *button, gpointer user_data)
+{
+  GtkWidget *dialog = new_tracked_window ("Test dialog");
+  GtkWidget *box = gtk_box_new (GTK_ORIENTATION_VERTICAL, 8);
+  GtkWidget *close;
+
+  gtk_widget_set_margin_top (box, 12);
+  gtk_widget_set_margin_bottom (box, 12);
+  gtk_widget_set_margin_start (box, 12);
+  gtk_widget_set_margin_end (box, 12);
+
+  if (gallery_window != NULL)
+    gtk_window_set_transient_for (GTK_WINDOW (dialog), GTK_WINDOW (gallery_window));
+
+  gtk_box_append (GTK_BOX (box), gtk_label_new ("A real top-level dialog."));
+  close = gtk_button_new_with_label ("Close");
+  g_signal_connect (close, "clicked", G_CALLBACK (on_close_clicked), dialog);
+  gtk_box_append (GTK_BOX (box), close);
+
+  gtk_window_set_child (GTK_WINDOW (dialog), box);
+  gtk_window_present (GTK_WINDOW (dialog));
+}
+
+static GtkWidget *
+build_gallery (void)
+{
+  static const char * const items[] = { "Apple", "Banana", "Cherry",
+                                         "Date", "Elderberry", NULL };
+  GtkWidget *window, *scroller, *box, *sec, *row, *w, *tv, *tvscroll;
+  GtkWidget *nb, *list, *listscroll, *mb, *pop, *popbox;
+  GtkTextBuffer *buf;
+  int i;
+
+  window = new_tracked_window ("Broadway widget gallery");
+  gtk_window_set_default_size (GTK_WINDOW (window), 340, 620);
+
+  scroller = gtk_scrolled_window_new ();
+  box = gtk_box_new (GTK_ORIENTATION_VERTICAL, 8);
+  gtk_widget_set_margin_top (box, 8);
+  gtk_widget_set_margin_bottom (box, 8);
+  gtk_widget_set_margin_start (box, 8);
+  gtk_widget_set_margin_end (box, 8);
+
+  /* Text & clipboard: entries, a selectable label, a multi-line view. */
+  sec = add_section (box, "Text & clipboard");
+  w = gtk_entry_new ();
+  gtk_editable_set_text (GTK_EDITABLE (w), "Select me, then copy");
+  gtk_box_append (GTK_BOX (sec), w);
+  w = gtk_entry_new ();
+  gtk_entry_set_placeholder_text (GTK_ENTRY (w), "Tap here, then paste");
+  gtk_box_append (GTK_BOX (sec), w);
+  w = left_label ("Selectable label - long-press to select");
+  gtk_label_set_selectable (GTK_LABEL (w), TRUE);
+  gtk_label_set_wrap (GTK_LABEL (w), TRUE);
+  gtk_box_append (GTK_BOX (sec), w);
+  tv = gtk_text_view_new ();
+  gtk_text_view_set_wrap_mode (GTK_TEXT_VIEW (tv), GTK_WRAP_WORD);
+  buf = gtk_text_view_get_buffer (GTK_TEXT_VIEW (tv));
+  gtk_text_buffer_set_text (buf, "Multi-line text view.\nSelect, copy, paste.", -1);
+  tvscroll = gtk_scrolled_window_new ();
+  gtk_widget_set_size_request (tvscroll, -1, 70);
+  gtk_scrolled_window_set_child (GTK_SCROLLED_WINDOW (tvscroll), tv);
+  gtk_box_append (GTK_BOX (sec), tvscroll);
+
+  /* Tabs: a scrollable notebook with more tabs than fit (pixel-scroll). */
+  sec = add_section (box, "Notebook tabs");
+  nb = gtk_notebook_new ();
+  gtk_notebook_set_scrollable (GTK_NOTEBOOK (nb), TRUE);
+  for (i = 1; i <= 8; i++)
+    {
+      char *t = g_strdup_printf ("Tab %d", i);
+      char *p = g_strdup_printf ("Page %d", i);
+      gtk_notebook_append_page (GTK_NOTEBOOK (nb),
+                                gtk_label_new (p), gtk_label_new (t));
+      g_free (t);
+      g_free (p);
+    }
+  gtk_box_append (GTK_BOX (sec), nb);
+
+  /* Menus & popups: dropdown, popover, and a real dialog. */
+  sec = add_section (box, "Menus & popups");
+  gtk_box_append (GTK_BOX (sec), gtk_drop_down_new_from_strings (items));
+  mb = gtk_menu_button_new ();
+  gtk_menu_button_set_label (GTK_MENU_BUTTON (mb), "Popover");
+  pop = gtk_popover_new ();
+  popbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 4);
+  gtk_widget_set_margin_top (popbox, 6);
+  gtk_widget_set_margin_bottom (popbox, 6);
+  gtk_widget_set_margin_start (popbox, 6);
+  gtk_widget_set_margin_end (popbox, 6);
+  gtk_box_append (GTK_BOX (popbox), gtk_button_new_with_label ("One"));
+  gtk_box_append (GTK_BOX (popbox), gtk_button_new_with_label ("Two"));
+  gtk_popover_set_child (GTK_POPOVER (pop), popbox);
+  gtk_menu_button_set_popover (GTK_MENU_BUTTON (mb), pop);
+  gtk_box_append (GTK_BOX (sec), mb);
+  w = gtk_button_new_with_label ("Open dialog");
+  g_signal_connect (w, "clicked", G_CALLBACK (on_open_dialog_clicked), NULL);
+  gtk_box_append (GTK_BOX (sec), w);
+
+  /* Scrolling: a list to drag/flick and hover. */
+  sec = add_section (box, "Scrolling list");
+  listscroll = gtk_scrolled_window_new ();
+  gtk_widget_set_size_request (listscroll, -1, 130);
+  list = gtk_list_box_new ();
+  for (i = 1; i <= 25; i++)
+    {
+      char *t = g_strdup_printf ("Row %d", i);
+      gtk_list_box_append (GTK_LIST_BOX (list), left_label (t));
+      g_free (t);
+    }
+  gtk_scrolled_window_set_child (GTK_SCROLLED_WINDOW (listscroll), list);
+  gtk_box_append (GTK_BOX (sec), listscroll);
+
+  /* Animation & links: a spinner (continuous repaint), switch, link button. */
+  sec = add_section (box, "Animation & links");
+  row = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 8);
+  w = gtk_spinner_new ();
+  gtk_spinner_start (GTK_SPINNER (w));
+  gtk_box_append (GTK_BOX (row), w);
+  gtk_box_append (GTK_BOX (row), gtk_switch_new ());
+  gtk_box_append (GTK_BOX (sec), row);
+  gtk_box_append (GTK_BOX (sec),
+                  gtk_link_button_new_with_label ("https://example.com", "Open a link"));
+
+  gtk_scrolled_window_set_child (GTK_SCROLLED_WINDOW (scroller), box);
+  gtk_window_set_child (GTK_WINDOW (window), scroller);
+  return window;
+}
+
+static void
+on_open_gallery_clicked (GtkButton *button, gpointer user_data)
+{
+  if (gallery_window == NULL)
+    gallery_window = build_gallery ();
+  gtk_window_present (GTK_WINDOW (gallery_window));
+}
+
 static void
 connect_control_channel (void)
 {
@@ -334,7 +526,6 @@ int
 main (void)
 {
   GtkWidget *window, *root, *left, *right, *perf, *smooth, *actions, *screen, *screen_btns;
-  GtkEventController *keys;
   GtkCssProvider *css;
 
   gtk_init ();
@@ -356,8 +547,8 @@ main (void)
       GTK_STYLE_PROVIDER (css), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
   g_object_unref (css);
 
-  window = gtk_window_new ();
-  gtk_window_set_title (GTK_WINDOW (window), "Broadway debug");
+  window = new_tracked_window ("Broadway debug");
+  debug_window = window;
   gtk_window_set_resizable (GTK_WINDOW (window), FALSE);
 
   /* Two columns: live metrics left, controls right - keeps the window short. */
@@ -399,6 +590,7 @@ main (void)
   add_action_button (actions, "Reconnect", G_CALLBACK (on_reconnect_clicked));
   add_action_button (actions, "Drop session", G_CALLBACK (on_drop_session_clicked));
   add_action_button (actions, "Open test URL", G_CALLBACK (on_test_uri_clicked));
+  add_action_button (actions, "Test gallery", G_CALLBACK (on_open_gallery_clicked));
 
   paint_flash_switch = add_switch_row (actions, "Paint flashing",
                                        G_CALLBACK (on_paint_flash_state_set));
@@ -416,12 +608,6 @@ main (void)
   gtk_box_append (GTK_BOX (screen), screen_btns);
 
   gtk_window_set_child (GTK_WINDOW (window), root);
-
-  keys = gtk_event_controller_key_new ();
-  g_signal_connect (keys, "key-pressed", G_CALLBACK (on_key_pressed), NULL);
-  gtk_widget_add_controller (window, keys);
-
-  g_signal_connect (window, "close-request", G_CALLBACK (on_close_request), NULL);
 
   connect_control_channel ();
 
