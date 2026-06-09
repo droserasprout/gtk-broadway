@@ -457,6 +457,17 @@ client_handle_request (BroadwayClient *client,
         broadway_server_open_uri (server, request->open_uri.uri, len);
       }
       break;
+    case BROADWAY_REQUEST_SET_CURSOR:
+      {
+        /* Clamp the wire len to the framed request, same as SET_CLIPBOARD. */
+        gsize max = request->base.size -
+                    G_STRUCT_OFFSET (BroadwayRequestSetCursor, name);
+        guint32 len = request->set_cursor.len > max
+                      ? (guint32) max : request->set_cursor.len;
+        broadway_server_surface_set_cursor (server, request->set_cursor.id,
+                                            request->set_cursor.name, len);
+      }
+      break;
     case BROADWAY_REQUEST_REQUEST_CLIPBOARD:
       {
         PendingClipboardRequest *pending = g_new (PendingClipboardRequest, 1);

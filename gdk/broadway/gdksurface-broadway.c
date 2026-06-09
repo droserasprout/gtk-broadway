@@ -316,6 +316,8 @@ gdk_broadway_surface_finalize (GObject *object)
   if (impl->cursor)
     g_object_unref (impl->cursor);
 
+  g_free (impl->cursor_name);
+
   broadway_display->toplevels = g_list_remove (broadway_display->toplevels, impl);
 
   G_OBJECT_CLASS (gdk_broadway_surface_parent_class)->finalize (object);

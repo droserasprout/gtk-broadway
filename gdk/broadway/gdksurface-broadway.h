@@ -45,6 +45,7 @@ struct _GdkBroadwaySurface
   GdkSurface parent_instance;
 
   GdkCursor *cursor;
+  char *cursor_name;  /* last CSS cursor name sent to the browser (dedup) */
 
   int id;
 
