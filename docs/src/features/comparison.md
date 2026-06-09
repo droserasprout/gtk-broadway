@@ -23,6 +23,7 @@ Legend: **🟢** full support, **🟡** partial/workaround/caveats, **🔴** not
 | Smooth / touchpad scroll-source detection | 🟢 | 🟢 | 🟢 | 🟡 | 🟡 | 🟡 [^scroll] |
 | Keyboard layout groups | 🟢 | 🟡 | 🔴 | 🔴 | 🔴 | 🔴 |
 | Inhibit system shortcuts (grab all keys) | 🟢 | 🟢 | 🟢 | 🔴 | 🔴 | 🔴 |
+| Named mouse cursors (resize / text / pointer) | 🟢 | 🟢 | 🟢 | 🟢 | 🔴 | 🟢 [^cursor] |
 | **Rendering** | | | | | | |
 | OpenGL rendering | 🟢 | 🟢 | 🟢 | 🔴 | 🔴 | 🔴 [^render] |
 | Vulkan rendering | 🟢 | 🟡 | 🟢 | 🟢 | 🔴 | 🔴 [^render] |
@@ -75,6 +76,8 @@ The cells where the fork beats stock Broadway: text clipboard, real touch (event
 [^zoom]: Whole-UI zoom 0.25x-5x, JS-side `zoomFactor`, persisted per-origin in `localStorage`, verified on mobile Firefox. See [Pinch to zoom](zoom.md).
 
 [^osk]: Show/hide mostly synced; residual flicker on mixed selection-bubble focus state.
+
+[^cursor]: Stock Broadway always shows the default arrow. The fork forwards GTK's per-surface cursor name via `BROADWAY_OP_SET_CURSOR` to the browser's CSS `cursor` (resize edges, text, links, ...). See [Dynamic cursor](cursor.md).
 
 [^ime]: Non-Latin / CJK / gesture-typed text committed via `commitTextToGtk` / `compositionend`. Autocorrect deletions are not bridged.
 

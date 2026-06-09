@@ -19,6 +19,7 @@
   - [Pinch to zoom](features/zoom.md)
   - [Notebook tabs](features/notebook.md)
   - [Opening links](features/open-uri.md)
+  - [Dynamic cursor](features/cursor.md)
   - [Connection management](features/connection.md)
   - [Scaling & HiDPI](features/scaling.md)
   - [Desktop & rendering fixes](features/desktop-fixes.md)
@@ -48,6 +49,7 @@
   - [Pinch to zoom](internals/zoom.md)
   - [Notebook tabs](internals/notebook.md)
   - [Opening links](internals/open-uri.md)
+  - [Dynamic cursor](internals/cursor.md)
   - [Connection management](internals/connection.md)
 
 ---
