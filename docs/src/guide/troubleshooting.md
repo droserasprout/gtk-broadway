@@ -1,7 +1,6 @@
 # Troubleshooting
 
-Symptom-first. [Known issues](known-issues.md) lists what is by-design unsupported; this page is for
-things that should work but don't, almost always a deployment or install mismatch.
+Symptom-first. [Known issues](known-issues.md) lists what is by-design unsupported; this page is for things that should work but don't, almost always a deployment or install mismatch.
 
 ## Is the fork actually loaded?
 
@@ -12,8 +11,7 @@ dpkg -l gtk4-broadway-fork        # the package is installed
 apt-mark showhold | grep libgtk-4 # libgtk-4-1 and libgtk-4-bin are held
 ```
 
-The functional test: touch text selection (handles + Cut/Copy/Paste bubble) and clipboard copy/paste
-only exist in the fork. If they are absent, stock GTK is loaded - see "features vanished" below.
+The functional test: touch text selection (handles + Cut/Copy/Paste bubble) and clipboard copy/paste only exist in the fork. If they are absent, stock GTK is loaded - see "features vanished" below.
 
 ## Diagnostic table
 
@@ -33,19 +31,15 @@ only exist in the fork. If they are absent, stock GTK is loaded - see "features 
 
 ## Checking the GTK base mismatch
 
-The `.deb` overlays the SONAME-versioned `libgtk-4.so` in place, so its base must match the GTK apt
-installed. Compare them:
+The `.deb` overlays the SONAME-versioned `libgtk-4.so` in place, so its base must match the GTK apt installed. Compare them:
 
 ```sh
 dpkg -s libgtk-4-1 | grep ^Version       # the apt GTK version (e.g. 4.22.x on ubuntu:26.04)
 ls -l /usr/lib/*/libgtk-4.so.1            # the SONAME the symlink points at
 ```
 
-A `4.14.5` deb on a `4.22.x` system (or vice versa) leaves a dangling SONAME and the app won't load.
-Install the base that matches: [4.14.5 on `ubuntu:24.04`, 4.22.2 on `ubuntu:26.04`](versions.md).
+A `4.14.5` deb on a `4.22.x` system (or vice versa) leaves a dangling SONAME and the app won't load. Install the base that matches: [4.14.5 on `ubuntu:24.04`, 4.22.2 on `ubuntu:26.04`](versions.md).
 
 ## Iterating on a change that didn't take effect
 
-A client-side change (`broadway.js` / `client.html`) needs the **daemon** rebuilt and restarted, then
-a plain reload. A `libgtk` change needs the library rebuilt and the **app** restarted. Reloading the
-browser alone never picks up a `libgtk` change. See [broadwayd vs libgtk](../internals/build-split.md).
+A client-side change (`broadway.js` / `client.html`) needs the **daemon** rebuilt and restarted, then a plain reload. A `libgtk` change needs the library rebuilt and the **app** restarted. Reloading the browser alone never picks up a `libgtk` change. See [broadwayd vs libgtk](../internals/build-split.md).

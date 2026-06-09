@@ -1,7 +1,6 @@
 # Build from source
 
-The fork is built Broadway-only. Every other backend and most optional subsystems are turned off,
-so the build produces just the patched `libgtk-4.so` plus `gtk4-broadwayd`.
+The fork is built Broadway-only. Every other backend and most optional subsystems are turned off, so the build produces just the patched `libgtk-4.so` plus `gtk4-broadwayd`.
 
 ```sh
 meson setup _build \
@@ -21,24 +20,18 @@ The demos flag was renamed between the two bases:
 - **4.22.2:** `-Dbuild-demos=false` (as above)
 - **4.14.5:** `-Ddemos=false`
 
-This is the only build-config difference between the bases. CI passes it in as an input (see
-[CI & packaging](ci.md)).
+This is the only build-config difference between the bases. CI passes it in as an input (see [CI & packaging](ci.md)).
 
 ## What you get
 
-- `_build/gtk/libgtk-4.so.1.<minor>.<micro>`, the patched shared object (e.g.
-  `libgtk-4.so.1.2200.2`).
+- `_build/gtk/libgtk-4.so.1.<minor>.<micro>`, the patched shared object (e.g. `libgtk-4.so.1.2200.2`).
 - `_build/gdk/broadway/gtk4-broadwayd`, the daemon.
 
-`ninja -C _build` also regenerates `broadwayjs.h` / `clienthtml.h` from `broadway.js` /
-`client.html`, so a client-side change is picked up by an incremental rebuild plus a daemon restart.
-See [Running broadwayd](../guide/running.md) for which changes need only the daemon and which need
-the full library.
+`ninja -C _build` also regenerates `broadwayjs.h` / `clienthtml.h` from `broadway.js` / `client.html`, so a client-side change is picked up by an incremental rebuild plus a daemon restart. See [Running broadwayd](../guide/running.md) for which changes need only the daemon and which need the full library.
 
 ## Build dependencies
 
-The Broadway-only build needs the GTK build toolchain and these `-dev` libraries (the CI list, for
-Ubuntu):
+The Broadway-only build needs the GTK build toolchain and these `-dev` libraries (the CI list, for Ubuntu):
 
 ```
 build-essential meson ninja-build pkg-config gettext python3 git ca-certificates

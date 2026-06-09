@@ -1,7 +1,6 @@
 # Configuration reference
 
-Every knob the fork reads, in one place. Most are stock Broadway; the fork adds the debug-menu FD
-and the client-side `localStorage` / URL settings.
+Every knob the fork reads, in one place. Most are stock Broadway; the fork adds the debug-menu FD and the client-side `localStorage` / URL settings.
 
 ## Daemon
 
@@ -12,8 +11,7 @@ and the client-side `localStorage` / URL settings.
 | Browser HTTP port | `8080 + N` (so `:5` -> `http://localhost:8085`) |
 | App socket | the local Broadway socket for display `:N` |
 
-The served page (`client.html` + `broadway.js`) is embedded in the daemon binary and sent
-`Cache-Control: no-store`, so a plain browser reload always picks up a rebuilt, restarted daemon.
+The served page (`client.html` + `broadway.js`) is embedded in the daemon binary and sent `Cache-Control: no-store`, so a plain browser reload always picks up a rebuilt, restarted daemon.
 
 ## App environment variables
 
@@ -48,6 +46,4 @@ Set per origin by `broadway.js`:
 
 ## Build-time flags
 
-Not runtime config, but the two knobs that vary per base, covered in
-[Build from source](../build/from-source.md): `-Dbroadway-backend=true` with every other backend off,
-and the demos flag (`-Dbuild-demos=false` on 4.22, `-Ddemos=false` on 4.14).
+Not runtime config, but the two knobs that vary per base, covered in [Build from source](../build/from-source.md): `-Dbroadway-backend=true` with every other backend off, and the demos flag (`-Dbuild-demos=false` on 4.22, `-Ddemos=false` on 4.14).

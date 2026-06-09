@@ -2,42 +2,26 @@
 
 Terms that recur across the book, for readers coming from outside GTK.
 
-**Broadway** - GTK's HTML5 backend: renders a GTK app into a web browser over a WebSocket instead of
-to a local display. See [What is Broadway?](broadway.md).
+**Broadway** - GTK's HTML5 backend: renders a GTK app into a web browser over a WebSocket instead of to a local display. See [What is Broadway?](broadway.md).
 
-**`gtk4-broadwayd`** - the Broadway daemon. Owns the virtual display, serves the browser page, and
-multiplexes between the app and connected browsers. See [Architecture](internals/architecture.md).
+**`gtk4-broadwayd`** - the Broadway daemon. Owns the virtual display, serves the browser page, and multiplexes between the app and connected browsers. See [Architecture](internals/architecture.md).
 
-**GDK** - GTK's lower layer for windowing and input. The Broadway *GDK backend* (`gdk/broadway/`)
-is the app-side half that talks to the daemon.
+**GDK** - GTK's lower layer for windowing and input. The Broadway *GDK backend* (`gdk/broadway/`) is the app-side half that talks to the daemon.
 
-**GSK** - GTK's scene-graph / rendering layer. The Broadway *GSK renderer* (`gsk/broadway/`) turns
-render nodes into Broadway's node stream.
+**GSK** - GTK's scene-graph / rendering layer. The Broadway *GSK renderer* (`gsk/broadway/`) turns render nodes into Broadway's node stream.
 
-**Render node** - GTK's unit of drawing: a tree of typed nodes (text, texture, color, gradient, ...)
-describing a frame, rather than raw pixels. GTK4's whole render pipeline is node-based.
+**Render node** - GTK's unit of drawing: a tree of typed nodes (text, texture, color, gradient, ...) describing a frame, rather than raw pixels. GTK4's whole render pipeline is node-based.
 
-**Node stream** - the compact serialization of those render nodes that the daemon sends to the
-browser, which reconstructs them in the DOM. Nodes Broadway can't express natively fall back to a
-cairo-rasterized texture. See [Architecture](internals/architecture.md).
+**Node stream** - the compact serialization of those render nodes that the daemon sends to the browser, which reconstructs them in the DOM. Nodes Broadway can't express natively fall back to a cairo-rasterized texture. See [Architecture](internals/architecture.md).
 
-**libgtk** - the patched `libgtk-4.so` shared library, the other half of what the `.deb` ships
-(alongside the daemon). A change to it needs the **app** restarted, not just the daemon. See
-[broadwayd vs libgtk](internals/build-split.md).
+**libgtk** - the patched `libgtk-4.so` shared library, the other half of what the `.deb` ships (alongside the daemon). A change to it needs the **app** restarted, not just the daemon. See [broadwayd vs libgtk](internals/build-split.md).
 
-**SONAME** - the versioned shared-object name (e.g. `libgtk-4.so.1.2200.2`). The `.deb` replaces this
-file in place, so the package base and the system GTK must match. See [Supported versions](guide/versions.md).
+**SONAME** - the versioned shared-object name (e.g. `libgtk-4.so.1.2200.2`). The `.deb` replaces this file in place, so the package base and the system GTK must match. See [Supported versions](guide/versions.md).
 
-**Secure context** - a browser security state (`https://` or `http://localhost`) that gates
-`navigator.clipboard`. Over plain remote `http://`, the [clipboard](features/clipboard.md) can fail
-silently.
+**Secure context** - a browser security state (`https://` or `http://localhost`) that gates `navigator.clipboard`. Over plain remote `http://`, the [clipboard](features/clipboard.md) can fail silently.
 
-**Input region** - the part of a surface that takes pointer events. The fork sends a per-surface
-region so a popover's shadow margin passes clicks through and text handles don't block taps. See
-[Input region & pointer](internals/input-region.md).
+**Input region** - the part of a surface that takes pointer events. The fork sends a per-surface region so a popover's shadow margin passes clicks through and text handles don't block taps. See [Input region & pointer](internals/input-region.md).
 
-**Content dedup** - the fork's texture/node reuse: identical content reuses an already-uploaded
-texture id instead of re-encoding and re-sending it. See [Performance](internals/performance.md).
+**Content dedup** - the fork's texture/node reuse: identical content reuses an already-uploaded texture id instead of re-encoding and re-sending it. See [Performance](internals/performance.md).
 
-**Re-fork** - carrying the fork commits onto a new upstream GTK 4.x point release with a minimal
-diff. See [Re-forking a new GTK release](build/reforking.md).
+**Re-fork** - carrying the fork commits onto a new upstream GTK 4.x point release with a minimal diff. See [Re-forking a new GTK release](build/reforking.md).

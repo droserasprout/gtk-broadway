@@ -1,9 +1,6 @@
 # Wire protocol
 
-All wire constants live in `gdk/broadway/broadway-protocol.h`, shared verbatim by the daemon (C),
-the GDK backend (C), and `broadway.js` (the values are mirrored in the JS header comment). Because
-the daemon and the browser client are built from one tree, the fork **appends** every new enum
-value at the end so existing wire numbers never shift.
+All wire constants live in `gdk/broadway/broadway-protocol.h`, shared verbatim by the daemon (C), the GDK backend (C), and `broadway.js` (the values are mirrored in the JS header comment). Because the daemon and the browser client are built from one tree, the fork **appends** every new enum value at the end so existing wire numbers never shift.
 
 This chapter covers the fork's additions; stock entries appear for context.
 
@@ -25,8 +22,7 @@ Stock ops are `0`-`16` (`GRAB_POINTER` ... `ROUNDTRIP`). The fork appends:
 
 ## Input events, browser to app (`BROADWAY_EVENT_*`)
 
-Stock events are `0`-`14` (`ENTER` ... `ROUNDTRIP_NOTIFY`); `TOUCH` (5) already existed but was
-[never sourced as a touchscreen](../features/touch.md). The fork appends:
+Stock events are `0`-`14` (`ENTER` ... `ROUNDTRIP_NOTIFY`); `TOUCH` (5) already existed but was [never sourced as a touchscreen](../features/touch.md). The fork appends:
 
 | Event | # | Purpose |
 |-------|---|---------|
@@ -36,12 +32,9 @@ Stock events are `0`-`14` (`ENTER` ... `ROUNDTRIP_NOTIFY`); `TOUCH` (5) already 
 
 ## Requests, app to daemon (`BROADWAY_REQUEST_*`)
 
-The fork appends `BROADWAY_REQUEST_SET_CLIPBOARD`, `BROADWAY_REQUEST_REQUEST_CLIPBOARD`,
-`BROADWAY_REQUEST_SET_INPUT_REGION`, and `BROADWAY_REQUEST_OPEN_URI`, with matching structs
-(`BroadwayRequestSetClipboard`, `BroadwayRequestOpenUri`, `BroadwayRequestSetInputRegion`).
+The fork appends `BROADWAY_REQUEST_SET_CLIPBOARD`, `BROADWAY_REQUEST_REQUEST_CLIPBOARD`, `BROADWAY_REQUEST_SET_INPUT_REGION`, and `BROADWAY_REQUEST_OPEN_URI`, with matching structs (`BroadwayRequestSetClipboard`, `BroadwayRequestOpenUri`, `BroadwayRequestSetInputRegion`).
 
-Variable-length requests use the `len + bytes` framing (`guint32 len; char text[1];`), the same
-shape as `SET_NODES`. The daemon clamps `len` to the framed request size before reading.
+Variable-length requests use the `len + bytes` framing (`guint32 len; char text[1];`), the same shape as `SET_NODES`. The daemon clamps `len` to the framed request size before reading.
 
 ## Changed stock struct: `is_popup` on `NEW_SURFACE`
 
@@ -56,11 +49,7 @@ typedef struct {
 } BroadwayRequestNewSurface;
 ```
 
-The GDK client sets `is_popup` from `surface->parent != NULL`, and the daemon stores it on its
-`BroadwaySurface`. It replaced an earlier `transient_for`-based heuristic that misclassified
-transient dialogs as popups. Two touch behaviours now key off it: which surfaces get raised and
-focused on a tap, and which surfaces count for pointer-recovery (`any_popup_visible`). See
-[Touch interface](../features/touch.md).
+The GDK client sets `is_popup` from `surface->parent != NULL`, and the daemon stores it on its `BroadwaySurface`. It replaced an earlier `transient_for`-based heuristic that misclassified transient dialogs as popups. Two touch behaviours now key off it: which surfaces get raised and focused on a tap, and which surfaces count for pointer-recovery (`any_popup_visible`). See [Touch interface](../features/touch.md).
 
 ## Size limits
 
@@ -68,6 +57,4 @@ focused on a tap, and which surfaces count for pointer-recovery (`any_popup_visi
 #define BROADWAY_CLIPBOARD_MAX_SIZE (16 * 1024 * 1024)
 ```
 
-This caps the allocation a browser-supplied length (possibly malicious or buggy) can drive on the
-daemon, along with the resulting reply size on the client. The clipboard and open-URI paths both
-clamp against the framed message size first, then against this ceiling.
+This caps the allocation a browser-supplied length (possibly malicious or buggy) can drive on the daemon, along with the resulting reply size on the client. The clipboard and open-URI paths both clamp against the framed message size first, then against this ceiling.
