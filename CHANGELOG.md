@@ -15,6 +15,10 @@ Versioning is not semver: release tags are `vA[.B]` (fork revision), debs are `<
 
 - Bump texture cache cap from 512 to 4096 (~16mb)
 
+### Fixed
+
+- Reconnect loop after a network switch (backoff resets only on a confirmed session)
+
 ## [v2.1] - 2026-06-09
 
 ### Fixed
