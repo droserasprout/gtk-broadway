@@ -113,6 +113,10 @@ jobs:
           install -m644 "_build/gtk/${SO_NAME}" "pkgroot/usr/lib/${MULTIARCH}/${SO_NAME}"
           ln -sf "${SO_NAME}" "pkgroot/usr/lib/${MULTIARCH}/libgtk-4.so.1"
           install -m755 _build/gdk/broadway/gtk4-broadwayd pkgroot/usr/bin/gtk4-broadwayd
+          # Native triple-Shift debug-menu client; broadwayd spawns it by name via PATH
+          # (BROADWAY_EVENT_MENU). Without it the menu silently fails to spawn.
+          test -f _build/tools/gtk4-broadway-debugmenu
+          install -m755 _build/tools/gtk4-broadway-debugmenu pkgroot/usr/bin/gtk4-broadway-debugmenu
           cat > pkgroot/DEBIAN/control <<EOF
           Package: gtk4-broadway-fork
           Version: ${DEB_VERSION}

@@ -4,6 +4,12 @@ All notable changes to the GTK Broadway fork. Format based on [Keep a Changelog]
 
 ## [Unreleased]
 
+## [v2.1] - 2026-06-09
+
+### Fixed
+
+- Include `gtk4-broadway-debugmenu` in deb packages
+
 ## [v2] - 2026-06-08
 
 ### Added
@@ -54,5 +60,6 @@ All notable changes to the GTK Broadway fork. Format based on [Keep a Changelog]
 - Desktop: horizontal two-finger swipe scrolls instead of browser back/forward.
 - Desktop: drags survive the cursor leaving the widget.
 
+[v2.1]: https://github.com/droserasprout/gtk-broadway/releases/tag/v2.1
 [v2]: https://github.com/droserasprout/gtk-broadway/releases/tag/v2
 [v1]: https://github.com/droserasprout/gtk-broadway/releases/tag/v1
