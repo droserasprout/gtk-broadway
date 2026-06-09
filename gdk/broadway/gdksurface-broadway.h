@@ -62,6 +62,7 @@ struct _GdkBroadwaySurface
   gboolean dirty;
   gboolean last_synced;
   gboolean modal_hint;
+  gboolean suspend_frozen; /* we issued an extra freeze_updates for tab-suspend */
 
   GdkGeometry geometry_hints;
   GdkSurfaceHints geometry_hints_mask;

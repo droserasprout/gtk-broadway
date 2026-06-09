@@ -286,6 +286,14 @@ gdk_broadway_surface_constructed (GObject *object)
   G_OBJECT_CLASS (gdk_broadway_surface_parent_class)->constructed (object);
 
   connect_frame_clock (surface);
+
+  /* Born while the tab is hidden: freeze it too, so it doesn't render a frame
+   * behind the user's back. Balanced by the thaw in set_suspended(FALSE). */
+  if (broadway_display->suspended)
+    {
+      self->suspend_frozen = TRUE;
+      gdk_surface_freeze_updates (surface);
+    }
 }
 
 static void

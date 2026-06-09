@@ -73,6 +73,8 @@ typedef enum {
   BROADWAY_EVENT_CLIPBOARD_CONTENTS = 15,
   BROADWAY_EVENT_PING = 16,
   BROADWAY_EVENT_MENU = 17, /* daemon-intercepted: summon the debug menu */
+  BROADWAY_EVENT_SUSPEND = 18, /* tab hidden: freeze app rendering (no payload) */
+  BROADWAY_EVENT_RESUME = 19,  /* tab visible again: thaw rendering (no payload) */
 } BroadwayEventType;
 
 typedef enum {

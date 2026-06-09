@@ -84,6 +84,9 @@ gboolean _gdk_keymap_key_is_modifier   (GdkKeymap       *keymap,
 void _gdk_broadway_display_size_changed (GdkDisplay *display,
                                          BroadwayInputScreenResizeNotify *msg);
 
+void _gdk_broadway_display_set_suspended (GdkDisplay *display,
+                                          gboolean    suspended);
+
 void _gdk_broadway_events_got_input      (GdkDisplay *display,
                                           BroadwayInputMsg *message);
 
