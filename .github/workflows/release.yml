@@ -4,7 +4,7 @@
 # On a vN tag, each base is built from its PINNED per-version tag <gtk>-N (which must
 # be created manually first), and all four artifacts (2 bases x 2 arches) are
 # published, per base x arch, as:
-#   gtk4-broadway-fork_<gtk>-<N>_<arch>.deb     (e.g. ..._4.22.2-123_amd64.deb)
+#   gtk4-brotway_<gtk>-<N>_<arch>.deb     (e.g. ..._4.22.2-123_amd64.deb)
 #
 # Release notes come from the `## [vN]` section of CHANGELOG.md on this `ci` branch
 # (single source of truth), so promote [Unreleased] -> [v123] and commit it here
@@ -93,12 +93,12 @@ jobs:
           # Version-stamp the per-base/arch names for this immutable release.
           mkdir -p versioned
           for f in ./*.deb; do
-            b="$(basename "${f%.deb}")"      # gtk4-broadway-fork_<gtk>_<arch>
-            arch="${b##*_}"; rest="${b%_*}"  # <arch> ; gtk4-broadway-fork_<gtk>
+            b="$(basename "${f%.deb}")"      # gtk4-brotway_<gtk>_<arch>
+            arch="${b##*_}"; rest="${b%_*}"  # <arch> ; gtk4-brotway_<gtk>
             cp "$f" "versioned/${rest}-${REV}_${arch}.deb"
           done
           ls -l ./versioned/*.deb
           gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 \
-            || gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --title "Broadway GTK fork ${TAG}" \
+            || gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --title "GTK Brotway ${TAG}" \
                  --notes-file notes.md
           gh release upload "$TAG" ./versioned/*.deb --repo "$GITHUB_REPOSITORY" --clobber

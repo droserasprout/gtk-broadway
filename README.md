@@ -21,14 +21,14 @@ Broadway was [deprecated](https://www.phoronix.com/news/GTK-X11-Now-Deprecated) 
 
 | GTK    | Ubuntu base    | SONAME                 | Main branch    | Patch |
 | ------ | -------------- | ---------------------- | -------------- | ----- |
-| 4.14.5 | `ubuntu:24.04` | `libgtk-4.so.1.1400.5` | [`4.14.5-fork`](https://github.com/droserasprout/gtk-broadway/tree/4.14.5-fork) | [diff](https://github.com/droserasprout/gtk-broadway/compare/4.14.5...4.14.5-fork) |
-| 4.22.2 | `ubuntu:26.04` | `libgtk-4.so.1.2200.2` | [`4.22.2-fork`](https://github.com/droserasprout/gtk-broadway/tree/4.22.2-fork) | [diff](https://github.com/droserasprout/gtk-broadway/compare/4.22.2...4.22.2-fork) |
+| 4.14.5 | `ubuntu:24.04` | `libgtk-4.so.1.1400.5` | [`4.14.5-fork`](https://github.com/droserasprout/gtk-brotway/tree/4.14.5-fork) | [diff](https://github.com/droserasprout/gtk-brotway/compare/4.14.5...4.14.5-fork) |
+| 4.22.2 | `ubuntu:26.04` | `libgtk-4.so.1.2200.2` | [`4.22.2-fork`](https://github.com/droserasprout/gtk-brotway/tree/4.22.2-fork) | [diff](https://github.com/droserasprout/gtk-brotway/compare/4.22.2...4.22.2-fork) |
 
 Supported architectures: `amd64`, `arm64`.
 
 ## Installation
 
-A Debian package `gtk4-broadway-fork` is built by CI and published to [GitHub Releases](https://github.com/droserasprout/gtk-broadway/releases). It Depends/Replaces `libgtk-4-1` and `libgtk-4-bin`, overlaying only the patched `libgtk-4.so` and `gtk4-broadwayd` keeping the rest of GTK in place.
+A Debian package `gtk4-brotway` is built by CI and published to [GitHub Releases](https://github.com/droserasprout/gtk-brotway/releases). It Depends/Replaces `libgtk-4-1` and `libgtk-4-bin`, overlaying only the patched `libgtk-4.so` and `gtk4-broadwayd` keeping the rest of GTK in place.
 
 Pick the asset matching your Ubuntu base and architecture:
 
@@ -36,7 +36,7 @@ Pick the asset matching your Ubuntu base and architecture:
 rel=v1           # the release to install
 gtk_ver=4.14.5   # 4.22.2 on ubuntu:26.04
 arch="$(dpkg --print-architecture)"
-wget -O gtk.deb "https://github.com/droserasprout/gtk-broadway/releases/download/${rel}/gtk4-broadway-fork_${gtk_ver}-${rel#v}_${arch}.deb"
+wget -O gtk.deb "https://github.com/droserasprout/gtk-brotway/releases/download/${rel}/gtk4-brotway_${gtk_ver}-${rel#v}_${arch}.deb"
 apt-get install -y ./gtk.deb
 apt-mark hold libgtk-4-1 libgtk-4-bin
 ```

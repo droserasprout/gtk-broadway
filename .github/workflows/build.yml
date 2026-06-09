@@ -115,18 +115,20 @@ jobs:
           install -m755 _build/gdk/broadway/gtk4-broadwayd pkgroot/usr/bin/gtk4-broadwayd
           # Native triple-Shift debug-menu client; broadwayd spawns it by name via PATH
           # (BROADWAY_EVENT_MENU). Without it the menu silently fails to spawn.
-          test -f _build/tools/gtk4-broadway-debugmenu
-          install -m755 _build/tools/gtk4-broadway-debugmenu pkgroot/usr/bin/gtk4-broadway-debugmenu
+          test -f _build/tools/gtk4-brotway-debugmenu
+          install -m755 _build/tools/gtk4-brotway-debugmenu pkgroot/usr/bin/gtk4-brotway-debugmenu
           cat > pkgroot/DEBIAN/control <<EOF
-          Package: gtk4-broadway-fork
+          Package: gtk4-brotway
           Version: ${DEB_VERSION}
           Architecture: ${ARCH}
           Maintainer: Lev Gorodetskii <github@drsr.io>
           Section: libs
           Priority: optional
-          Homepage: https://github.com/droserasprout/gtk-broadway
+          Homepage: https://github.com/droserasprout/gtk-brotway
           Depends: ${RUNTIME_PKGS}
-          Replaces: ${RUNTIME_PKGS}
+          Replaces: ${RUNTIME_PKGS}, gtk4-broadway-fork
+          Conflicts: gtk4-broadway-fork
+          Provides: gtk4-broadway-fork
           Description: GTK ${GTK_VERSION} Broadway backend (clipboard + touch fork)
            Patched libgtk-4 shared object plus the gtk4-broadwayd daemon for the
            Broadway backend, adding bi-directional clipboard and touch/Android input
@@ -138,7 +140,7 @@ jobs:
           chmod 755 pkgroot/DEBIAN/postinst
           # Stable, unversioned per-base name (the 'latest' release asset). The release
           # job derives the version-stamped name for vN tags.
-          DEB_FILE="gtk4-broadway-fork_${GTK_VERSION}_${ARCH}.deb"
+          DEB_FILE="gtk4-brotway_${GTK_VERSION}_${ARCH}.deb"
           dpkg-deb --root-owner-group --build pkgroot "${DEB_FILE}"
           dpkg-deb --info "${DEB_FILE}"
           echo "DEB_FILE=${DEB_FILE}" >> "${GITHUB_ENV}"

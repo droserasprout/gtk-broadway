@@ -2,7 +2,7 @@
 
 All notable changes to the GTK Broadway fork. Format based on [Keep a Changelog](https://keepachangelog.com/).
 
-Versioning is not semver: release tags are `vA[.B]` (fork revision), debs are `<gtk-base>-A[.B]`, e.g. `4.22.2-2.1`. See [Supported versions](https://github.com/droserasprout/gtk-broadway/blob/ci/docs/src/guide/versions.md).
+Versioning is not semver: release tags are `vA[.B]` (fork revision), debs are `<gtk-base>-A[.B]`, e.g. `4.22.2-2.1`. See [Supported versions](https://github.com/droserasprout/gtk-brotway/blob/ci/docs/src/guide/versions.md).
 
 ## [Unreleased]
 
@@ -62,6 +62,6 @@ Versioning is not semver: release tags are `vA[.B]` (fork revision), debs are `<
 - Desktop: horizontal two-finger swipe scrolls instead of browser back/forward.
 - Desktop: drags survive the cursor leaving the widget.
 
-[v2.1]: https://github.com/droserasprout/gtk-broadway/releases/tag/v2.1
-[v2]: https://github.com/droserasprout/gtk-broadway/releases/tag/v2
-[v1]: https://github.com/droserasprout/gtk-broadway/releases/tag/v1
+[v2.1]: https://github.com/droserasprout/gtk-brotway/releases/tag/v2.1
+[v2]: https://github.com/droserasprout/gtk-brotway/releases/tag/v2
+[v1]: https://github.com/droserasprout/gtk-brotway/releases/tag/v1
