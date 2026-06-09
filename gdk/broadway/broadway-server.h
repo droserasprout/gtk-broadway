@@ -97,6 +97,10 @@ void                broadway_server_request_clipboard         (BroadwayServer  *
 void                broadway_server_open_uri                  (BroadwayServer  *server,
                                                                const char      *uri,
                                                                gsize            len);
+void                broadway_server_surface_set_cursor        (BroadwayServer  *server,
+                                                               int              id,
+                                                               const char      *name,
+                                                               gsize            len);
 guint32             broadway_server_new_surface               (BroadwayServer  *server,
                                                                guint32          client,
                                                                int              x,
