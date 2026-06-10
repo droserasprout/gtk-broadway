@@ -8,8 +8,8 @@ Versioning is not semver: release tags are `vA[.B]` (fork revision), debs are `<
 
 ### Added
 
-- Dynamic cursor - forward the GTK cursor shape to the browser as a CSS cursor
-- Debug menu: Test gallery window - one clean widget per fork feature, pinned above the app
+- **Dynamic cursor** - forward the GTK cursor shape to the browser as a CSS cursor
+- Debug menu: widget gallery
 - Debug menu: frame-pacing metrics and texture up/rel rates
 - Debug menu: pin fixed screen size and scale
 - Freeze rendering on a hidden browser tab; resume repaints a delta without reconnect
