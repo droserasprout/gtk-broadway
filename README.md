@@ -1,8 +1,8 @@
 # GTK Broadway fork
 
-A fork of GTK adding missing features to the **Broadway** backend - GTK's HTML5 renderer that serves an app to a web browser over a WebSocket.
+A fork of GTK adding missing features to the **Broadway** backend - HTML5 renderer that serves GTK4 app to a web browser over a WebSocket.
 
-Broadway was [deprecated](https://www.phoronix.com/news/GTK-X11-Now-Deprecated) by GTK maintainers in 4.18 release (alongside X11) due to lack of maintenance. The goal of this fork is to keep it in shape during GTK4 lifecycle as a thin layer without pushing patches to upstream.
+Broadway backend was [deprecated](https://www.phoronix.com/news/GTK-X11-Now-Deprecated) by GTK maintainers in 4.18 release (alongside X11) due to lack of maintenance. The goal of this fork is to **keep it in shape** during GTK4 lifecycle as a thin layer without pushing patches to upstream.
 
 - [Supported versions](#supported-versions)
 - [Installation](#installation)
@@ -25,6 +25,12 @@ Broadway was [deprecated](https://www.phoronix.com/news/GTK-X11-Now-Deprecated) 
 | 4.22.2 | `ubuntu:26.04` | `libgtk-4.so.1.2200.2` | [`4.22.2-fork`](https://github.com/droserasprout/gtk-brotway/tree/4.22.2-fork) | [diff](https://github.com/droserasprout/gtk-brotway/compare/4.22.2...4.22.2-fork) |
 
 Supported architectures: `amd64`, `arm64`.
+
+GTK **older than 4.14 is not supported and won't be**. Pre-4.14 (4.6 on
+`ubuntu:22.04`, 4.8 on `debian:12`) predates the Broadway renderer changes the
+fork patches against, so the backports are high-conflict and ugly for little
+gain. 4.14 is the hard floor: develop on the latest supported version and mirror
+patches down to 4.14.
 
 ## Installation
 
