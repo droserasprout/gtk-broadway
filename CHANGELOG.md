@@ -6,6 +6,26 @@ Versioning is not semver: release tags are `vA[.B]` (fork revision), debs are `<
 
 ## [Unreleased]
 
+### Added
+
+- Dynamic cursor - forward the GTK cursor shape to the browser as a CSS cursor
+- Debug menu: Test gallery window - one clean widget per fork feature, pinned above the app
+- Debug menu: frame-pacing metrics and texture up/rel rates
+- Debug menu: pin fixed screen size and scale
+- Freeze rendering on a hidden browser tab; resume repaints a delta without reconnect
+
+### Changed
+
+- Renamed: deb `gtk4-broadway-fork` -> `gtk4-brotway`, binary `gtk4-broadway-debugmenu` -> `gtk4-brotway-debugmenu`, repo `droserasprout/gtk-brotway` (new package Provides/Replaces the old)
+
+### Performance
+
+- Bump texture cache cap from 512 to 4096 (~16mb)
+
+### Fixed
+
+- Fixed reconnect loop after a network switch (backoff resets only on a confirmed session)
+
 ## [v2.1] - 2026-06-09
 
 ### Fixed
