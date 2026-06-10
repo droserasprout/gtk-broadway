@@ -12,6 +12,10 @@
 #include "gdkprivate.h"
 
 #include <gdk/gdktextureprivate.h>
+#include "loaders/gdkpngprivate.h"
+
+#include <png.h>
+#include <zlib.h>   /* Z_RLE / Z_FILTERED / ... for png_set_compression_strategy */
 
 #include <glib.h>
 #include <glib/gprintf.h>
@@ -703,6 +707,57 @@ open_shared_memory (void)
   return ret;
 }
 
+/* Per-frame PNG re-encode trades encode CPU (latency) against frame size - one
+ * axis, two presets:
+ *   FAST    - cheap filter + RLE, low level: localhost/LAN (default).
+ *   COMPACT - adaptive filter, higher level: remote/metered.
+ * Seeded from BROADWAY_PNG, switchable live from the debug menu. */
+typedef struct {
+  int level;     /* zlib level 0-9 */
+  int filter;    /* libpng filter mask */
+  int strategy;  /* zlib strategy */
+} BroadwayPngPresetDef;
+
+static const BroadwayPngPresetDef png_presets[] = {
+  [BROADWAY_PNG_FAST]    = { 3, PNG_FILTER_SUB,  Z_RLE },
+  [BROADWAY_PNG_COMPACT] = { 7, PNG_ALL_FILTERS, Z_DEFAULT_STRATEGY },
+};
+
+static int png_preset = BROADWAY_PNG_FAST;
+static gsize png_preset_init = 0;
+
+static int
+broadway_png_preset (void)
+{
+  if (g_once_init_enter (&png_preset_init))
+    {
+      const char *v = g_getenv ("BROADWAY_PNG");
+
+      if (v && *v)
+        {
+          if (g_ascii_strcasecmp (v, "fast") == 0)         png_preset = BROADWAY_PNG_FAST;
+          else if (g_ascii_strcasecmp (v, "compact") == 0) png_preset = BROADWAY_PNG_COMPACT;
+          else g_warning ("BROADWAY_PNG: unknown '%s' (fast|compact)", v);
+        }
+      g_once_init_leave (&png_preset_init, 1);
+    }
+  return png_preset;
+}
+
+/* Debug-menu switch; out-of-range ids ignored. */
+void
+_gdk_broadway_server_set_png_preset (int preset)
+{
+  (void) broadway_png_preset (); /* run env seed first */
+
+  if (preset >= 0 && preset < (int) G_N_ELEMENTS (png_presets))
+    {
+      png_preset = preset;
+      g_message ("broadway: PNG preset -> %s",
+                 preset == BROADWAY_PNG_COMPACT ? "compact" : "fast");
+    }
+}
+
 guint32
 gdk_broadway_server_upload_texture (GdkBroadwayServer *server,
                                     GdkTexture        *texture)
@@ -713,8 +768,10 @@ gdk_broadway_server_upload_texture (GdkBroadwayServer *server,
   const guchar *data;
   gsize size;
   int fd;
+  const BroadwayPngPresetDef *png_cfg = &png_presets[broadway_png_preset ()];
 
-  bytes = gdk_texture_save_to_png_bytes (texture);
+  bytes = gdk_save_png_full (texture, NULL,
+                             png_cfg->level, png_cfg->filter, png_cfg->strategy);
   fd = open_shared_memory ();
   data = g_bytes_get_data (bytes, &size);
 

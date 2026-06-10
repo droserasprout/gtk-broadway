@@ -75,7 +75,15 @@ typedef enum {
   BROADWAY_EVENT_MENU = 17, /* daemon-intercepted: summon the debug menu */
   BROADWAY_EVENT_SUSPEND = 18, /* tab hidden: freeze app rendering (no payload) */
   BROADWAY_EVENT_RESUME = 19,  /* tab visible again: thaw rendering (no payload) */
+  BROADWAY_EVENT_SET_PNG = 20, /* daemon->client: switch the PNG preset (from the debug menu) */
 } BroadwayEventType;
+
+/* PNG preset (BROADWAY_EVENT_SET_PNG / "png-preset"). The client maps it to
+ * libpng/zlib knobs - the daemon doesn't link png. FAST: LAN; COMPACT: remote. */
+typedef enum {
+  BROADWAY_PNG_FAST = 0,
+  BROADWAY_PNG_COMPACT = 1,
+} BroadwayPngPreset;
 
 typedef enum {
   BROADWAY_OP_GRAB_POINTER = 0,
@@ -198,6 +206,11 @@ typedef struct {
   gint32 old_id;
 } BroadwayInputFocusMsg;
 
+typedef struct {
+  BroadwayInputBaseMsg base;
+  gint32 preset;  /* BroadwayPngPreset */
+} BroadwayInputSetPngMsg;
+
 typedef union {
   BroadwayInputBaseMsg base;
   BroadwayInputPointerMsg pointer;
@@ -212,6 +225,7 @@ typedef union {
   BroadwayInputDeleteNotify delete_notify;
   BroadwayInputScreenResizeNotify screen_resize_notify;
   BroadwayInputFocusMsg focus;
+  BroadwayInputSetPngMsg set_png;
 } BroadwayInputMsg;
 
 typedef enum {

@@ -975,6 +975,22 @@ broadway_server_set_debug_screen (BroadwayServer *server, int w, int h, int scal
     }
 }
 
+/* Push a PNG-preset switch to the app(s) - the app encodes, not the daemon - over
+ * the input-event channel. */
+static void
+broadway_server_set_png (BroadwayServer *server, int preset)
+{
+  BroadwayInputMsg ev;
+
+  memset (&ev, 0, sizeof ev);
+  ev.base.type = BROADWAY_EVENT_SET_PNG;
+  ev.base.serial = broadway_server_get_next_serial (server) - 1;
+  ev.base.time = broadway_server_get_last_seen_time (server);
+  ev.set_png.preset = preset;
+
+  broadway_events_got_input (&ev, -1); /* broadcast to all connected apps */
+}
+
 static gboolean
 menu_on_readable (GSocket *sock, GIOCondition cond, gpointer user_data)
 {
@@ -1007,6 +1023,12 @@ menu_on_readable (GSocket *sock, GIOCondition cond, gpointer user_data)
                                           (int) g_ascii_strtoll (p[1], NULL, 10),
                                           (int) g_ascii_strtoll (p[2], NULL, 10));
       g_strfreev (p);
+    }
+  else if (strncmp (buf, "png-preset ", 11) == 0)
+    {
+      int preset = -1;
+      if (sscanf (buf + 11, "%d", &preset) == 1)
+        broadway_server_set_png (server, preset);
     }
   return G_SOURCE_CONTINUE;
 }

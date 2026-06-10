@@ -90,6 +90,8 @@ void _gdk_broadway_display_set_suspended (GdkDisplay *display,
 void _gdk_broadway_events_got_input      (GdkDisplay *display,
                                           BroadwayInputMsg *message);
 
+void _gdk_broadway_server_set_png_preset (int preset);
+
 void          _gdk_broadway_server_set_clipboard_text     (GdkBroadwayServer *server,
                                                            const char        *text);
 guint32       _gdk_broadway_server_request_clipboard      (GdkBroadwayServer *server);
