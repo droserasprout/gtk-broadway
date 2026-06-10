@@ -807,7 +807,7 @@ queue_input_message (BroadwayServer *server, BroadwayInputMsg *msg)
 
 /* ---- Debug menu (spawn-on-demand) -------------------------------------
  * On BROADWAY_EVENT_MENU from the browser we spawn a small native GTK4 client
- * (gtk4-broadway-debugmenu) pointed at our own display, so its window composites
+ * (gtk4-brotway-debugmenu) pointed at our own display, so its window composites
  * into the same view every connected browser sees. A second trigger while it is
  * up closes it (toggle). */
 
@@ -1053,7 +1053,7 @@ broadway_server_summon_menu (BroadwayServer *server)
 
   cmd = g_getenv ("BROADWAY_DEBUGMENU");
   if (cmd == NULL)
-    cmd = "gtk4-broadway-debugmenu";
+    cmd = "gtk4-brotway-debugmenu";
 
   argv[0] = (char *) cmd;
   argv[1] = NULL;
