@@ -1,0 +1,17 @@
+[book]
+title = "Brotway"
+description = "A GTK Broadway backend fork"
+authors = ["Lev Gorodetskii"]
+language = "en"
+src = "src"
+
+[output.html]
+default-theme = "navy"
+preferred-dark-theme = "navy"
+additional-css = ["theme/adwaita.css"]
+git-repository-url = "https://github.com/droserasprout/gtk-brotway"
+edit-url-template = "https://github.com/droserasprout/gtk-brotway/edit/ci/docs/{path}"
+
+[output.html.fold]
+enable = true
+level = 1

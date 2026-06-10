@@ -1,10 +1,12 @@
 # Changelog
 
-All notable changes to the GTK Broadway fork. Format based on [Keep a Changelog](https://keepachangelog.com/).
+All notable changes to this project will be documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-Versioning is not semver: release tags are `vA[.B]` (fork revision), debs are `<gtk-base>-A[.B]`, e.g. `4.22.2-2.1`. See [Supported versions](https://github.com/droserasprout/gtk-brotway/blob/ci/docs/src/guide/versions.md).
+Versioning is not semver: release tags are `vX[.Y]` (fork revision), package versions are `<gtk-base>-X[.Y]`, e.g. `4.22.2-2.1`. See [Supported versions](https://github.com/droserasprout/gtk-brotway/blob/ci/docs/src/guide/versions.md).
 
 ## [Unreleased]
+
+Project renamed to Brotway, a GTK4 Broadway fork.
 
 ### Added
 
@@ -12,19 +14,20 @@ Versioning is not semver: release tags are `vA[.B]` (fork revision), debs are `<
 - Debug menu: widget gallery
 - Debug menu: frame-pacing metrics and texture up/rel rates
 - Debug menu: pin fixed screen size and scale
-- Freeze rendering on a hidden browser tab; resume repaints a delta without reconnect
+- Pause rendering on a hidden browser tab; resume repaints a delta without reconnect
 
 ### Changed
 
-- Renamed: deb `gtk4-broadway-fork` -> `gtk4-brotway`, binary `gtk4-broadway-debugmenu` -> `gtk4-brotway-debugmenu`, repo `droserasprout/gtk-brotway` (new package Provides/Replaces the old)
-
-### Performance
-
-- Bump texture cache cap from 512 to 4096 (~16mb)
+- Renamed package `gtk4-broadway-fork` -> `gtk4-brotway` (new package Provides/Replaces the old)
+- Renamed binary `gtk4-broadway-debugmenu` -> `gtk4-brotway-debugmenu`
 
 ### Fixed
 
 - Fixed reconnect loop after a network switch (backoff resets only on a confirmed session)
+
+### Performance
+
+- Bump texture cache cap from 512 to 4096 (~16mb)
 
 ## [v2.1] - 2026-06-09
 
