@@ -507,6 +507,16 @@ GBytes *
 gdk_save_png (GdkTexture *texture,
               GHashTable *options)
 {
+  return gdk_save_png_full (texture, options, -1, -1, -1);
+}
+
+GBytes *
+gdk_save_png_full (GdkTexture *texture,
+                   GHashTable *options,
+                   int         compression_level,
+                   int         filters,
+                   int         strategy)
+{
   png_struct *png = NULL;
   png_info *info;
   png_io io = { NULL, 0, 0 };
@@ -680,6 +690,13 @@ gdk_save_png (GdkTexture *texture,
                 PNG_INTERLACE_NONE,
                 PNG_COMPRESSION_TYPE_DEFAULT,
                 PNG_FILTER_TYPE_DEFAULT);
+
+  if (compression_level >= 0)
+    png_set_compression_level (png, compression_level);
+  if (filters >= 0)
+    png_set_filter (png, PNG_FILTER_TYPE_BASE, filters);
+  if (strategy >= 0)
+    png_set_compression_strategy (png, strategy);
 
   color_state = gdk_png_set_color_state (png, info, color_state, chunk_data);
 
