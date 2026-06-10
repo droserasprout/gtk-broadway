@@ -108,8 +108,9 @@ content_key_for_texture (GdkTexture *texture,
 {
   int width = gdk_texture_get_width (texture);
   int height = gdk_texture_get_height (texture);
-  gsize stride, size, i;
+  gsize stride, size, i, n_words;
   guchar *data;
+  const guchar *p;
   guint64 h;
 
   if (width <= 0 || height <= 0 ||
@@ -121,8 +122,18 @@ content_key_for_texture (GdkTexture *texture,
   data = g_malloc (size);
   gdk_texture_download (texture, data, stride);
 
+  /* FNV-1a-64, 8 bytes per multiply. The buffer is one contiguous g_malloc, so
+   * walk it as 64-bit words (memcpy: alignment/aliasing-safe) with a <8-byte tail. */
   h = 1469598103934665603ULL;
-  for (i = 0; i < size; i++)
+  n_words = size / 8;
+  p = data;
+  for (i = 0; i < n_words; i++, p += 8)
+    {
+      guint64 w;
+      memcpy (&w, p, 8);
+      h = (h ^ w) * 1099511628211ULL;
+    }
+  for (i = n_words * 8; i < size; i++)
     h = (h ^ data[i]) * 1099511628211ULL;
 
   g_free (data);
@@ -705,7 +716,13 @@ gdk_broadway_display_ensure_texture (GdkDisplay *display,
   /* Fast path: this exact object was already uploaded - no re-hash. */
   data = g_object_get_data (G_OBJECT (texture), "broadway-data");
   if (data != NULL)
-    return data->id;
+    {
+      /* Keep a still-referenced texture hot so a per-frame redraw isn't evicted
+       * early. entry is NULL on the legacy/oversized path (no LRU link). */
+      if (data->entry != NULL)
+        content_cache_touch (broadway_display, data->entry);
+      return data->id;
+    }
 
   if (content_key_for_texture (texture, &key))
     {
