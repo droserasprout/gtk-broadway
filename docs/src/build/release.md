@@ -4,6 +4,8 @@ A release is one immutable GitHub Release holding every base x arch `.deb`. You 
 
 ## Before tagging
 
+Run the [Release QA](qa.md) pass against the candidate build.
+
 Label and milestone every merged PR going into the release: a `gtk:4.14`/`gtk:4.22` label, the change-type label (`bug`/`enhancement`/...), and the target `vN` milestone. The milestone is the manifest of what shipped; the CHANGELOG `vN` section (release-notes source) is cross-checked against it.
 
 ## Tagging a release
