@@ -5,7 +5,6 @@
 
 # Getting started
 
-- [What is GTK Broadway?](broadway.md)
 - [Supported versions](guide/versions.md)
 - [Installation](guide/installation.md)
 - [Building from source](build/from-source.md)

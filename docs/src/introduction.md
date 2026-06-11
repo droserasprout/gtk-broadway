@@ -1,8 +1,14 @@
 # Brotway, a GTK Broadway fork
 
-This is a fork of GTK that fills in the missing pieces of the Broadway backend ([What is Broadway?](broadway.md)).
+This is a fork of GTK that fills in the missing pieces of the Broadway backend, keeping it usable through the GTK4 lifecycle as a thin layer on stock GTK, with no intent to upstream.
 
-Broadway was deprecated by the GTK team in 4.18 (alongside X11) for lack of maintenance. This fork keeps it usable through the GTK4 lifecycle as a thin layer on stock GTK, with no intent to upstream.
+## What is Broadway? {#broadway}
+
+Broadway is GTK's HTML5 backend: instead of drawing to a local display (Wayland, X11, Win32, macOS), it renders the app into a web browser over a WebSocket. A `gtk4-broadwayd` daemon owns a virtual display and serves a page; any browser that connects to it sees and drives the running GTK app. No app code changes - the same binary picks Broadway through `GDK_BACKEND=broadway`. That makes it the simplest way to put a native GTK app on a screen it was never built for: a phone browser, a remote machine, a kiosk.
+
+It started as Alexander Larsson's frame-streaming prototype ([2010](https://blogs.gnome.org/alexl/2010/11/26/gtk-3-0-html5-backend/), merged for GTK 3.2). GTK4 reworked it around the render-node pipeline ([Larsson, 2019](https://blogs.gnome.org/alexl/2019/03/29/broadway-adventures-in-gtk4/)): the GSK Broadway renderer turns the app's render nodes into a compact node stream the browser reconstructs in the DOM, rasterizing with cairo only what Broadway can't express. That node-stream design is what the fork builds on ([Architecture](internals/architecture.md)).
+
+Broadway always stayed an experimental, lightly-maintained corner of GTK, and in February 2025 it was [deprecated alongside X11](https://www.phoronix.com/news/GTK-X11-Now-Deprecated) (in the 4.17.4 development release, then stable **4.18**), to be **removed entirely in GTK5**. There is no GTK5 Broadway to move to, so the fork is anchored to the GTK 4.x lifetime and deliberately not ported ([Re-forking a new GTK release](build/reforking.md)).
 
 ## Project Goals {#goals}
 

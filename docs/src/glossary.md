@@ -2,7 +2,7 @@
 
 Terms that recur across the book, for readers coming from outside GTK.
 
-**Broadway** - GTK's HTML5 backend: renders a GTK app into a web browser over a WebSocket instead of to a local display. See [What is Broadway?](broadway.md).
+**Broadway** - GTK's HTML5 backend: renders a GTK app into a web browser over a WebSocket instead of to a local display. See the [Introduction](introduction.md#broadway).
 
 **`gtk4-broadwayd`** - the Broadway daemon. Owns the virtual display, serves the browser page, and multiplexes between the app and connected browsers. See [Architecture](internals/architecture.md).
 
