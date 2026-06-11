@@ -813,7 +813,7 @@ queue_input_message (BroadwayServer *server, BroadwayInputMsg *msg)
 
 /* Control channel to the spawned menu: a socketpair whose child end is passed
  * by fd number (BROADWAY_DEBUGMENU_FD). The daemon pushes a "stats ..." line
- * every MENU_STATS_INTERVAL_MS and reads back action commands ("open-uri"). */
+ * every MENU_STATS_INTERVAL_MS and reads back action commands ("drop-session"). */
 #define MENU_STATS_INTERVAL_MS 500
 
 static GPid     menu_pid = 0;
@@ -1003,12 +1003,7 @@ menu_on_readable (GSocket *sock, GIOCondition cond, gpointer user_data)
     return G_SOURCE_REMOVE; /* peer closed; child-exit drives teardown */
 
   buf[n] = '\0';
-  if (strncmp (buf, "open-uri", 8) == 0)
-    {
-      const char *url = "https://nicotine-plus.org/";
-      broadway_server_open_uri (server, url, strlen (url));
-    }
-  else if (strncmp (buf, "drop-session", 12) == 0)
+  if (strncmp (buf, "drop-session", 12) == 0)
     broadway_server_drop_client (server, TRUE);
   else if (strncmp (buf, "reconnect", 9) == 0)
     broadway_server_drop_client (server, FALSE);
