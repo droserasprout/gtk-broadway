@@ -709,9 +709,14 @@ open_shared_memory (void)
 
 /* Per-frame PNG re-encode trades encode CPU (latency) against frame size - one
  * axis, two presets:
- *   FAST    - cheap filter + RLE, low level: localhost/LAN (default).
- *   COMPACT - adaptive filter, higher level: remote/metered.
- * Seeded from BROADWAY_PNG, switchable live from the debug menu. */
+ *   FAST    - low zlib level, adaptive filter: localhost/LAN (default).
+ *   COMPACT - higher level, adaptive filter: remote/metered.
+ * Seeded from BROADWAY_PNG, switchable live from the debug menu.
+ *
+ * Both keep adaptive filtering: SUB+RLE bloats AA text/gradients ~50%+ (measured
+ * on real treeview textures), shifting cost to client transfer+decode and hurting
+ * scroll smoothness. Adaptive filter is what keeps these small; the level is the
+ * cheap CPU knob, so FAST drops only the level. */
 typedef struct {
   int level;     /* zlib level 0-9 */
   int filter;    /* libpng filter mask */
@@ -719,7 +724,7 @@ typedef struct {
 } BroadwayPngPresetDef;
 
 static const BroadwayPngPresetDef png_presets[] = {
-  [BROADWAY_PNG_FAST]    = { 3, PNG_FILTER_SUB,  Z_RLE },
+  [BROADWAY_PNG_FAST]    = { 3, PNG_ALL_FILTERS, Z_DEFAULT_STRATEGY },
   [BROADWAY_PNG_COMPACT] = { 7, PNG_ALL_FILTERS, Z_DEFAULT_STRATEGY },
 };
 
