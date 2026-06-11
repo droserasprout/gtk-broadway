@@ -4660,14 +4660,19 @@ function connect()
          * make open-then-close flapping retry forever at the 250ms floor. The
          * reset lives in onSessionToken, gated on a confirmed resume. */
         /* The app<->daemon link never dropped, so GTK keeps whatever freeze
-         * state a prior socket left it in. Re-assert our visibility on every
-         * fresh socket so a tab that reconnects while visible gets thawed (and a
-         * background reconnect stays frozen). tabSuspended is reset so the next
-         * visibilitychange transition still fires. */
+         * state a prior socket left it in - and that state is GLOBAL to the app,
+         * possibly set by a different client/session. Our local tabSuspended is
+         * per-client (starts false on a fresh page), so it can't tell us the
+         * app's real state. Assert our visibility UNCONDITIONALLY on every fresh
+         * socket: a visible tab always RESUMEs (idempotent if already running),
+         * so an app left frozen by a vanished background client gets thawed; a
+         * hidden tab always SUSPENDs. */
         if (document.visibilityState === "visible") {
-            if (tabSuspended) { tabSuspended = false; sendInput(BROADWAY_EVENT_RESUME, []); }
+            tabSuspended = false;
+            sendInput(BROADWAY_EVENT_RESUME, []);
         } else {
-            if (!tabSuspended) { tabSuspended = true; sendInput(BROADWAY_EVENT_SUSPEND, []); }
+            tabSuspended = true;
+            sendInput(BROADWAY_EVENT_SUSPEND, []);
         }
     };
     ws.onerror = function() {
