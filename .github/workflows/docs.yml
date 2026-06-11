@@ -25,6 +25,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      # Drift guards: a book with broken links or a stale protocol page must not publish.
+      - run: python3 tools/check_doc_links.py
+      # The wire header lives on the fork branches, not on ci - fetch it for the check.
+      - run: |
+          git fetch --depth=1 origin 4.22.2-fork
+          git show FETCH_HEAD:gdk/broadway/broadway-protocol.h > /tmp/broadway-protocol.h
+          python3 tools/check_protocol_drift.py /tmp/broadway-protocol.h
       - uses: peaceiris/actions-mdbook@v2
         with:
           mdbook-version: latest
