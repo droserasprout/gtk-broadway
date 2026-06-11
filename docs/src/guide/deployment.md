@@ -41,6 +41,67 @@ Inside the container two processes run, as in [Running broadwayd](running.md):
 
 The TLS terminator (Traefik, nginx, Caddy, ...) proxies `https://your-host/` to the daemon's `8080 + N`, and must **forward WebSocket upgrades** - all display ops and input run over the same socket.
 
+## Recipes
+
+### Compose stack behind Traefik
+
+The reference deployment, reduced to the generic case: the app container joins Traefik's network and publishes no ports, so the daemon (`:5` -> `8085`) is reachable only by the proxy. Traefik forwards WebSocket upgrades by default - one router carries the page and the socket, no header middleware needed.
+
+```yaml
+services:
+  app:
+    image: your-gtk4-app-image    # runs the two processes from Process layout
+    networks: [proxy]
+    # no ports: - the daemon stays internal
+    labels:                       # Swarm: put these under deploy.labels
+      - traefik.enable=true
+      - traefik.http.routers.app.rule=Host(`app.example.com`)
+      - traefik.http.routers.app.entrypoints=websecure
+      - traefik.http.routers.app.tls.certresolver=letsencrypt
+      - traefik.http.services.app.loadbalancer.server.port=8085
+      - traefik.http.routers.app.middlewares=app-auth
+      # htpasswd -nB user, with $ doubled to $$ for compose
+      - traefik.http.middlewares.app-auth.basicauth.users=user:$$2y$$05$$...
+    restart: unless-stopped
+
+networks:
+  proxy:
+    external: true                # the network Traefik watches
+```
+
+### systemd units on bare metal
+
+The same two processes as a daemon unit and an app unit bound to it. `BindsTo=` stops the app when the daemon goes away; a plain browser reload picks the session back up after a restart. Add `--address 127.0.0.1` to the daemon if the TLS proxy runs on the same host, so `8085` never listens publicly.
+
+```ini
+# /etc/systemd/system/broadwayd.service
+[Unit]
+Description=GTK Broadway display :5
+
+[Service]
+User=broadway
+ExecStart=/usr/bin/gtk4-broadwayd :5
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+
+# /etc/systemd/system/app.service
+[Unit]
+Description=GTK app on Broadway display :5
+BindsTo=broadwayd.service
+After=broadwayd.service
+
+[Service]
+User=broadway
+Environment=GDK_BACKEND=broadway BROADWAY_DISPLAY=:5
+ExecStart=/usr/bin/your-gtk4-app
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+```
+
 ## Checklist
 
 - [ ] `.deb` base matches the image's GTK base, arch selected via `dpkg --print-architecture`.
