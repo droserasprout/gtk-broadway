@@ -9,6 +9,8 @@ Beyond the headline features, the fork fixes a set of rendering-correctness and 
 - **A popover's shadow passes clicks through** instead of swallowing them - the [input region](../internals/input-region.md) carries the popover's real shape, so the transparent shadow margin is click-through.
 - **Seam-free borders** - uniform widget borders render without the 1px seam or corner sliver stock leaves between a border and its background.
 - **Crisp icons** under scale transforms and HiDPI - see [Scaling & HiDPI](scaling.md).
+- **Glyphs stay in their row** under a scrolled list - icons and cell text no longer drift by the scroll offset (translate transforms are placed in parent-local coordinates).
+- **Off-screen-anchored popovers open** - a popup whose anchor falls outside the browser's reported monitor no longer no-ops with a `Gdk-CRITICAL`.
 
 ## Window placement
 

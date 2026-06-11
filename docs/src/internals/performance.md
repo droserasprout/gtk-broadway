@@ -65,12 +65,6 @@ Every cache miss re-encodes a texture to PNG on the app's frame path, so libpng'
 
 An earlier fast preset used a single Sub filter + `Z_RLE` to minimize encode CPU, but measured against real treeview textures (capture the on-wire PNGs, re-encode the same pixels each way) it *grew* the output ~50% - median +51%, +120% over a 12-texture frame, up to +408% on a smooth gradient. `Sub`+`Z_RLE` compresses anti-aliased text and gradients far worse than adaptive filtering, which picks Up/Paeth on vertical coherence. That traded ~4x cheaper server encode for ~2.2x more bytes per frame, shifting cost to client transfer and image-decode - exactly what scrolling is bound by - so it hurt scroll smoothness while leaving averaged FPS unmoved. The **filter**, not the level, drove the bloat: level 3 with adaptive filtering lands within ~5-12% of the level-6 default while still encoding cheaper, so fast keeps the low level and drops the `Sub`+`Z_RLE`.
 
-### Frame-rate cap
-
-*New in v3*
-
-The surface paints, freezes, roundtrips the daemon, and thaws to paint again, looping as fast as the link drains. A continuously-animating surface can outrun the wire, piling up "roundtrip storm" frames that burn CPU and bandwidth. The cap holds each thaw until one min-interval (`1/N` s) has passed since that frame's paint, pacing the loop to N FPS instead of dropping frames. Stored as a min interval (us) in `gdkbroadway-server.c` (`0` = unlimited), seeded from `BROADWAY_FPS`, switched live from the debug menu (`fps` -> `BROADWAY_EVENT_SET_FPS`).
-
 ### Wire: drop empty frames
 
 *New in v2.1*

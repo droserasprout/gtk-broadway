@@ -12,7 +12,6 @@ Project renamed to Brotway, a GTK4 Broadway fork.
 
 - **Dynamic cursor** - forward the GTK cursor shape to the browser as a CSS cursor
 - **PNG encoding preset** - Fast/Compact, switchable in the debug menu or via `BROADWAY_PNG`
-- **Frame-rate cap** - pace the render loop to a chosen FPS, switchable in the debug menu or via `BROADWAY_FPS`
 - Pause rendering on a hidden browser tab; resume repaints a delta without reconnect
 - Debug menu: frame-pacing metrics and texture upload/release rates
 - Debug menu: pin fixed screen size and scale
@@ -25,6 +24,8 @@ Project renamed to Brotway, a GTK4 Broadway fork.
 ### Fixed
 
 - Fixed reconnect loop after a network switch (backoff resets only on a confirmed session)
+- Icon and cell glyphs no longer drift a row under a scrolled list (translate node emitted in absolute, not parent-local, coordinates)
+- Popovers anchored outside the browser monitor now open instead of no-opping with a `Gdk-CRITICAL`
 
 ### Performance
 

@@ -34,7 +34,6 @@ Pins the browser's logical screen **Width × Height × Scale** (integer scale on
 - **Paint flashing** toggles the profiler below.
 - **Debug logging** is a placeholder, no-op for now.
 - **PNG encoding** switches the per-frame PNG encoder preset (Fast/Compact) live; see [PNG encoding](../guide/config.md#png-encoding). The daemon relays the choice to the app as `BROADWAY_EVENT_SET_PNG`, since the app, not the daemon, encodes.
-- **Frame rate** caps the render loop to a target FPS live (0 = unlimited); see [Frame rate](../guide/config.md#frame-rate). Relayed to the app as `BROADWAY_EVENT_SET_FPS`.
 
 ## Widget gallery
 
@@ -70,4 +69,4 @@ The daemon sends `BROADWAY_OP_DEBUG_FLASH` (24) to toggle it; the client tags ea
 
 Triple-Shift in `broadway.js` sends `BROADWAY_EVENT_MENU` (17). `broadwayd` intercepts it and `spawn`s `gtk4-brotway-debugmenu` with `GDK_BACKEND`/`BROADWAY_DISPLAY` pointed at itself, so the window renders into the same display and is pinned always-on-top via server-side stacking.
 
-The daemon hands the child one end of a control socketpair through the `BROADWAY_DEBUGMENU_FD` env var. Over it the daemon pushes a `stats` line (session, bytes, fps, latency, flash, tex count/bytes, then pacing: frame p95/max, write avg/max, bytes-per-frame, upload/s, release/s) every ~500 ms and reads back newline-terminated commands (`reconnect`, `drop-session`, `open-uri`, `paint-flash 0|1`, `screen W H S`, `png-preset N`, `fps N`). The menu has no Close button - the titlebar, Escape, and a second Triple-Shift all dismiss it.
+The daemon hands the child one end of a control socketpair through the `BROADWAY_DEBUGMENU_FD` env var. Over it the daemon pushes a `stats` line (session, bytes, fps, latency, flash, tex count/bytes, then pacing: frame p95/max, write avg/max, bytes-per-frame, upload/s, release/s) every ~500 ms and reads back newline-terminated commands (`reconnect`, `drop-session`, `open-uri`, `paint-flash 0|1`, `screen W H S`, `png-preset N`). The menu has no Close button - the titlebar, Escape, and a second Triple-Shift all dismiss it.

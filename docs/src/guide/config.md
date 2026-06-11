@@ -37,17 +37,6 @@ The [debug menu](../internals/debug-menu.md) (Triple-Shift) has a **PNG encoding
 selector that switches the preset live, overriding the env seed - use it with the
 Traffic / Pushes stats to compare on real content.
 
-## Frame rate
-
-Cap the render loop to a target rate, so a continuously-animating surface can't outrun the wire.
-
-| `BROADWAY_FPS` | Effect |
-|----------------|--------|
-| `0` (default) | unlimited |
-| `N` | cap at N frames/sec |
-
-The [debug menu](../internals/debug-menu.md) (Triple-Shift) has a **Frame rate** selector that switches the cap live, overriding the env seed.
-
 ## Debug menu
 
 | Variable | Set by | Purpose |
