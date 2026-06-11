@@ -27,6 +27,7 @@ static GtkWidget *paint_flash_switch;
 static GtkWidget *screen_w_spin;
 static GtkWidget *screen_h_spin;
 static GtkWidget *screen_scale_spin;
+static GtkWidget *png_mode_dd;
 static GSocket   *control_sock;
 static GtkWidget *debug_window;     /* the stats overlay; owns the labels above */
 static GtkWidget *gallery_window;   /* the on-demand widget gallery, or NULL */
@@ -497,6 +498,32 @@ on_open_gallery_clicked (GtkButton *button, gpointer user_data)
   gtk_window_present (GTK_WINDOW (gallery_window));
 }
 
+/* Send the selected PNG preset (dropdown index == BroadwayPngPreset id). */
+static void
+on_png_changed (GtkDropDown *dd, GParamSpec *pspec, gpointer user_data)
+{
+  char cmd[32];
+
+  g_snprintf (cmd, sizeof cmd, "png-preset %u\n", gtk_drop_down_get_selected (dd));
+  send_command (cmd);
+}
+
+/* A labelled row with a trailing GtkDropDown built from a NULL-terminated label
+ * list. Handler is wired by the caller (after all rows exist). */
+static GtkWidget *
+add_dropdown_row (GtkWidget *section, const char *label, const char * const *labels)
+{
+  GtkWidget *row = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 8);
+  GtkWidget *dd = gtk_drop_down_new_from_strings (labels);
+
+  gtk_widget_set_halign (dd, GTK_ALIGN_END);
+  gtk_widget_set_hexpand (dd, TRUE);
+  gtk_box_append (GTK_BOX (row), left_label (label));
+  gtk_box_append (GTK_BOX (row), dd);
+  gtk_box_append (GTK_BOX (section), row);
+  return dd;
+}
+
 static void
 connect_control_channel (void)
 {
@@ -595,6 +622,16 @@ main (void)
   paint_flash_switch = add_switch_row (actions, "Paint flashing",
                                        G_CALLBACK (on_paint_flash_state_set));
   add_switch_row (actions, "Debug logging", NULL);  /* no-op for now */
+
+  /* PNG encoding preset: one row, switches the app's per-frame encoder at
+   * runtime. Order matches BroadwayPngPreset (Fast=0, Compact=1). */
+  {
+    static const char * const modes[] = { "Fast (LAN)", "Compact (remote)", NULL };
+
+    png_mode_dd = add_dropdown_row (actions, "PNG encoding", modes);
+    /* Connect after construction so the initial selected=0 doesn't fire a send. */
+    g_signal_connect (png_mode_dd, "notify::selected", G_CALLBACK (on_png_changed), NULL);
+  }
 
   /* Screen: pin the browser's logical size + integer render scale (natural size). */
   screen = add_section (right, "Screen");

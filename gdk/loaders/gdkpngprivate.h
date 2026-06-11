@@ -29,6 +29,14 @@ GdkTexture *gdk_load_png        (GBytes         *bytes,
 GBytes     *gdk_save_png        (GdkTexture     *texture,
                                  GHashTable     *options);
 
+/* gdk_save_png() with tunable zlib/libpng knobs (-1 = libpng default). For the
+ * Broadway backend's per-frame re-encode (cheap filter + RLE on flat UI). */
+GBytes     *gdk_save_png_full   (GdkTexture     *texture,
+                                 GHashTable     *options,
+                                 int             compression_level,
+                                 int             filters,
+                                 int             strategy);
+
 static inline gboolean
 gdk_is_png (GBytes *bytes)
 {

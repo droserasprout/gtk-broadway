@@ -1343,9 +1343,14 @@ function handleDisplayCommands(display_commands)
             if (image && texture) {
                 // We need a new closure here to have a separate copy of "texture" for each iteration in the onload callback...
                 var block = function(t) {
-                    image.src = t.url;
-                    // Unref blob url when loaded
-                    image.onload = function() { t.unref(); };
+                    if (image.src !== t.url) {
+                        image.src = t.url;
+                        // Unref blob url when loaded
+                        image.onload = function() { t.unref(); };
+                    } else {
+                        // Same url: skip the re-decode, still release the decode ref.
+                        t.unref();
+                    }
                 };
                 block(texture);
                 if (flashed) { image.__content = true; image.__flashKind = (texture.batch === textureBatch) ? 3 : 1; flashed.push(image); }

@@ -778,6 +778,8 @@ get_event_size (int type)
     case BROADWAY_EVENT_SUSPEND:
     case BROADWAY_EVENT_RESUME:
       return sizeof (BroadwayInputBaseMsg);
+    case BROADWAY_EVENT_SET_PNG:
+      return sizeof (BroadwayInputSetPngMsg);
     default:
       g_assert_not_reached ();
     }
