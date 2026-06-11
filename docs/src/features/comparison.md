@@ -18,6 +18,7 @@ Legend: **🟢** full support, **🟡** partial/workaround/caveats, **🔴** not
 | Touch input / touchscreen events | 🟢 | 🟢 | 🟢 | 🟢 | 🔴 [^touchstock] | 🟢 |
 | Touch text-selection UI (handles + bubble) | 🟢 | 🟢 | 🟢 | 🟢 | 🔴 | 🟢 |
 | Multi-touch gesture (pinch-zoom UI) | 🟢 | 🟢 | 🟡 | 🟢 | 🔴 | 🟢 [^zoom] |
+| Tablet / stylus input (pressure, tilt, tool) | 🟢 | 🟢 | 🟢 | 🟢 | 🔴 | 🔴 [^stylus] |
 | On-screen keyboard sync | 🟢 | 🟢 | 🟢 | 🟢 | 🔴 | 🟡 [^osk] |
 | IME / non-Latin / preedit | 🟢 | 🟢 | 🟢 | 🟢 | 🔴 | 🟡 [^ime] |
 | Smooth / touchpad scroll-source detection | 🟢 | 🟢 | 🟢 | 🟡 | 🟡 | 🟡 [^scroll] |
@@ -36,18 +37,18 @@ Legend: **🟢** full support, **🟡** partial/workaround/caveats, **🔴** not
 | HiDPI integer scaling | 🟢 | 🟢 | 🟢 | 🟢 | 🟡 | 🟢 [^hidpi] |
 | Fractional scaling | 🟢 [^frac] | 🔴 | 🔴 | 🟢 [^frac] | 🔴 | 🔴 [^forkfrac] |
 | Multiple monitors | 🟢 | 🟢 | 🟢 | 🟢 | 🟡 | 🟡 |
+| **Session & connection** | | | | | | |
+| Session reconnect after network drop / sleep | ⚪ | ⚪ | ⚪ | ⚪ | 🔴 | 🟢 [^reconn] |
+| Pause rendering while not visible | 🟢 | 🟡 | 🟡 | 🟢 | 🔴 | 🟢 [^suspend] |
 | **Windowing** | | | | | | |
 | Client-side decorations | 🟢 | 🟢 | 🟢 | 🟢 | 🟢 | 🟢 |
 | Server-side decorations | 🟢 | 🔴 | 🟢 | 🟢 | ⚪ | ⚪ [^deco] |
 | Multiple top-level windows | 🟢 | 🟢 | 🟢 | 🟢 | 🟢 | 🟢 |
 | Window transparency / RGBA | 🟢 | 🟢 | 🟢 | 🟢 | 🟢 | 🟢 |
-| Keep-above / keep-below stacking | 🔴 | 🟢 | 🟢 | 🔴 | 🔴 | 🔴 |
-| Sticky (on all workspaces) | 🔴 | 🟢 | 🔴 | 🔴 | 🔴 | 🔴 |
-| Lower window below siblings | 🔴 | 🟢 | 🔴 | 🟢 | 🔴 | 🔴 |
-| Startup notification / activation token | 🟢 | 🟢 | 🔴 | 🔴 | 🔴 | 🔴 |
+| WM stacking & workspace hints (keep above/below, lower, sticky) | 🔴 | 🟢 | 🟡 [^stack] | 🟡 [^stack] | 🔴 | 🔴 |
+| Startup notification / window handle export (xdg-activation) | 🟢 | 🟢 | 🔴 | 🔴 | 🔴 | 🔴 |
 | Server window menu (`show_window_menu`) | 🟡 | 🟢 | 🟢 | 🔴 | 🔴 | 🔴 |
 | Tiled-edge constraints | 🟢 | 🟢 | 🔴 | 🔴 | 🔴 | 🔴 |
-| Window handle export (xdg-activation / dialogs) | 🟢 | 🟢 | 🔴 | 🔴 | 🔴 | 🔴 |
 | **UI surfaces** | | | | | | |
 | Tooltips | 🟢 | 🟢 | 🟢 | 🟢 | 🟢 | 🟢 [^tooltip] |
 | Popovers / autohide popups | 🟢 | 🟢 | 🟢 | 🟢 | 🟢 | 🟢 [^popup] |
@@ -57,11 +58,9 @@ Legend: **🟢** full support, **🟡** partial/workaround/caveats, **🔴** not
 | Accessibility bridge | 🟢 [^a11y] | 🟢 [^a11y] | 🟢 [^a11y] | 🟢 [^a11y] | 🔴 | 🔴 |
 | Desktop settings (dark mode / accent / fonts) | 🟢 [^settings] | 🟢 [^settings] | 🟡 | 🟢 [^settings] | 🔴 | 🔴 |
 
-GL is reached through a different API per platform (EGL on Wayland, GLX or EGL on X11, WGL or EGL on Win32, none on macOS which renders via Metal); see the OpenGL / Vulkan rows above.
-
 ## What the fork adds over stock Broadway
 
-The cells where the fork beats stock Broadway: text clipboard, real touch (events, text-selection UI, pinch-zoom), OSK and IME bridging, HiDPI reflow, and opening external links. It also fixes a set of rendering-correctness problems stock Broadway has with client-side decorations: popups land on their anchor instead of offset by their shadow, a popover's shadow passes clicks through (the [input region](../internals/input-region.md) carries its shape), and uniform widget borders render without the 1px seam stock leaves between a border and its background. Cross-process DnD, rich/image clipboard, PRIMARY selection, and GPU rendering stay unsupported, same as stock. Every windowing and platform-integration row is untouched by the fork.
+The cells where the fork beats stock Broadway: text clipboard, real touch (events, text-selection UI, pinch-zoom), OSK and IME bridging, named mouse cursors, HiDPI reflow, opening external links, and session management (in-place reconnect, hidden-tab rendering pause). It also fixes a set of rendering-correctness problems stock Broadway has with client-side decorations: popups land on their anchor instead of offset by their shadow, a popover's shadow passes clicks through (the [input region](../internals/input-region.md) carries its shape), and uniform widget borders render without the 1px seam stock leaves between a border and its background. Cross-process DnD, rich/image clipboard, PRIMARY selection, and GPU rendering stay unsupported, same as stock. Every windowing and platform-integration row is untouched by the fork.
 
 [^clip]: Stock upstream Broadway ships no `GdkClipboard` at all. The fork adds `gdkclipboard-broadway.c` with `SET_CLIPBOARD` / `REQUEST_CLIPBOARD` ops bridging `navigator.clipboard`, both directions. See [Clipboard](clipboard.md).
 
@@ -75,6 +74,8 @@ The cells where the fork beats stock Broadway: text clipboard, real touch (event
 
 [^zoom]: Whole-UI zoom 0.25x-5x, JS-side `zoomFactor`, persisted per-origin in `localStorage`, verified on mobile Firefox. See [Pinch to zoom](zoom.md).
 
+[^stylus]: A stylus works as plain pointer/touch input; pressure, tilt, and tool identity are not bridged (browser Pointer Events carry them, but no `GdkDeviceTool` is created).
+
 [^osk]: Show/hide mostly synced; residual flicker on mixed selection-bubble focus state.
 
 [^cursor]: Stock Broadway always shows the default arrow. The fork forwards GTK's per-surface cursor name via `BROADWAY_OP_SET_CURSOR` to the browser's CSS `cursor` (resize edges, text, links, ...). See [Dynamic cursor](cursor.md).
@@ -83,7 +84,7 @@ The cells where the fork beats stock Broadway: text clipboard, real touch (event
 
 [^scroll]: Broadway forwards wheel scroll, but has no touchpad/source distinction or true smooth scroll; macOS reports everything as surface (smooth) scroll.
 
-[^render]: Broadway has no GPU context. It renders through `gskbroadwayrenderer` (server-side node tree) with a Cairo fallback; the fork does not change this.
+[^render]: Broadway has no GPU context. It renders through `gskbroadwayrenderer` (server-side node tree) with a Cairo fallback; the fork does not change this. The other backends reach GL via EGL (Wayland), GLX or EGL (X11), WGL or EGL (Win32); macOS renders via Metal.
 
 [^dmabuf]: Linux-only by construction (`gdkdmabuftexture.c`); imported via `zwp_linux_dmabuf` on Wayland. No other backend builds a dmabuf texture.
 
@@ -94,6 +95,12 @@ The cells where the fork beats stock Broadway: text clipboard, real touch (event
 [^frac]: Via `fractional-scale-v1` on Wayland and the native backing scale on macOS.
 
 [^forkfrac]: The fork's pinch-zoom reaches arbitrary 0.25x-5x magnification, but not through a fractional surface scale: the GDK scale factor stays integer (`round(devicePixelRatio * Z)`). Zoom is achieved by reporting a smaller/larger *logical* screen size (so GTK reflows) plus a CSS transform on the wrapper, so GTK itself never renders at a fractional `scale`. Different mechanism, same visual result. See [Pinch to zoom](zoom.md).
+
+[^reconn]: Session token + PING/PONG heartbeat; reconnects in place after screen-off or a network handover, with single-display arbitration between browsers. Local backends have no network link to lose. See [Connection management](connection.md).
+
+[^suspend]: The browser's Page Visibility drives `SUSPEND`/`RESUME`: a hidden tab streams zero frames, and resume repaints a delta without reconnect. Wayland (compositor frame callbacks) and macOS (occlusion state) throttle natively; X11 and Win32 only mark a *minimized* window suspended, an occluded one keeps painting.
+
+[^stack]: Per-hint support varies off X11: Win32 has keep-above/below only, macOS can lower but not keep-above; only X11 carries all the hints.
 
 [^deco]: Broadway runs inside a browser tab; the browser window chromes it, so SSD/CSD is not meaningful in the usual sense.
 
