@@ -1032,7 +1032,9 @@ gsk_broadway_renderer_add_node (GskRenderer *renderer,
 
           gsk_transform_to_translate (transform, &dx, &dy);
           add_uint32 (nodes, 0); // Translate
-          add_xy (nodes, dx, dy, 0, 0);
+          /* dx,dy is absolute (like bounds); subtract offset so it's parent-local,
+           * else a translate under an offset-shifting clip lands offset px off. */
+          add_xy (nodes, dx, dy, offset_x, offset_y);
 
           if (clip_bounds)
             {
