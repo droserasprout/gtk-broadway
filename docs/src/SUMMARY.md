@@ -7,7 +7,6 @@
 
 - [Supported versions](guide/versions.md)
 - [Installation](guide/installation.md)
-- [Building from source](build/from-source.md)
 
 # User Guide
 
@@ -31,6 +30,7 @@
 # Development
 
 - [Contributing](build/contributing.md)
+- [Building from source](build/from-source.md)
 - [Re-forking a new GTK release](build/reforking.md)
 - [CI & packaging](build/ci.md)
 - [Release process](build/release.md)

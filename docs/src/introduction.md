@@ -2,6 +2,8 @@
 
 This is a fork of GTK that fills in the missing pieces of the Broadway backend, keeping it usable through the GTK4 lifecycle as a thin layer on stock GTK, with no intent to upstream.
 
+> This book tracks the development tip. Features tagged *New in vN* may not be in a tagged release yet - the [Changelog](changelog.md) says what each release includes.
+
 ## What is Broadway? {#broadway}
 
 Broadway is GTK's HTML5 backend: instead of drawing to a local display (Wayland, X11, Win32, macOS), it renders the app into a web browser over a WebSocket. A `gtk4-broadwayd` daemon owns a virtual display and serves a page; any browser that connects to it sees and drives the running GTK app. No app code changes - the same binary picks Broadway through `GDK_BACKEND=broadway`. That makes it the simplest way to put a native GTK app on a screen it was never built for: a phone browser, a remote machine, a kiosk.
