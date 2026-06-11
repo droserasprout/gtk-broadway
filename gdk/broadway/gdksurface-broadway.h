@@ -59,6 +59,7 @@ struct _GdkBroadwaySurface
   int pre_maximize_height;
 
   gint64 pending_frame_counter;
+  gint64 last_paint_us; /* when this frame's after-paint ran, for the fps cap */
 
   gboolean dirty;
   gboolean last_synced;

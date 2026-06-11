@@ -991,6 +991,22 @@ broadway_server_set_png (BroadwayServer *server, int preset)
   broadway_events_got_input (&ev, -1); /* broadcast to all connected apps */
 }
 
+/* Push a frame-rate cap to the app(s) over the input-event channel; the throttle
+ * itself lives client-side in the surface frame cycle. 0 = unlimited. */
+static void
+broadway_server_set_fps (BroadwayServer *server, int fps)
+{
+  BroadwayInputMsg ev;
+
+  memset (&ev, 0, sizeof ev);
+  ev.base.type = BROADWAY_EVENT_SET_FPS;
+  ev.base.serial = broadway_server_get_next_serial (server) - 1;
+  ev.base.time = broadway_server_get_last_seen_time (server);
+  ev.set_fps.fps = fps;
+
+  broadway_events_got_input (&ev, -1); /* broadcast to all connected apps */
+}
+
 static gboolean
 menu_on_readable (GSocket *sock, GIOCondition cond, gpointer user_data)
 {
@@ -1024,6 +1040,12 @@ menu_on_readable (GSocket *sock, GIOCondition cond, gpointer user_data)
       int preset = -1;
       if (sscanf (buf + 11, "%d", &preset) == 1)
         broadway_server_set_png (server, preset);
+    }
+  else if (strncmp (buf, "fps ", 4) == 0)
+    {
+      int fps = -1;
+      if (sscanf (buf + 4, "%d", &fps) == 1 && fps >= 0)
+        broadway_server_set_fps (server, fps);
     }
   return G_SOURCE_CONTINUE;
 }

@@ -201,6 +201,7 @@ on_frame_clock_after_paint (GdkFrameClock *clock,
   GdkBroadwayDisplay *broadway_display;
 
   impl->pending_frame_counter = gdk_frame_clock_get_frame_counter (clock);
+  impl->last_paint_us = g_get_monotonic_time ();
   gdk_surface_freeze_updates (surface);
 
   broadway_display = GDK_BROADWAY_DISPLAY (display);
@@ -348,7 +349,21 @@ _gdk_broadway_roundtrip_notify (GdkSurface  *surface,
   if (local_reply)
     g_timeout_add_seconds (1, (GSourceFunc)thaw_updates_cb, g_object_ref (surface));
   else
-    gdk_surface_thaw_updates (surface);
+    {
+      /* Frame-rate cap: hold the thaw (and so the next paint) until at least one
+       * min-interval has passed since this frame's paint. Paces the paint/round-
+       * trip cycle instead of dropping frames; the roundtrip time already counts
+       * toward the interval. 0 = unlimited -> thaw now. */
+      gint64 min_interval = _gdk_broadway_server_fps_interval_us ();
+      gint64 due = impl->last_paint_us + min_interval;
+      gint64 now = g_get_monotonic_time ();
+
+      if (min_interval > 0 && now < due)
+        g_timeout_add ((guint) ((due - now + 999) / 1000),
+                       (GSourceFunc) thaw_updates_cb, g_object_ref (surface));
+      else
+        gdk_surface_thaw_updates (surface);
+    }
 
   if (timings)
     {

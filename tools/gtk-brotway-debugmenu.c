@@ -28,6 +28,7 @@ static GtkWidget *screen_w_spin;
 static GtkWidget *screen_h_spin;
 static GtkWidget *screen_scale_spin;
 static GtkWidget *png_mode_dd;
+static GtkWidget *fps_cap_dd;
 static GSocket   *control_sock;
 static GtkWidget *debug_window;     /* the stats overlay; owns the labels above */
 static int        open_windows;     /* live top-levels; quit at zero */
@@ -344,6 +345,21 @@ on_png_changed (GtkDropDown *dd, GParamSpec *pspec, gpointer user_data)
   send_command (cmd);
 }
 
+/* Send the selected frame-rate cap (dropdown index -> fps; 0 = unlimited). */
+static const int fps_caps[] = { 0, 120, 60, 30, 15, 5, 1 };
+
+static void
+on_fps_changed (GtkDropDown *dd, GParamSpec *pspec, gpointer user_data)
+{
+  guint i = gtk_drop_down_get_selected (dd);
+  char cmd[32];
+
+  if (i >= G_N_ELEMENTS (fps_caps))
+    return;
+  g_snprintf (cmd, sizeof cmd, "fps %d\n", fps_caps[i]);
+  send_command (cmd);
+}
+
 /* A labelled row with a trailing GtkDropDown built from a NULL-terminated label
  * list. Handler is wired by the caller (after all rows exist). */
 static GtkWidget *
@@ -465,6 +481,15 @@ main (void)
     png_mode_dd = add_dropdown_row (actions, "PNG encoding", modes);
     /* Connect after construction so the initial selected=0 doesn't fire a send. */
     g_signal_connect (png_mode_dd, "notify::selected", G_CALLBACK (on_png_changed), NULL);
+  }
+
+  /* Frame-rate cap: paces the app's paint/roundtrip cycle. Labels must track
+   * fps_caps[] in on_fps_changed (index 0 = unlimited). */
+  {
+    static const char * const caps[] = { "0", "120", "60", "30", "15", "5", "1", NULL };
+
+    fps_cap_dd = add_dropdown_row (actions, "Frame rate", caps);
+    g_signal_connect (fps_cap_dd, "notify::selected", G_CALLBACK (on_fps_changed), NULL);
   }
 
   /* Screen: pin the browser's logical size + integer render scale (natural size). */

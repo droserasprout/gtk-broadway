@@ -76,6 +76,7 @@ typedef enum {
   BROADWAY_EVENT_SUSPEND = 18, /* tab hidden: freeze app rendering (no payload) */
   BROADWAY_EVENT_RESUME = 19,  /* tab visible again: thaw rendering (no payload) */
   BROADWAY_EVENT_SET_PNG = 20, /* daemon->client: switch the PNG preset (from the debug menu) */
+  BROADWAY_EVENT_SET_FPS = 21, /* daemon->client: cap the frame rate (from the debug menu); 0 = unlimited */
 } BroadwayEventType;
 
 /* PNG preset (BROADWAY_EVENT_SET_PNG / "png-preset"). The client maps it to
@@ -211,6 +212,11 @@ typedef struct {
   gint32 preset;  /* BroadwayPngPreset */
 } BroadwayInputSetPngMsg;
 
+typedef struct {
+  BroadwayInputBaseMsg base;
+  gint32 fps;  /* frames/sec cap; 0 = unlimited */
+} BroadwayInputSetFpsMsg;
+
 typedef union {
   BroadwayInputBaseMsg base;
   BroadwayInputPointerMsg pointer;
@@ -226,6 +232,7 @@ typedef union {
   BroadwayInputScreenResizeNotify screen_resize_notify;
   BroadwayInputFocusMsg focus;
   BroadwayInputSetPngMsg set_png;
+  BroadwayInputSetFpsMsg set_fps;
 } BroadwayInputMsg;
 
 typedef enum {

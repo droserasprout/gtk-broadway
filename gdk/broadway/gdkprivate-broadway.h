@@ -92,6 +92,9 @@ void _gdk_broadway_events_got_input      (GdkDisplay *display,
 
 void _gdk_broadway_server_set_png_preset (int preset);
 
+void  _gdk_broadway_server_set_fps          (int fps);
+gint64 _gdk_broadway_server_fps_interval_us (void);
+
 void          _gdk_broadway_server_set_clipboard_text     (GdkBroadwayServer *server,
                                                            const char        *text);
 guint32       _gdk_broadway_server_request_clipboard      (GdkBroadwayServer *server);

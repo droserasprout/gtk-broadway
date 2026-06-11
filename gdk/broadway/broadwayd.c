@@ -780,6 +780,8 @@ get_event_size (int type)
       return sizeof (BroadwayInputBaseMsg);
     case BROADWAY_EVENT_SET_PNG:
       return sizeof (BroadwayInputSetPngMsg);
+    case BROADWAY_EVENT_SET_FPS:
+      return sizeof (BroadwayInputSetFpsMsg);
     default:
       g_assert_not_reached ();
     }

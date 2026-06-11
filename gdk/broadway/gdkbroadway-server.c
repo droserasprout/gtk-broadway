@@ -763,6 +763,48 @@ _gdk_broadway_server_set_png_preset (int preset)
     }
 }
 
+/* Frame-rate cap. Continuously-animating surfaces can drive the paint/roundtrip
+ * cycle faster than the link drains (the "roundtrip storm"); capping paces it.
+ * Stored as a min frame interval (us); 0 = unlimited. Seeded from BROADWAY_FPS,
+ * switchable live from the debug menu. The throttle itself is in the surface
+ * frame cycle (gdksurface-broadway.c). */
+static int fps_min_interval_us = 0;
+static gsize fps_init = 0;
+
+gint64
+_gdk_broadway_server_fps_interval_us (void)
+{
+  if (g_once_init_enter (&fps_init))
+    {
+      const char *v = g_getenv ("BROADWAY_FPS");
+      if (v && *v)
+        {
+          int fps = (int) g_ascii_strtoll (v, NULL, 10);
+          if (fps > 0)
+            fps_min_interval_us = 1000000 / fps;
+          else if (fps == 0)
+            fps_min_interval_us = 0;
+          else
+            g_warning ("BROADWAY_FPS: expected a non-negative integer, got '%s'", v);
+        }
+      g_once_init_leave (&fps_init, 1);
+    }
+  return fps_min_interval_us;
+}
+
+/* Debug-menu switch; fps <= 0 means unlimited. */
+void
+_gdk_broadway_server_set_fps (int fps)
+{
+  (void) _gdk_broadway_server_fps_interval_us (); /* run env seed first */
+
+  fps_min_interval_us = fps > 0 ? 1000000 / fps : 0;
+  if (fps > 0)
+    g_message ("broadway: frame-rate cap -> %d fps", fps);
+  else
+    g_message ("broadway: frame-rate cap -> unlimited");
+}
+
 guint32
 gdk_broadway_server_upload_texture (GdkBroadwayServer *server,
                                     GdkTexture        *texture)

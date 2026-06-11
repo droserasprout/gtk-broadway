@@ -375,6 +375,10 @@ _gdk_broadway_events_got_input (GdkDisplay *display,
     _gdk_broadway_server_set_png_preset (message->set_png.preset);
     break;
 
+  case BROADWAY_EVENT_SET_FPS:
+    _gdk_broadway_server_set_fps (message->set_fps.fps);
+    break;
+
   default:
     g_printerr ("_gdk_broadway_events_got_input - Unknown input command %c\n", message->base.type);
     break;
