@@ -11,10 +11,11 @@ Project renamed to Brotway, a GTK4 Broadway fork.
 ### Added
 
 - **Dynamic cursor** - forward the GTK cursor shape to the browser as a CSS cursor
-- Debug menu: widget gallery
-- Debug menu: frame-pacing metrics and texture up/rel rates
-- Debug menu: pin fixed screen size and scale
+- **PNG encoding preset** - Fast/Compact, switchable in the debug menu or via `BROADWAY_PNG`
+- **Frame-rate cap** - pace the render loop to a chosen FPS, switchable in the debug menu or via `BROADWAY_FPS`
 - Pause rendering on a hidden browser tab; resume repaints a delta without reconnect
+- Debug menu: frame-pacing metrics and texture upload/release rates
+- Debug menu: pin fixed screen size and scale
 
 ### Changed
 
@@ -28,6 +29,8 @@ Project renamed to Brotway, a GTK4 Broadway fork.
 ### Performance
 
 - Bump texture cache cap from 512 to 4096 (~16mb)
+- Default to a fast PNG preset (low zlib level, adaptive filter) over libpng's defaults
+- Faster texture-dedup hash, keep redrawn textures hot in the cache, skip redundant browser image reloads
 
 ## [v2.1] - 2026-06-09
 
