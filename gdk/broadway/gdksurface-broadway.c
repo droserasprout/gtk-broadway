@@ -625,7 +625,13 @@ gdk_broadway_surface_layout_popup (GdkSurface     *surface,
 
   monitor = gdk_surface_get_layout_monitor (surface, layout,
                                             gdk_monitor_get_geometry);
-  gdk_monitor_get_geometry (monitor, &bounds);
+  if (monitor)
+    gdk_monitor_get_geometry (monitor, &bounds);
+  else
+    /* Anchor outside the single monitor -> get_monitor_for_rect returns NULL. Use
+       unconstrained bounds (like the toplevel path) so the popup lands at its
+       anchor; passing NULL to gdk_monitor_get_geometry asserts + leaves it garbage. */
+    bounds = (GdkRectangle) { 0, 0, G_MAXINT, G_MAXINT };
 
   /* Populate the shadow margin from the popup layout, like X11/Wayland do.
      compute_toplevel_size() only sets impl->shadow_* for toplevels, so without
