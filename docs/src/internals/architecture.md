@@ -42,4 +42,4 @@ For those variable-length payloads the daemon clamps `len` to the framed message
 
 ## broadwayd-only vs libgtk
 
-Every fork change lives on one side of a split: client/daemon (`broadway.js`, `client.html`, the daemon C) versus the library (GDK backend, GSK renderer, GTK widgets). It drives how you iterate on a change and how a release ships it. See [broadwayd vs libgtk](build-split.md).
+Every fork change lives on one side of a split - client/daemon versus the library - which drives both iteration and shipping; see [broadwayd vs libgtk](build-split.md).

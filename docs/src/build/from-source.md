@@ -27,7 +27,7 @@ This is the only build-config difference between the bases. CI passes it in as a
 - `_build/gtk/libgtk-4.so.1.<minor>.<micro>`, the patched shared object (e.g. `libgtk-4.so.1.2200.2`).
 - `_build/gdk/broadway/gtk4-broadwayd`, the daemon.
 
-`ninja -C _build` also regenerates `broadwayjs.h` / `clienthtml.h` from `broadway.js` / `client.html`, so a client-side change is picked up by an incremental rebuild plus a daemon restart. See [Running broadwayd](../guide/running.md) for which changes need only the daemon and which need the full library.
+`ninja -C _build` also regenerates `broadwayjs.h` / `clienthtml.h` from `broadway.js` / `client.html`; which changes need only a daemon restart and which need the full library is covered in [broadwayd vs libgtk](../internals/build-split.md).
 
 ## Build dependencies
 

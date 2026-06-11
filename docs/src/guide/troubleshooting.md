@@ -42,4 +42,4 @@ A `4.14.5` deb on a `4.22.x` system (or vice versa) leaves a dangling SONAME and
 
 ## Iterating on a change that didn't take effect
 
-A client-side change (`broadway.js` / `client.html`) needs the **daemon** rebuilt and restarted, then a plain reload. A `libgtk` change needs the library rebuilt and the **app** restarted. Reloading the browser alone never picks up a `libgtk` change. See [broadwayd vs libgtk](../internals/build-split.md).
+Reloading the browser alone never picks up a `libgtk` change - which changes need a daemon restart vs a library rebuild plus app restart is in [broadwayd vs libgtk](../internals/build-split.md).

@@ -28,7 +28,7 @@ The app renders into the daemon, which streams render nodes to every connected b
 
 The page the daemon serves is `client.html` + `broadway.js`, both embedded in the daemon binary (generated into `broadwayjs.h` / `clienthtml.h` at build time). All the fork's browser-side logic lives in `broadway.js`: touch delivery, the clipboard bridge, pinch-zoom, reconnect, the [debug menu](../internals/debug-menu.md), and the paint-flash overlay. Both assets are served `Cache-Control: no-store`, so a plain reload always picks up a rebuilt and restarted `gtk4-broadwayd`. No hard-refresh needed.
 
-> A change confined to `broadway.js` / `client.html` only needs a **broadwayd restart** then a normal browser reload. A change in `libgtk` (a widget or GDK fix) needs the library rebuilt and the **app** restarted. Each feature chapter notes which kind of change it is.
+> Which changes need only a broadwayd restart and which need the library rebuilt and the app restarted: [broadwayd vs libgtk](../internals/build-split.md).
 
 ## Secure context note
 
