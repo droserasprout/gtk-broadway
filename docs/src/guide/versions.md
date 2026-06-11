@@ -1,18 +1,20 @@
 # Supported versions
 
-Two GTK bases are maintained in parallel: **4.14.5** and **4.22.2**. Each tracks an upstream GTK stable branch and carries the **same fork features**, with the same support. They differ only in version-specific build configuration.
+Two GTK bases are maintained in parallel, each tracking an upstream GTK stable tag and carrying the **same fork features**. They differ only in version-specific build configuration.
+
+| GTK    | Ubuntu base    | SONAME                 | Fork branch | Patch |
+| ------ | -------------- | ---------------------- | ----------- | ----- |
+| 4.14.5 | `ubuntu:24.04` | `libgtk-4.so.1.1400.5` | [`4.14.5-fork`](https://github.com/droserasprout/gtk-brotway/tree/4.14.5-fork) | [diff](https://github.com/droserasprout/gtk-brotway/compare/4.14.5...4.14.5-fork) |
+| 4.22.2 | `ubuntu:26.04` | `libgtk-4.so.1.2200.2` | [`4.22.2-fork`](https://github.com/droserasprout/gtk-brotway/tree/4.22.2-fork) | [diff](https://github.com/droserasprout/gtk-brotway/compare/4.22.2...4.22.2-fork) |
 
 **Supported architectures:** `amd64`, `arm64`.
 
-## Which to choose? 4.22.2
+## Which base to pick
 
-Prefer **4.22.2**. It performs slightly better for the Broadway/WebUI goal because of how it invalidates a `GtkTreeView`. 4.14 re-snapshots the whole list on hover or relayout, producing more render-node churn over the WebSocket; 4.22 invalidates granularly and re-sends far fewer node commands. Node/texture reuse still serves the extra commands from cache without re-uploads (see [Rendering & performance](../internals/performance.md)), so the difference is wire churn, not pixels. Feature-wise the two bases are identical.
+Match the GTK already in your target environment - the `.deb` overlays the SONAME-versioned `.so` in place, so package base and system GTK must agree. See [Installation](installation.md).
 
-## Install matrix
+Given a free choice, prefer **4.22.2**: it invalidates a `GtkTreeView` granularly where 4.14 re-snapshots the whole list on hover or relayout, so it sends far fewer render-node commands over the WebSocket. Node/texture reuse serves the extra commands from cache either way ([Rendering & performance](../internals/performance.md)), so the difference is wire churn, not pixels.
 
-| GTK    | Ubuntu base    |
-| ------ | -------------- |
-| 4.14.5 | `ubuntu:24.04` |
-| 4.22.2 | `ubuntu:26.04` |
+## Older GTK
 
-Pick the build that matches the GTK already in your target environment. See [Installation](installation.md) for steps.
+GTK **older than 4.14 is not supported and won't be**. Pre-4.14 (4.6 on `ubuntu:22.04`, 4.8 on `debian:12`) predates the Broadway renderer changes the fork patches against, so backports are high-conflict for little gain. Development happens on the latest supported base and is mirrored down to 4.14.

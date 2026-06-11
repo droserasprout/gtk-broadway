@@ -27,7 +27,7 @@ Stock Broadway treats a touchscreen as a mouse, so GTK's touch text-editing UI n
 - No crash when reopening the selection bubble.
 - Copy reappears in the bubble after Select-All.
 
-## Known touch gaps
+## Limitations
 
 - The first tap can leak into a pinch or pan when a second finger lands; no fix yet without adding input latency. See [pinch zoom implementation](../internals/zoom.md#no-tap-leak-on-pinch) for the related zoom case.
 - The emoji widget is slow and ugly over Broadway.

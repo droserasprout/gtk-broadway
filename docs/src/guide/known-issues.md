@@ -10,6 +10,12 @@ Bugs are tracked on the [issue tracker](https://github.com/droserasprout/gtk-bro
 
 - **Popovers on an oversized unmaximized window.** When the window is larger than the browser viewport (HiDPI or browser zoom), its tracked position can desync from where the browser draws it, so menus open off-anchor or off-screen. Maximize the window to correct it.
 
+## No fix yet
+
+- **Tap leak into pinch and pan.** The first finger's tap can still register when a second finger lands to start a gesture. No solution found yet without adding input latency; the pinch state machine suppresses the worst case ([details](../internals/zoom.md#no-tap-leak-on-pinch)).
+
+- **Emoji widget.** Slow and ugly over Broadway.
+
 ## Tested configurations
 
 - **Desktop:** Firefox 151.0.2, Chromium 148.0.7778.178

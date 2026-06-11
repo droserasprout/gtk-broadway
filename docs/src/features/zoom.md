@@ -19,7 +19,7 @@ Two-finger pinch zooms the whole UI (0.25x-5x) with a real re-layout and re-rend
 - **Per-client** - zoom is local to each browser; desktop keeps native Ctrl+scroll page-zoom.
 - **Persists** across a page refresh - the zoom is remembered per origin.
 
-## Known gaps
+## Limitations
 
 - When a second finger lands to start a pinch, the first finger's tap can still register; the pinch state machine suppresses the worst case (see [implementation](../internals/zoom.md#no-tap-leak-on-pinch)) but not all of it. See [Known issues](../guide/known-issues.md).
 

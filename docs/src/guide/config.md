@@ -6,8 +6,8 @@ Every knob the fork reads, in one place. Most are stock Broadway; the fork adds 
 
 `gtk4-broadwayd :N` takes a display number `N`. From it:
 
-| Thing | Value |
-|-------|-------|
+| What | Value |
+|------|-------|
 | Browser HTTP port | `8080 + N` (so `:5` -> `http://localhost:8085`) |
 | App socket | the local Broadway socket for display `:N` |
 
@@ -61,4 +61,4 @@ Set per origin by `broadway.js`:
 
 ## Build-time flags
 
-Not runtime config, but the two knobs that vary per base, covered in [Build from source](../build/from-source.md): `-Dbroadway-backend=true` with every other backend off, and the demos flag (`-Dbuild-demos=false` on 4.22, `-Ddemos=false` on 4.14).
+Not runtime config, but the two knobs that vary per base, covered in [Building from source](../build/from-source.md): `-Dbroadway-backend=true` with every other backend off, and the demos flag (`-Dbuild-demos=false` on 4.22, `-Ddemos=false` on 4.14).

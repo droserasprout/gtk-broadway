@@ -4,7 +4,7 @@
 
 ## Why TLS is not optional
 
-The [clipboard bridge](../features/clipboard.md) uses `navigator.clipboard`, which browsers expose only in a **secure context**: `https://` or `http://localhost`. Over plain `http://` to a remote host, copy may silently fail outside a user gesture. So any deployment that isn't `localhost` has to terminate TLS in front of the daemon. The reference deployment runs behind Traefik in Docker Swarm for exactly this reason.
+The [clipboard bridge](../features/clipboard.md) needs a [secure context](running.md#secure-context-note) (`https://` or `http://localhost`), so any deployment beyond localhost has to terminate TLS in front of the daemon. The reference deployment runs behind Traefik in Docker Swarm for exactly this reason.
 
 ## Access control - Broadway has none
 

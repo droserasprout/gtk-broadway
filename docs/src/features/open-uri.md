@@ -21,7 +21,7 @@ Clicking a link in a headless Broadway container logged *"No known URI provider 
 
 A URI-opening helper can add a `GDK_BACKEND == "broadway"` branch that calls `Gtk.show_uri(None, uri, 0)` before the GIO path, and falls back gracefully on unpatched GTK.
 
-## Caveats
+## Limitations
 
 - It runs inside the WebSocket message handler rather than a user gesture, so a popup blocker may catch it.
 - `file://` URIs get routed too, but browsers block `window.open("file://...")` from an http(s) origin. That's no worse than the prior failure.

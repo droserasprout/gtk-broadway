@@ -43,7 +43,7 @@ Each changed node gets a translucent overlay coloured by cost:
 
 ## Rendering reuse
 
-*New in v2.1*
+*New in v2*
 
 ### Tier 1: content-hash node reuse
 
@@ -67,7 +67,7 @@ An earlier fast preset used a single Sub filter + `Z_RLE` to minimize encode CPU
 
 ### Wire: drop empty frames
 
-*New in v2.1*
+*New in v2*
 
 When a surface's frame diff produces no ops, `broadway-output.c` drops the whole `SET_NODES` instead of sending an 11-byte no-op and its forced flush; the serial is rolled back so the counter stays dense.
 
@@ -75,25 +75,23 @@ A companion change that also deduped repeated **show-keyboard** / **input-region
 
 ### Input latency: pointer-move coalescing
 
-*New in v2.1*
+*New in v2*
 
 A high-Hz mouse or trackpad fires many `mousemove` events per displayed frame, but GTK only needs the latest position. `broadway.js` buffers moves and sends one per animation frame, so a motion flood can't fill the websocket and delay a following click or key ([head-of-line blocking](https://en.wikipedia.org/wiki/Head-of-line_blocking)). Any discrete event flushes the pending move first, preserving order.
 
 ### CPU: fewer syscalls and allocations
 
-*New in v2.1*
+*New in v2*
 
 Three hot-path trims. In `broadway-output.c` the WebSocket header and payload go out in one `g_output_stream_writev_all` instead of two `write_all`s, with no payload copy. In `broadway.js`, `sendInput` packs fields straight into the buffer, dropping the per-event `concat()`/`forEach()` closure on the move/wheel hot path. In `broadway-server.c`, since only texture nodes carry a client texture id, the remap moved out of the node-data copy loop so the common case skips a per-word comparison.
 
 ### Memory bounding
 
-*New in v2.1*
+*New in v2*
 
 Two caps. A frame uploading a large texture can grow the `broadway-output.c` output buffer to many MB, and `g_string_set_size(.., 0)` keeps that capacity for the connection's life; after an oversized flush the buffer is now freed and restarted small. Separately, the per-source-texture recolor cache in `gskbroadwayrenderer.c` (each entry a full decoded copy) is bounded to 16 entries, LRU, so recoloring one texture many ways (symbolic icons across states and themes) can't grow without limit.
 
 ## Limitations
-
-*New in v2.1*
 
 **Per-frame animation still rasterizes.** Where each frame really is different pixels, uploads are unavoidable. The scroll **overshoot** shadow and the `GtkSwitch` knob mid-toggle both use `radial-gradient`, which falls back to a cairo texture; the dedup catches only their settled states. Native radial-gradient support in the Broadway renderer would remove the rest, but that is out of scope.
 

@@ -1,4 +1,4 @@
-# Build from source
+# Building from source
 
 The fork is built Broadway-only. Every other backend and most optional subsystems are turned off, so the build produces just the patched `libgtk-4.so` plus `gtk4-broadwayd`.
 

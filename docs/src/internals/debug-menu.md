@@ -1,13 +1,13 @@
 # Debug menu
 
-*New in v2.1*
+*New in v2*
 
 A **Triple-Shift** (press Shift three times quickly) summons a server-side debug overlay for the Broadway session: live stats, a paint-flash traffic profiler, and session actions. This is a native GTK4 window composited into the same display the main app uses.
 
 <img src="../images/debug-menu.png" alt="Broadway debug menu" width="230"
   style="float:right;width:230px;margin:0 0 1rem 1.5rem">
 
-> The menu binary (`gtk4-brotway-debugmenu`) is **local-dev only** - the `.deb` packs just `libgtk-4.so` and `gtk4-broadwayd` ([CI & packaging](../build/ci.md)); `Dockerfile.local` installs the menu on top for development.
+> The menu binary (`gtk4-brotway-debugmenu`) ships in the `.deb` since v2.1 ([CI & packaging](../build/ci.md)); `broadwayd` spawns it by name via `PATH`.
 
 ## Performance section
 

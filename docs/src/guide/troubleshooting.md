@@ -26,7 +26,7 @@ The functional test: touch text selection (handles + Cut/Copy/Paste bubble) and 
 | Features worked, then vanished | `apt upgrade` reverted to stock GTK | re-install the `.deb`, then `apt-mark hold libgtk-4-1 libgtk-4-bin` ([Installation](installation.md)) |
 | Copy/paste silently does nothing | insecure context over remote `http://` | serve `https://` or `http://localhost` ([secure context](running.md#secure-context-note)) |
 | Middle-click paste doesn't work | PRIMARY selection is unsupported | by design - no JS API for it ([Known issues](known-issues.md)) |
-| Links don't open / "No known URI provider available" | popup blocker caught `window.open` | allow popups for the origin ([Opening links](../features/open-uri.md#caveats)) |
+| Links don't open / "No known URI provider available" | popup blocker caught `window.open` | allow popups for the origin ([Opening links](../features/open-uri.md#limitations)) |
 | Socket floods, high CPU | a spinner/progress animation repaints every frame | pre-existing upstream behaviour; stop the animation ([Known issues](known-issues.md)) |
 
 ## Checking the GTK base mismatch

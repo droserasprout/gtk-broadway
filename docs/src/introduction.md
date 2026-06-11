@@ -21,6 +21,7 @@ Broadway was deprecated by the GTK team in 4.18 (alongside X11) for lack of main
 - **[Pinch to zoom](features/zoom.md):** two-finger UI zoom that re-renders crisply.
 - **[Notebook tabs](features/notebook.md):** drag/wheel scrolling of the tab strip on touch.
 - **[Opening links](features/open-uri.md):** clicked links open in the viewing browser.
+- **[Dynamic cursor](features/cursor.md):** the browser pointer follows GTK's cursor shape (resize edges, text, links).
 - **[Desktop & rendering fixes](features/desktop-fixes.md):** no white flash, centered windows, popups on their anchor, click-through shadows, seam-free borders.
 
 ## How it ships

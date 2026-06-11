@@ -8,7 +8,8 @@ The package `Depends` on and `Replaces` the stock runtime packages `libgtk-4-1` 
 
 - the patched `libgtk-4.so` (the SONAME-versioned shared object, e.g. `libgtk-4.so.1.2200.2`),
 - the `libgtk-4.so.1` SONAME symlink, re-pointed at the patched `.so`,
-- the `gtk4-broadwayd` daemon binary.
+- the `gtk4-broadwayd` daemon binary,
+- the `gtk4-brotway-debugmenu` binary (net-new file; the daemon spawns the [debug menu](../internals/debug-menu.md) by name).
 
 Everything else from apt's GTK (the GIR, `gtk-4-common`, themes, ...) is left untouched. That is why the package and your system must agree on the GTK base version. See [Supported versions](versions.md).
 
@@ -27,7 +28,12 @@ apt-mark hold libgtk-4-1 libgtk-4-bin
 
 The asset name encodes base and architecture: `gtk4-brotway_<gtk>-<rev>_<arch>.deb` (e.g. `gtk4-brotway_4.22.2-2.1_amd64.deb`).
 
-> To always grab the newest release without hardcoding the tag, resolve it from the GitHub API first: ```sh rel="$(curl -fsSL https://api.github.com/repos/droserasprout/gtk-brotway/releases/latest \ | grep -oP '"tag_name":\s*"\K[^"]+')" ```
+> To always grab the newest release without hardcoding the tag, resolve it from the GitHub API first:
+>
+> ```sh
+> rel="$(curl -fsSL https://api.github.com/repos/droserasprout/gtk-brotway/releases/latest \
+>   | grep -oP '"tag_name":\s*"\K[^"]+')"
+> ```
 
 ## Hold the stock packages
 
@@ -35,6 +41,6 @@ The asset name encodes base and architecture: `gtk4-brotway_<gtk>-<rev>_<arch>.d
 
 ## In a container
 
-The reference deployment installs the arch-matching `.deb` inside a Docker image over apt's GTK and holds the runtime packages. Those are the same three steps as above, plus `dpkg --print-architecture` to select between the amd64 and arm64 assets at build time.
+Same steps inside a Docker image; see [Deploying behind TLS](deployment.md#in-a-container) for the Dockerfile snippet and the full operator checklist.
 
-> If you ever need to undo the overlay: `apt-mark unhold libgtk-4-1 libgtk-4-bin` then `apt-get install --reinstall libgtk-4-1 libgtk-4-bin`.
+> To undo the overlay: `apt-mark unhold libgtk-4-1 libgtk-4-bin` then `apt-get install --reinstall libgtk-4-1 libgtk-4-bin`.

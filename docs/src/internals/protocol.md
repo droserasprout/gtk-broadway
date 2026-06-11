@@ -19,6 +19,7 @@ Stock ops are `0`-`16` (`GRAB_POINTER` ... `ROUNDTRIP`). The fork appends:
 | `BROADWAY_OP_PONG`              | 23 | daemon -> browser | heartbeat reply ([Connection management](../features/connection.md)) |
 | `BROADWAY_OP_DEBUG_FLASH`       | 24 | daemon -> browser | toggle the paint-flash profiler overlay ([Debug menu](debug-menu.md)) |
 | `BROADWAY_OP_DEBUG_SET_SCREEN`  | 25 | daemon -> browser | pin logical screen size + integer scale, `0,0,0` unpins ([Debug menu](debug-menu.md)) |
+| `BROADWAY_OP_SET_CURSOR`        | 26 | daemon -> browser | set a surface's CSS cursor by name ([Dynamic cursor](cursor.md)) |
 
 ## Input events, browser to app (`BROADWAY_EVENT_*`)
 
@@ -31,10 +32,11 @@ Stock events are `0`-`14` (`ENTER` ... `ROUNDTRIP_NOTIFY`); `TOUCH` (5) already 
 | `BROADWAY_EVENT_MENU`               | 17 | Triple-Shift; the daemon intercepts it to spawn the debug menu, so it never reaches the app ([Debug menu](debug-menu.md)) |
 | `BROADWAY_EVENT_SUSPEND`            | 18 | tab hidden; forwarded to GTK to freeze rendering ([Connection management](../features/connection.md)) |
 | `BROADWAY_EVENT_RESUME`             | 19 | tab visible again; thaws rendering ([Connection management](../features/connection.md)) |
+| `BROADWAY_EVENT_SET_PNG`            | 20 | daemon -> app, not from the browser: switch the PNG encoding preset live from the debug menu ([PNG encoding](../guide/config.md#png-encoding)) |
 
 ## Requests, app to daemon (`BROADWAY_REQUEST_*`)
 
-The fork appends `BROADWAY_REQUEST_SET_CLIPBOARD`, `BROADWAY_REQUEST_REQUEST_CLIPBOARD`, `BROADWAY_REQUEST_SET_INPUT_REGION`, and `BROADWAY_REQUEST_OPEN_URI`, with matching structs (`BroadwayRequestSetClipboard`, `BroadwayRequestOpenUri`, `BroadwayRequestSetInputRegion`).
+The fork appends `BROADWAY_REQUEST_SET_CLIPBOARD`, `BROADWAY_REQUEST_REQUEST_CLIPBOARD`, `BROADWAY_REQUEST_SET_INPUT_REGION`, `BROADWAY_REQUEST_OPEN_URI`, and `BROADWAY_REQUEST_SET_CURSOR`, with matching structs (`BroadwayRequestSetClipboard`, `BroadwayRequestOpenUri`, `BroadwayRequestSetInputRegion`, `BroadwayRequestSetCursor`).
 
 Variable-length requests use `len + bytes` framing (`guint32 len; char text[1];`), the same shape as `SET_NODES`; the daemon clamps `len` to the framed request size before reading.
 

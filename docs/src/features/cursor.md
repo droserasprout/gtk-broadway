@@ -23,7 +23,7 @@ Stock Broadway always showed the browser's default arrow, no matter what the app
 
 It applies to every surface - toplevels, dialogs, and popups/menus alike - and to the real app, not just a demo.
 
-## Limits
+## Limitations
 
 This mirrors GTK's cursor *intent* onto the browser's CSS `cursor`; there is no compositor here owning the pointer. So:
 
