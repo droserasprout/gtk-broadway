@@ -437,36 +437,40 @@ client_handle_request (BroadwayClient *client,
                                                 &request->set_input_region.rect);
       break;
     case BROADWAY_REQUEST_SET_CLIPBOARD:
-      {
-        /* Don't trust the wire len: clamp to what the framed request actually
-         * carries, so a bogus len can't read past the request buffer. */
-        gsize max = request->base.size -
-                    G_STRUCT_OFFSET (BroadwayRequestSetClipboard, text);
-        guint32 len = request->set_clipboard.len > max
-                      ? (guint32) max : request->set_clipboard.len;
-        broadway_server_set_clipboard (server, request->set_clipboard.text, len);
-      }
+      /* A size below the fixed header would wrap the clamp; ignore it. */
+      if (request->base.size >= G_STRUCT_OFFSET (BroadwayRequestSetClipboard, text))
+        {
+          /* Don't trust the wire len: clamp to what the framed request actually
+           * carries, so a bogus len can't read past the request buffer. */
+          gsize max = request->base.size -
+                      G_STRUCT_OFFSET (BroadwayRequestSetClipboard, text);
+          guint32 len = request->set_clipboard.len > max
+                        ? (guint32) max : request->set_clipboard.len;
+          broadway_server_set_clipboard (server, request->set_clipboard.text, len);
+        }
       break;
     case BROADWAY_REQUEST_OPEN_URI:
-      {
-        /* Clamp the wire len to the framed request, same as SET_CLIPBOARD. */
-        gsize max = request->base.size -
-                    G_STRUCT_OFFSET (BroadwayRequestOpenUri, uri);
-        guint32 len = request->open_uri.len > max
-                      ? (guint32) max : request->open_uri.len;
-        broadway_server_open_uri (server, request->open_uri.uri, len);
-      }
+      if (request->base.size >= G_STRUCT_OFFSET (BroadwayRequestOpenUri, uri))
+        {
+          /* Clamp the wire len to the framed request, same as SET_CLIPBOARD. */
+          gsize max = request->base.size -
+                      G_STRUCT_OFFSET (BroadwayRequestOpenUri, uri);
+          guint32 len = request->open_uri.len > max
+                        ? (guint32) max : request->open_uri.len;
+          broadway_server_open_uri (server, request->open_uri.uri, len);
+        }
       break;
     case BROADWAY_REQUEST_SET_CURSOR:
-      {
-        /* Clamp the wire len to the framed request, same as SET_CLIPBOARD. */
-        gsize max = request->base.size -
-                    G_STRUCT_OFFSET (BroadwayRequestSetCursor, name);
-        guint32 len = request->set_cursor.len > max
-                      ? (guint32) max : request->set_cursor.len;
-        broadway_server_surface_set_cursor (server, request->set_cursor.id,
-                                            request->set_cursor.name, len);
-      }
+      if (request->base.size >= G_STRUCT_OFFSET (BroadwayRequestSetCursor, name))
+        {
+          /* Clamp the wire len to the framed request, same as SET_CLIPBOARD. */
+          gsize max = request->base.size -
+                      G_STRUCT_OFFSET (BroadwayRequestSetCursor, name);
+          guint32 len = request->set_cursor.len > max
+                        ? (guint32) max : request->set_cursor.len;
+          broadway_server_surface_set_cursor (server, request->set_cursor.id,
+                                              request->set_cursor.name, len);
+        }
       break;
     case BROADWAY_REQUEST_REQUEST_CLIPBOARD:
       {
@@ -572,6 +576,14 @@ client_input_cb (GPollableInputStream *stream,
       guint32 size;
 
       memcpy (&size, buffer, sizeof (guint32));
+      if (size < sizeof (BroadwayRequestBase))
+        {
+          /* Framing too small for even the header; no way to resync. */
+          g_printerr ("Invalid request size %u, dropping client\n", size);
+          client->source = NULL;
+          client_disconnected (client);
+          return G_SOURCE_REMOVE;
+        }
       if (size <= buffer_len)
         {
           client_handle_request (client, (BroadwayRequest *)buffer);

@@ -401,10 +401,12 @@ process_input_messages (GdkBroadwayServer *server)
 
       if (reply->base.type == BROADWAY_REPLY_EVENT)
         _gdk_broadway_events_got_input (server->display, &reply->event.msg);
-      else if (reply->base.type == BROADWAY_REPLY_CLIPBOARD)
+      else if (reply->base.type == BROADWAY_REPLY_CLIPBOARD &&
+               reply->base.size >= G_STRUCT_OFFSET (BroadwayReplyClipboard, text))
         {
           /* Don't trust the wire len: clamp to what the framed reply carries
-           * so the text read never runs past the allocation. */
+           * so the text read never runs past the allocation. A size below the
+           * fixed header would wrap the clamp. */
           gsize max = reply->base.size -
                       G_STRUCT_OFFSET (BroadwayReplyClipboard, text);
           guint32 len = reply->clipboard.len > max
