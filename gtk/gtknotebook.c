@@ -312,7 +312,7 @@ struct _GtkNotebook
   double         mouse_y;
   int            pressed_button;
 
-  GList         *touch_press_tab;       /* touch: tab under the finger, selection deferred to release */
+  GtkNotebookPage *touch_press_page;    /* touch: page under the finger, selection deferred to release */
   double         touch_pan_px;          /* touch: current pixel scroll offset of the strip (>= 0) */
   double         touch_pan_start;       /* touch: touch_pan_px at drag-begin */
   int            touch_pan_max;         /* touch: max scroll offset, refreshed during allocation */
@@ -2946,7 +2946,7 @@ gtk_notebook_gesture_pressed (GtkGestureClick *gesture,
 
   /* Clear any stale deferred touch tap; only a press that lands on a tab below
    * re-arms it (an arrow / context-menu press returns before that point). */
-  notebook->touch_press_tab = NULL;
+  notebook->touch_press_page = NULL;
 
   arrow = gtk_notebook_get_arrow (notebook, x, y);
   if (arrow != ARROW_NONE)
@@ -2977,7 +2977,9 @@ gtk_notebook_gesture_pressed (GtkGestureClick *gesture,
       gtk_notebook_tab_pixel_scroll (notebook) &&
       gtk_notebook_tab_pan_max (notebook) > 0)
     {
-      notebook->touch_press_tab = get_tab_at_pos (notebook, x, y);
+      GList *touch_tab = get_tab_at_pos (notebook, x, y);
+
+      notebook->touch_press_page = touch_tab ? touch_tab->data : NULL;
       notebook->touch_scrolling = FALSE;
       return;
     }
@@ -3218,15 +3220,20 @@ gtk_notebook_gesture_released (GtkGestureClick *gesture,
    * must fall through like a mouse release to finish reorder/arrow handling. */
   if (event_is_touch (event) && notebook->pressed_button == 0)
     {
-      GList *tab = notebook->touch_press_tab;
+      GtkNotebookPage *page = notebook->touch_press_page;
 
-      notebook->touch_press_tab = NULL;
+      notebook->touch_press_page = NULL;
 
-      if (tab && !notebook->touch_scrolling &&
-          g_list_position (notebook->children, tab) >= 0)
+      if (page && !notebook->touch_scrolling)
         {
-          gtk_notebook_switch_focus_tab (notebook, tab);
-          gtk_widget_grab_focus (GTK_WIDGET (notebook));
+          /* Re-find the page by value; it may have been removed since press. */
+          GList *tab = g_list_find (notebook->children, page);
+
+          if (tab)
+            {
+              gtk_notebook_switch_focus_tab (notebook, tab);
+              gtk_widget_grab_focus (GTK_WIDGET (notebook));
+            }
         }
 
       /* Stop any scroll-arrow auto-repeat timer started on press, otherwise the
@@ -3254,7 +3261,7 @@ gtk_notebook_gesture_cancel (GtkGestureClick  *gesture,
 {
   /* A tab-strip pan claims the touch sequence, which cancels this click gesture;
    * drop the deferred tap so it is not selected (it became a pan, not a tap). */
-  notebook->touch_press_tab = NULL;
+  notebook->touch_press_page = NULL;
 
   gtk_notebook_stop_reorder (notebook);
   stop_scrolling (notebook);
