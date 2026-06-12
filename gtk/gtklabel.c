@@ -4920,10 +4920,9 @@ gtk_label_ensure_dismiss_controller (GtkLabel *self)
     {
       if (gtk_event_controller_get_widget (info->dismiss_controller) == GTK_WIDGET (root))
         return;
-      /* Re-parented to a different root: drop the stale controller (the weak
-       * pointer nulls info->dismiss_controller). */
-      gtk_widget_remove_controller (gtk_event_controller_get_widget (info->dismiss_controller),
-                                    info->dismiss_controller);
+      /* Re-parented to a different root: drop the stale controller (and its
+       * weak pointer, before it can null the field after reassignment). */
+      gtk_label_clear_dismiss_controller (self);
     }
 
   controller = gtk_event_controller_legacy_new ();
