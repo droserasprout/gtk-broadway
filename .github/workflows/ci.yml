@@ -5,13 +5,13 @@ name: CI
 
 on:
   push:
-    branches: [4.22.2-fork]
+    branches: [4.22.4-brotway]
 
 jobs:
   build:
     uses: droserasprout/gtk-brotway/.github/workflows/build.yml@ci
     with:
       ref: ${{ github.sha }}
-      gtk: "4.22.2"
+      gtk: "4.22.4"
       container: "ubuntu:26.04"
       demos: "-Dbuild-demos=false"
