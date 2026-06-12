@@ -19,4 +19,4 @@ So a client-side tweak is a fast loop (restart daemon, reload tab), while a widg
 
 ## Why it matters for shipping
 
-The `.deb` ships **both** the patched `libgtk-4.so` and the `gtk4-broadwayd` binary (which carries the embedded client), so a single release always covers both kinds of change. See [Installation](../guide/installation.md) and [CI & packaging](../build/ci.md).
+The `gtk4-brotway` `.deb`, built on the single GTK 4.22.4 base (`4.22.4-brotway`), ships **both** the patched `libgtk-4.so` and the `gtk4-broadwayd` binary (which carries the embedded client), so a single release always covers both kinds of change. See [Installation](../guide/installation.md) and [CI & packaging](../build/ci.md).

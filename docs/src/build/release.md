@@ -22,11 +22,11 @@ Pinning to a code tag means the release records exactly which fork commit each `
 ## What `release.yml` does
 
 1. **setup**: derive `rev` (`3.0.0` from `v3.0.0`).
-2. **build**: a matrix over the arches (`4.22.4` on `ubuntu:26.04`) calls the reusable [`build.yml`](ci.md), building the pinned `4.22.4-<X.Y.Z>` tag for both arches. That's 2 artifacts: 1 base x 2 arches.
+2. **build**: a matrix over the two arches (`4.22.4` on `ubuntu:26.04`) calls the reusable [`build.yml`](ci.md), building the pinned `4.22.4-<X.Y.Z>` tag for amd64 and arm64. That's 2 artifacts.
 3. **release**: download all `deb-*` artifacts, version-stamp each to `gtk4-brotway_<gtk>-<rev>_<arch>.deb`, create the `vX.Y.Z` release if needed, and upload both (`--clobber`).
 
 The result is what [Installation](../guide/installation.md) downloads, e.g. `gtk4-brotway_4.22.4-3.0.0_amd64.deb`.
 
 ## Version scheme
 
-Release tags use a three-part `vX.Y.Z` form. It's the semver *format* with loose discipline and no compatibility contract - this is a solo fork, so the numbers are a rough changelog ordering, not an API promise. So `v3.0.0` produces `gtk4-brotway_4.22.4-3.0.0` from the pinned `4.22.4-3.0.0` code tag.
+Release tags use a three-part `vX.Y.Z` form: the semver *format* with no compatibility contract - on a solo fork the numbers are a rough changelog ordering, not an API promise. `v3.0.0` produces `gtk4-brotway_4.22.4-3.0.0` from the pinned `4.22.4-3.0.0` code tag.

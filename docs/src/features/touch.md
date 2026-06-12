@@ -6,7 +6,7 @@
     style="max-width:100%;border-radius:6px">
 </video>
 
-Stock Broadway treats a touchscreen as a mouse, so GTK's touch text-editing UI never appears and many taps get dropped. The fork sources real touchscreen events and makes touch a first-class input. Most of it was root-caused live on Android (Firefox over USB, HTTPS).
+Stock Broadway treats a touchscreen as a mouse, so GTK's touch text-editing UI never appears and many taps get dropped. The fork sources real touchscreen events and makes touch a first-class input.
 
 ## What works
 

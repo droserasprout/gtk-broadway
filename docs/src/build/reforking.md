@@ -1,6 +1,6 @@
 # Re-forking a new GTK release
 
-The fork is a **thin layer**: the patches touch only the Broadway backend, never app-facing GTK API, and stay close to upstream so each GTK4 point release can be re-forked with a minimal diff. This page is how to carry the fork onto a new upstream GTK tag.
+The fork is a **thin layer**: the patches touch only the Broadway backend, never app-facing GTK API, and stay close to upstream. This page is how to carry the fork onto a new upstream GTK tag.
 
 ## The boundary: GTK4 only
 

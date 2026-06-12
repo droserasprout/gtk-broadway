@@ -2,11 +2,9 @@
 
 This is a fork of GTK that fills in the missing pieces of the Broadway backend, keeping it usable through the GTK4 lifecycle as a thin layer on stock GTK, with no intent to upstream.
 
-> This book tracks the development tip. Features tagged *New in vN* may not be in a tagged release yet - the [Changelog](changelog.md) says what each release includes.
-
 ## What is Broadway? {#broadway}
 
-Broadway is GTK's HTML5 backend: instead of drawing to a local display (Wayland, X11, Win32, macOS), it renders the app into a web browser over a WebSocket. A `gtk4-broadwayd` daemon owns a virtual display and serves a page; any browser that connects to it sees and drives the running GTK app. No app code changes - the same binary picks Broadway through `GDK_BACKEND=broadway`. That makes it the simplest way to put a native GTK app on a screen it was never built for: a phone browser, a remote machine, a kiosk.
+Broadway is GTK's HTML5 backend: instead of drawing to a local display (Wayland, X11, Win32, macOS), it renders the app into a web browser over a WebSocket. A `gtk4-broadwayd` daemon owns a virtual display and serves a page; any browser that connects to it sees and drives the running GTK app. No app code changes - the same binary picks Broadway through `GDK_BACKEND=broadway`. That makes it a way to put a native GTK app on a screen it was never built for: a phone browser, a remote machine, a kiosk.
 
 It started as Alexander Larsson's frame-streaming prototype ([2010](https://blogs.gnome.org/alexl/2010/11/26/gtk-3-0-html5-backend/), merged for GTK 3.2). GTK4 reworked it around the render-node pipeline ([Larsson, 2019](https://blogs.gnome.org/alexl/2019/03/29/broadway-adventures-in-gtk4/)): the GSK Broadway renderer turns the app's render nodes into a compact node stream the browser reconstructs in the DOM, rasterizing with cairo only what Broadway can't express. That node-stream design is what the fork builds on ([Architecture](internals/architecture.md)).
 
@@ -16,7 +14,7 @@ Broadway always stayed an experimental, lightly-maintained corner of GTK, and in
 
 - **Thin layer on GTK4.** The patches touch only the Broadway backend, never app-facing GTK API, and stay close to upstream so each GTK4 point release can be re-forked with a minimal diff. The fork lives only as long as GTK4 itself.
 - **Accurate rendering.** What the browser shows should match what the app draws: correct scaling, no white flashes, no stretched bitmaps, crisp output under HiDPI and zoom.
-- **Full touch and mobile support.** Treat touch and mobile as primary targets, not something bolted on after the fact. Touch text editing, the on-screen keyboard, IME, and pinch-zoom should work as well as mouse and keyboard.
+- **Any browser, any device.** Treat touch and mobile as primary targets, not something bolted on after the fact. Touch text editing, the on-screen keyboard, IME, and pinch-zoom should work as well as mouse and keyboard.
 - **Match the GNOME/Mutter/Adwaita experience.** The same interactions should behave the way they do under a real compositor, so a Broadway session works like a normal GTK desktop rather than a degraded remote view.
 - **Performance and stability.** Stay stable: no crashes, no wedged input, no dropped sessions. Reconnect in place and survive screen-off, network handovers, and surface churn.
 
@@ -36,6 +34,4 @@ Broadway always stayed an experimental, lightly-maintained corner of GTK, and in
 
 The patched GTK is built Broadway-only and published as a Debian package, `gtk4-brotway`, that overlays stock `libgtk-4-1` / `libgtk-4-bin`. It replaces only `libgtk-4.so` and the `gtk4-broadwayd` daemon, leaving the rest of GTK in place ([Installation](guide/installation.md)).
 
-Multiple GTK bases are maintained in parallel, each built for amd64 and arm64 ([Supported versions](guide/versions.md)).
-
-> Chapters are version-agnostic; base differences (e.g. a Meson flag rename) are called out inline.
+The base, GTK 4.22.4 (`4.22.4-brotway`), is built for amd64 and arm64 ([Supported versions](guide/versions.md)).

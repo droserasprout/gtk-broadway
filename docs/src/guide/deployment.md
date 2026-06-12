@@ -1,6 +1,6 @@
 # Deploying behind TLS
 
-[Installation](installation.md) and [Running broadwayd](running.md) cover a single local session. This page is the operator view: serving the fork to real clients over the network, which means a container and a TLS terminator.
+[Installation](installation.md) and [Running broadwayd](running.md) cover a single local session. This page is the operator view: serving the fork to real clients over the network, with a container and a TLS terminator.
 
 ## Why TLS is not optional
 

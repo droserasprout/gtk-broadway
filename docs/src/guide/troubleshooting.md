@@ -42,4 +42,4 @@ A `4.22.4` deb on a system with a different GTK SONAME leaves a dangling link an
 
 ## Iterating on a change that didn't take effect
 
-Reloading the browser alone never picks up a `libgtk` change - which changes need a daemon restart vs a library rebuild plus app restart is in [broadwayd vs libgtk](../internals/build-split.md).
+Reloading the browser never picks up a `libgtk` change. What needs a daemon restart vs a rebuild plus app restart is in [broadwayd vs libgtk](../internals/build-split.md).
