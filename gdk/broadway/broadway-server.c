@@ -822,6 +822,9 @@ static GPid     menu_pid = 0;
 static GSocket *menu_sock = NULL;        /* daemon end of the control socketpair */
 static guint    menu_stats_timer = 0;
 static GSource *menu_read_source = NULL;
+static gint64   menu_spawn_failed_at = 0; /* monotonic time of last failed spawn */
+
+#define MENU_SPAWN_RETRY_US (10 * G_USEC_PER_SEC)
 
 static void
 menu_control_teardown (void)
@@ -1060,6 +1063,12 @@ broadway_server_summon_menu (BroadwayServer *server)
       return;
     }
 
+  /* EVENT_MENU comes from the untrusted browser: after a failed spawn (e.g.
+   * binary not installed) back off, don't fork/exec on every event. */
+  if (menu_spawn_failed_at != 0 &&
+      g_get_monotonic_time () - menu_spawn_failed_at < MENU_SPAWN_RETRY_US)
+    return;
+
   if (socketpair (AF_UNIX, SOCK_STREAM, 0, sv) != 0)
     {
       g_warning ("broadway: debug menu socketpair failed: %s", g_strerror (errno));
@@ -1094,10 +1103,12 @@ broadway_server_summon_menu (BroadwayServer *server)
                  cmd, error->message);
       g_clear_error (&error);
       menu_pid = 0;
+      menu_spawn_failed_at = g_get_monotonic_time ();
       close (sv[0]);
     }
   else
     {
+      menu_spawn_failed_at = 0;
       /* The next non-popup surface to appear is the menu: pin it on top. */
       server->expecting_menu_surface = TRUE;
       g_child_watch_add (menu_pid, menu_child_exited, server);
