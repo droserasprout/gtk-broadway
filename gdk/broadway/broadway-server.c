@@ -111,6 +111,10 @@ struct _BroadwayServer {
   guint32 pointer_grab_time;
   gboolean pointer_grab_owner_events;
 
+  /* Active touch sequences: sequence id -> client the BEGIN was routed to,
+   * so the rest of the sequence follows even across grab changes. */
+  GHashTable *touch_sequences;
+
   /* Future data, from the currently queued events */
   int future_root_x;
   int future_root_y;
@@ -320,6 +324,7 @@ broadway_server_init (BroadwayServer *server)
   while (server->session_token == 0);
   server->textures = g_hash_table_new_full (g_direct_hash, g_direct_equal, NULL,
                                             (GDestroyNotify)broadway_texture_free);
+  server->touch_sequences = g_hash_table_new (NULL, NULL);
 
   root = g_new0 (BroadwaySurface, 1);
   root->id = server->id_counter++;
@@ -356,6 +361,7 @@ broadway_server_finalize (GObject *object)
   g_free (server->ssl_cert);
   g_free (server->ssl_key);
   g_hash_table_destroy (server->textures);
+  g_hash_table_destroy (server->touch_sequences);
 
   G_OBJECT_CLASS (broadway_server_parent_class)->finalize (object);
 }
@@ -461,8 +467,11 @@ update_event_state (BroadwayServer *server,
     server->real_mouse_in_surface_id = message->pointer.mouse_surface_id;
     break;
   case BROADWAY_EVENT_TOUCH:
+    /* Like BUTTON_PRESS above: while a pointer grab (popup) is live, a tap
+     * must not raise/refocus past it and churn the grab down. */
     if (message->touch.touch_type == 0 && message->touch.is_emulated &&
-        server->focused_surface_id != message->touch.event_surface_id)
+        server->focused_surface_id != message->touch.event_surface_id &&
+        server->pointer_grab_surface_id == -1)
       {
         BroadwaySurface *touched =
           broadway_server_lookup_surface (server, message->touch.event_surface_id);
@@ -613,7 +622,26 @@ process_input_message (BroadwayServer *server,
   else
     client = -1;
 
-  if (is_pointer_event (message) &&
+  if (message->base.type == BROADWAY_EVENT_TOUCH)
+    {
+      /* Touch follows the pointer grab too, but routed per sequence: the
+       * client picked at BEGIN keeps the rest of the sequence, so UPDATE/END
+       * aren't split across clients when a grab starts or ends mid-touch. */
+      gpointer key = GUINT_TO_POINTER (message->touch.sequence_id);
+      gpointer val;
+
+      if (message->touch.touch_type != 0 &&
+          g_hash_table_lookup_extended (server->touch_sequences, key, NULL, &val))
+        client = GPOINTER_TO_INT (val);
+      else if (server->pointer_grab_surface_id != -1)
+        client = server->pointer_grab_client_id;
+
+      if (message->touch.touch_type == 0) /* begin */
+        g_hash_table_replace (server->touch_sequences, key, GINT_TO_POINTER (client));
+      else if (message->touch.touch_type == 2 || message->touch.touch_type == 3) /* end/cancel */
+        g_hash_table_remove (server->touch_sequences, key);
+    }
+  else if (is_pointer_event (message) &&
       server->pointer_grab_surface_id != -1)
     client = server->pointer_grab_client_id;
 
