@@ -1859,7 +1859,8 @@ start (BroadwayInput *input)
 
   broadway_server_resync_surfaces (server);
 
-  if (server->pointer_grab_surface_id != -1)
+  /* The resync flushes may have dropped the output on a write error. */
+  if (server->pointer_grab_surface_id != -1 && server->output)
     broadway_output_grab_pointer (server->output,
                                   server->pointer_grab_surface_id,
                                   server->pointer_grab_owner_events);
@@ -2930,7 +2931,10 @@ broadway_server_resync_surfaces (BroadwayServer *server)
   if (server->output == NULL)
     return;
 
-  /* First upload all textures */
+  /* First upload all textures. Flush each one as its own ws frame: a single
+   * giant frame gives the client no onmessage (= no liveness signal) until
+   * the whole resync lands, which on a slow link looks like a dead socket.
+   * The flush can drop the output on a write error, so re-check it. */
   g_hash_table_iter_init (&iter, server->textures);
   while (g_hash_table_iter_next (&iter, &key, &value))
     {
@@ -2938,6 +2942,9 @@ broadway_server_resync_surfaces (BroadwayServer *server)
       broadway_output_upload_texture (server->output,
                                       GPOINTER_TO_INT (key),
                                       texture->bytes);
+      broadway_server_flush (server);
+      if (server->output == NULL)
+        return;
     }
 
   /* Then create all surfaces */
