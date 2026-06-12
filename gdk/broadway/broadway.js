@@ -2104,6 +2104,14 @@ function applyKeyboard() {
         fakeInput.blur();
 }
 
+/* Reset the OSK input after consuming its text. On Android Chrome refill the
+ * space buffer (see applyKeyboard): on a visually empty field GBoard stops
+ * emitting deleteContentBackward, killing backspace. Assigning .value also
+ * puts the cursor back at the end. */
+function resetFakeInputValue() {
+    fakeInput.value = isAndroidChrome ? ' '.repeat(80) : "";
+}
+
 /* Fallback path: re-assert the keyboard state on a touch (a real gesture), in
  * case applyKeyboard() ran while the transient activation window was closed. */
 function updateKeyboardStatus() {
@@ -4741,6 +4749,18 @@ function connect()
              * Composition (insertCompositionText) is handled on compositionend. */
             if (imeComposing)
                 return;
+            /* OSK backspace/delete also arrive only as keyCode-229 keydowns;
+             * the usable signal is this beforeinput. Forward a key pair and
+             * keep the space buffer intact. */
+            if (ev.inputType === "deleteContentBackward" ||
+                ev.inputType === "deleteContentForward") {
+                var keysym = (ev.inputType === "deleteContentBackward") ? 0xFF08 : 0xFFFF;
+                var state = lastState & ~(GDK_SHIFT_MASK|GDK_CONTROL_MASK|GDK_ALT_MASK);
+                sendInput(BROADWAY_EVENT_KEY_PRESS, [keysym, state]);
+                sendInput(BROADWAY_EVENT_KEY_RELEASE, [keysym, state]);
+                ev.preventDefault();
+                return;
+            }
             if (ev.inputType === "insertText" ||
                 ev.inputType === "insertReplacementText") {
                 /* Latin keys fire both keyPress and beforeinput; don't re-send the
@@ -4755,7 +4775,7 @@ function connect()
                     return;
                 if (ev.data) {
                     commitTextToGtk(ev.data);
-                    fakeInput.value = "";
+                    resetFakeInputValue();
                 }
                 ev.preventDefault();
             }
@@ -4772,7 +4792,7 @@ function connect()
             lastCompositionText = ev.data || "";
             if (ev.data)
                 commitTextToGtk(ev.data);
-            fakeInput.value = "";
+            resetFakeInputValue();
         });
     }
 }
