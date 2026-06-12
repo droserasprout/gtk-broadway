@@ -3038,10 +3038,14 @@ broadway_server_resync_surfaces (BroadwayServer *server)
   if (server->output == NULL)
     return;
 
-  /* First upload all textures. Flush each one as its own ws frame: a single
-   * giant frame gives the client no onmessage (= no liveness signal) until
-   * the whole resync lands, which on a slow link looks like a dead socket.
+  /* First upload all textures. One giant frame gives the client no onmessage
+   * (= no liveness signal) until the whole resync lands, which on a slow link
+   * looks like a dead socket; but a flush per texture turns a many-texture
+   * resync into one ws frame per texture - hundreds of client macrotasks
+   * (Blob/Image/decode each), seconds of blank before the nodes paint. Flush
+   * in ~128KB batches: liveness keeps flowing without the per-frame fan-out.
    * The flush can drop the output on a write error, so re-check it. */
+  gsize pending = 0;
   g_hash_table_iter_init (&iter, server->textures);
   while (g_hash_table_iter_next (&iter, &key, &value))
     {
@@ -3049,9 +3053,14 @@ broadway_server_resync_surfaces (BroadwayServer *server)
       broadway_output_upload_texture (server->output,
                                       GPOINTER_TO_INT (key),
                                       texture->bytes);
-      broadway_server_flush (server);
-      if (server->output == NULL)
-        return;
+      pending += g_bytes_get_size (texture->bytes);
+      if (pending >= 128 * 1024)
+        {
+          broadway_server_flush (server);
+          if (server->output == NULL)
+            return;
+          pending = 0;
+        }
     }
 
   /* Then create all surfaces */
