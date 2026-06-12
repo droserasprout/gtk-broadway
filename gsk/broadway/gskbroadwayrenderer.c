@@ -472,8 +472,12 @@ broadway_text_node_hash (GskRenderNode *node, float offset_x, float offset_y)
   const GdkRGBA *color = gsk_text_node_get_color (node);
   const graphene_point_t *off = gsk_text_node_get_offset (node);
   guint64 h = 1469598103934665603ULL;
+  /* All four hashes share one content_lookup namespace; tag each with its node
+   * type so a cross-type collision can't REUSE the wrong kind of node. */
+  guint32 tag = GSK_TEXT_NODE;
   guint i;
 
+  MIX (&tag, sizeof tag);
   MIX (&font, sizeof font);
   MIX (color, sizeof *color);
   MIX (off, sizeof *off);
@@ -496,7 +500,9 @@ broadway_texture_node_hash (GdkTexture *texture, GskRenderNode *node,
                             float offset_x, float offset_y)
 {
   guint64 h = 1469598103934665603ULL;
+  guint32 tag = GSK_TEXTURE_NODE;
 
+  MIX (&tag, sizeof tag);
   MIX (&texture, sizeof texture);
   MIX (&node->bounds, sizeof node->bounds);
   MIX (&offset_x, sizeof offset_x);
@@ -514,7 +520,9 @@ broadway_colorized_node_hash (GdkTexture *texture,
                               GskRenderNode *child, float offset_x, float offset_y)
 {
   guint64 h = 1469598103934665603ULL;
+  guint32 tag = GSK_COLOR_MATRIX_NODE;
 
+  MIX (&tag, sizeof tag);
   MIX (&texture, sizeof texture);
   MIX (color_matrix, sizeof *color_matrix);
   MIX (color_offset, sizeof *color_offset);
@@ -532,7 +540,9 @@ broadway_color_node_hash (const GdkRGBA *color, GskRenderNode *node,
                           float offset_x, float offset_y)
 {
   guint64 h = 1469598103934665603ULL;
+  guint32 tag = GSK_COLOR_NODE;
 
+  MIX (&tag, sizeof tag);
   MIX (color, sizeof *color);
   MIX (&node->bounds, sizeof node->bounds);
   MIX (&offset_x, sizeof offset_x);
