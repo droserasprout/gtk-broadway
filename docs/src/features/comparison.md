@@ -6,57 +6,57 @@ Rows are grouped by category. Most of the bottom half (windowing, platform integ
 
 Legend: **🟢** full support, **🟡** partial/workaround/caveats, **🔴** not supported, **⚪** not applicable.
 
-| Feature | Wayland | X11 | Win32 | macOS | Broadway | **Brotway** |
+| Feature | **Brotway** | Broadway | Wayland | macOS | Win32 | X11 |
 |---------|:---:|:---:|:---:|:---:|:---:|:---:|
 | **Clipboard & drag-and-drop** | | | | | | |
-| Text clipboard (host read/write) | 🟢 | 🟢 | 🟢 | 🟢 | 🔴 | 🟢 [^clip] |
-| Rich clipboard / images / mimetypes | 🟢 | 🟢 | 🟢 | 🟢 | 🔴 | 🔴 [^rich] |
-| PRIMARY selection (middle-click) | 🟢 | 🟢 | 🔴 | 🔴 | 🔴 | 🔴 [^primary] |
-| Drag-and-drop within app | 🟢 | 🟢 | 🟢 | 🟢 | 🟡 | 🟡 |
-| Drag-and-drop cross-process | 🟢 | 🟢 | 🟢 | 🟢 | 🔴 | 🔴 [^dnd] |
+| Text clipboard (host read/write) | 🟢 [^clip] | 🔴 | 🟢 | 🟢 | 🟢 | 🟢 |
+| Rich clipboard / images / mimetypes | 🔴 [^rich] | 🔴 | 🟢 | 🟢 | 🟢 | 🟢 |
+| PRIMARY selection (middle-click) | 🔴 [^primary] | 🔴 | 🟢 | 🔴 | 🔴 | 🟢 |
+| Drag-and-drop within app | 🟡 | 🟡 | 🟢 | 🟢 | 🟢 | 🟢 |
+| Drag-and-drop cross-process | 🔴 [^dnd] | 🔴 | 🟢 | 🟢 | 🟢 | 🟢 |
 | **Touch & input** | | | | | | |
-| Touch input / touchscreen events | 🟢 | 🟢 | 🟢 | 🟢 | 🔴 [^touchstock] | 🟢 |
-| Touch text-selection UI (handles + bubble) | 🟢 | 🟢 | 🟢 | 🟢 | 🔴 | 🟢 |
-| Multi-touch gesture (pinch-zoom UI) | 🟢 | 🟢 | 🟡 | 🟢 | 🔴 | 🟢 [^zoom] |
-| Tablet / stylus input (pressure, tilt, tool) | 🟢 | 🟢 | 🟢 | 🟢 | 🔴 | 🔴 [^stylus] |
-| On-screen keyboard sync | 🟢 | 🟢 | 🟢 | 🟢 | 🔴 | 🟡 [^osk] |
-| IME / non-Latin / preedit | 🟢 | 🟢 | 🟢 | 🟢 | 🔴 | 🟡 [^ime] |
-| Smooth / touchpad scroll-source detection | 🟢 | 🟢 | 🟢 | 🟡 | 🟡 | 🟡 [^scroll] |
-| Keyboard layout groups | 🟢 | 🟡 | 🔴 | 🔴 | 🔴 | 🔴 |
-| Inhibit system shortcuts (grab all keys) | 🟢 | 🟢 | 🟢 | 🔴 | 🔴 | 🔴 |
-| Named mouse cursors (resize / text / pointer) | 🟢 | 🟢 | 🟢 | 🟢 | 🔴 | 🟢 [^cursor] |
+| Touch input / touchscreen events | 🟢 | 🔴 [^touchstock] | 🟢 | 🟢 | 🟢 | 🟢 |
+| Touch text-selection UI (handles + bubble) | 🟢 | 🔴 | 🟢 | 🟢 | 🟢 | 🟢 |
+| Multi-touch gesture (pinch-zoom UI) | 🟢 [^zoom] | 🔴 | 🟢 | 🟢 | 🟡 | 🟢 |
+| Tablet / stylus input (pressure, tilt, tool) | 🔴 [^stylus] | 🔴 | 🟢 | 🟢 | 🟢 | 🟢 |
+| On-screen keyboard sync | 🟡 [^osk] | 🔴 | 🟢 | 🟢 | 🟢 | 🟢 |
+| IME / non-Latin / preedit | 🟡 [^ime] | 🔴 | 🟢 | 🟢 | 🟢 | 🟢 |
+| Smooth / touchpad scroll-source detection | 🟡 [^scroll] | 🟡 | 🟢 | 🟡 | 🟢 | 🟢 |
+| Keyboard layout groups | 🔴 | 🔴 | 🟢 | 🔴 | 🔴 | 🟡 |
+| Inhibit system shortcuts (grab all keys) | 🔴 | 🔴 | 🟢 | 🔴 | 🟢 | 🟢 |
+| Named mouse cursors (resize / text / pointer) | 🟢 [^cursor] | 🔴 | 🟢 | 🟢 | 🟢 | 🟢 |
 | **Rendering** | | | | | | |
-| OpenGL rendering | 🟢 | 🟢 | 🟢 | 🔴 | 🔴 | 🔴 [^render] |
-| Vulkan rendering | 🟢 | 🟡 | 🟢 | 🟢 | 🔴 | 🔴 [^render] |
+| OpenGL rendering | 🔴 [^render] | 🔴 | 🟢 | 🔴 | 🟢 | 🟢 |
+| Vulkan rendering | 🔴 [^render] | 🔴 | 🟢 | 🟢 | 🟢 | 🟡 |
 | Cairo / software rendering | 🟢 | 🟢 | 🟢 | 🟢 | 🟢 | 🟢 |
-| DMA-BUF texture import | 🟢 [^dmabuf] | 🔴 | 🔴 | 🔴 | 🔴 | 🔴 |
-| Graphics offload / video subsurfaces | 🟢 [^offload] | 🔴 | 🔴 | 🔴 | 🔴 | 🔴 |
-| HDR / wide-gamut color (`GdkColorState`) | 🟢 | 🔴 | 🔴 | 🟡 | 🔴 | 🔴 |
-| Presentation-time / vsync feedback | 🟢 | 🟡 | 🟡 | 🟡 | 🔴 | 🔴 |
+| DMA-BUF texture import | 🔴 | 🔴 | 🟢 [^dmabuf] | 🔴 | 🔴 | 🔴 |
+| Graphics offload / video subsurfaces | 🔴 | 🔴 | 🟢 [^offload] | 🔴 | 🔴 | 🔴 |
+| HDR / wide-gamut color (`GdkColorState`) | 🔴 | 🔴 | 🟢 | 🟡 | 🔴 | 🔴 |
+| Presentation-time / vsync feedback | 🔴 | 🔴 | 🟢 | 🟡 | 🟡 | 🟡 |
 | **Scaling & monitors** | | | | | | |
-| HiDPI integer scaling | 🟢 | 🟢 | 🟢 | 🟢 | 🟡 | 🟢 [^hidpi] |
-| Fractional scaling | 🟢 [^frac] | 🔴 | 🔴 | 🟢 [^frac] | 🔴 | 🔴 [^forkfrac] |
-| Multiple monitors | 🟢 | 🟢 | 🟢 | 🟢 | 🟡 | 🟡 |
+| HiDPI integer scaling | 🟢 [^hidpi] | 🟡 | 🟢 | 🟢 | 🟢 | 🟢 |
+| Fractional scaling | 🔴 [^forkfrac] | 🔴 | 🟢 [^frac] | 🟢 [^frac] | 🔴 | 🔴 |
+| Multiple monitors | 🟡 | 🟡 | 🟢 | 🟢 | 🟢 | 🟢 |
 | **Session & connection** | | | | | | |
-| Session reconnect after network drop / sleep | ⚪ | ⚪ | ⚪ | ⚪ | 🔴 | 🟢 [^reconn] |
-| Pause rendering while not visible | 🟢 | 🟡 | 🟡 | 🟢 | 🔴 | 🟢 [^suspend] |
+| Session reconnect after network drop / sleep | 🟢 [^reconn] | 🔴 | ⚪ | ⚪ | ⚪ | ⚪ |
+| Pause rendering while not visible | 🟢 [^suspend] | 🔴 | 🟢 | 🟢 | 🟡 | 🟡 |
 | **Windowing** | | | | | | |
 | Client-side decorations | 🟢 | 🟢 | 🟢 | 🟢 | 🟢 | 🟢 |
-| Server-side decorations | 🟢 | 🔴 | 🟢 | 🟢 | ⚪ | ⚪ [^deco] |
+| Server-side decorations | ⚪ [^deco] | ⚪ | 🟢 | 🟢 | 🟢 | 🔴 |
 | Multiple top-level windows | 🟢 | 🟢 | 🟢 | 🟢 | 🟢 | 🟢 |
 | Window transparency / RGBA | 🟢 | 🟢 | 🟢 | 🟢 | 🟢 | 🟢 |
-| WM stacking & workspace hints (keep above/below, lower, sticky) | 🔴 | 🟢 | 🟡 [^stack] | 🟡 [^stack] | 🔴 | 🔴 |
-| Startup notification / window handle export (xdg-activation) | 🟢 | 🟢 | 🔴 | 🔴 | 🔴 | 🔴 |
-| Server window menu (`show_window_menu`) | 🟡 | 🟢 | 🟢 | 🔴 | 🔴 | 🔴 |
-| Tiled-edge constraints | 🟢 | 🟢 | 🔴 | 🔴 | 🔴 | 🔴 |
+| WM stacking & workspace hints (keep above/below, lower, sticky) | 🔴 | 🔴 | 🔴 | 🟡 [^stack] | 🟡 [^stack] | 🟢 |
+| Startup notification / window handle export (xdg-activation) | 🔴 | 🔴 | 🟢 | 🔴 | 🔴 | 🟢 |
+| Server window menu (`show_window_menu`) | 🔴 | 🔴 | 🟡 | 🔴 | 🟢 | 🟢 |
+| Tiled-edge constraints | 🔴 | 🔴 | 🟢 | 🔴 | 🔴 | 🟢 |
 | **UI surfaces** | | | | | | |
-| Tooltips | 🟢 | 🟢 | 🟢 | 🟢 | 🟢 | 🟢 [^tooltip] |
-| Popovers / autohide popups | 🟢 | 🟢 | 🟢 | 🟢 | 🟢 | 🟢 [^popup] |
+| Tooltips | 🟢 [^tooltip] | 🟢 | 🟢 | 🟢 | 🟢 | 🟢 |
+| Popovers / autohide popups | 🟢 [^popup] | 🟢 | 🟢 | 🟢 | 🟢 | 🟢 |
 | **Platform integration** | | | | | | |
-| `gtk_show_uri` / open external URIs | 🟢 | 🟢 | 🟢 | 🟢 | 🔴 | 🟢 [^uri] |
+| `gtk_show_uri` / open external URIs | 🟢 [^uri] | 🔴 | 🟢 | 🟢 | 🟢 | 🟢 |
 | System tray / status icon | 🔴 | 🔴 | 🔴 | 🔴 | 🔴 | 🔴 |
-| Accessibility bridge | 🟢 [^a11y] | 🟢 [^a11y] | 🟢 [^a11y] | 🟢 [^a11y] | 🔴 | 🔴 |
-| Desktop settings (dark mode / accent / fonts) | 🟢 [^settings] | 🟢 [^settings] | 🟡 | 🟢 [^settings] | 🔴 | 🔴 |
+| Accessibility bridge | 🔴 | 🔴 | 🟢 [^a11y] | 🟢 [^a11y] | 🟢 [^a11y] | 🟢 [^a11y] |
+| Desktop settings (dark mode / accent / fonts) | 🔴 | 🔴 | 🟢 [^settings] | 🟢 [^settings] | 🟡 | 🟢 [^settings] |
 
 ## What the fork adds over stock Broadway
 
