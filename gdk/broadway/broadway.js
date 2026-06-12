@@ -1488,6 +1488,10 @@ function handleCommands(cmd, display_commands, new_textures, modified_trees)
         case BROADWAY_OP_SHOW_SURFACE:
             id = cmd.get_16();
             surface = surfaces[id];
+            if (!surface) {
+                console.warn("broadway: SHOW_SURFACE references unknown surface " + id);
+                break;
+            }
             if (!surface.visible) {
                 surface.visible = true;
                 display_commands.push([DISPLAY_OP_SHOW_SURFACE, surface.div, surface.x, surface.y]);
@@ -1500,6 +1504,10 @@ function handleCommands(cmd, display_commands, new_textures, modified_trees)
             if (grab.surface == id)
                 doUngrab();
             surface = surfaces[id];
+            if (!surface) {
+                console.warn("broadway: HIDE_SURFACE references unknown surface " + id);
+                break;
+            }
             if (surface.visible) {
                 surface.visible = false;
                 display_commands.push([DISPLAY_OP_HIDE_SURFACE, surface.div]);
@@ -1553,6 +1561,10 @@ function handleCommands(cmd, display_commands, new_textures, modified_trees)
                 doUngrab();
 
             surface = surfaces[id];
+            if (!surface) {
+                console.warn("broadway: DESTROY_SURFACE references unknown surface " + id);
+                break;
+            }
             var i = stackingOrder.indexOf(surface);
             if (i >= 0)
                 stackingOrder.splice(i, 1);
@@ -1575,6 +1587,13 @@ function handleCommands(cmd, display_commands, new_textures, modified_trees)
             var has_pos = ops & 1;
             var has_size = ops & 2;
             surface = surfaces[id];
+            if (!surface) {
+                /* Consume the payload so the command stream stays in sync. */
+                if (has_pos) { cmd.get_16s(); cmd.get_16s(); }
+                if (has_size) { cmd.get_16(); cmd.get_16(); }
+                console.warn("broadway: MOVE_RESIZE references unknown surface " + id);
+                break;
+            }
             if (has_pos) {
                 surface.x = cmd.get_16s();
                 surface.y = cmd.get_16s();
@@ -1630,6 +1649,11 @@ function handleCommands(cmd, display_commands, new_textures, modified_trees)
 
                 var node_data = cmd.get_nodes ();
                 surface = surfaces[id];
+                if (!surface) {
+                    /* Payload already consumed above, safe to skip. */
+                    console.warn("broadway: SET_NODES references unknown surface " + id);
+                    break;
+                }
                 var transform_nodes = new TransformNodes (node_data, surface.div, surface.nodes, display_commands);
                 transform_nodes.execute();
             }
