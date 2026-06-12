@@ -325,6 +325,9 @@ var clientId = 0;              /* server-assigned id; sent back as ?cid= on reco
 var sessionInvalidated = false;/* true => give up, show disconnected until manual refresh */
 var reconnecting = false;      /* true while the dim+spinner overlay is up */
 var tabSuspended = false;       /* true while we've told GTK to freeze rendering (tab hidden) */
+var suspendTimer = null;       /* debounce hidden->SUSPEND so an unloading tab never freezes */
+var pageUnloading = false;     /* set on pagehide/beforeunload: never SUSPEND while leaving */
+var SUSPEND_DEBOUNCE_MS = 400; /* a reload/close tears the page down well within this */
 var reconnectTimer = null;
 var reconnectDelay = 0;        /* backoff in ms */
 var awaitFirstFrame = false;   /* drop the overlay once the resync repaints */
@@ -4410,7 +4413,12 @@ function start()
             sendVisibility(false);
         }
     });
-    window.addEventListener("pageshow", onVisible);
+    /* A reload/close hides the page then tears it down; latch that so the
+     * hidden->SUSPEND path bails. Freezing a leaving page only strands the
+     * freeze for the next page to race-undo (the blank-on-reload bug). */
+    window.addEventListener("pagehide", function () { pageUnloading = true; });
+    window.addEventListener("beforeunload", function () { pageUnloading = true; });
+    window.addEventListener("pageshow", function () { pageUnloading = false; onVisible(); });
     window.addEventListener("online", reconnectNow);
     window.addEventListener("offline", handleConnectionLost);
     startHeartbeat();
@@ -4647,16 +4655,43 @@ function onVisible()
  * backgrounded tab streams no frames. Only meaningful on a live socket: if the
  * link is down, RESUME is moot (the reconnect resync repaints anyway) and
  * SUSPEND is moot (nothing is being sent). Guarded against redundant sends so
- * we don't spam the daemon on rapid focus toggles. */
-function sendVisibility(visible)
+ * we don't spam the daemon on rapid focus toggles.
+ *
+ * SUSPEND is DEBOUNCED and skipped while unloading: a reload/close fires
+ * visibilitychange->hidden, but freezing then is harmful - the socket dies in
+ * ms and the freeze outlives the page, so the next page must win a cross-socket
+ * race with its RESUME to thaw. Lose that race (lingering old socket on
+ * Firefox/Chromium) and the fresh page stays frozen = blank. So only a tab that
+ * really stays hidden (survives the debounce, not unloading) suspends. */
+function flushSuspend(suspend)
 {
-    var want = !visible;           /* desired GTK-suspended state */
-    if (tabSuspended === want)
+    if (tabSuspended === suspend)
         return;                    /* already in the requested state */
     if (!ws || ws.readyState !== WebSocket.OPEN || inputSocket == null)
         return;                    /* can't signal now; ws.onopen re-asserts on reconnect */
-    tabSuspended = want;           /* only flip once the signal is actually out */
-    sendInput(visible ? BROADWAY_EVENT_RESUME : BROADWAY_EVENT_SUSPEND, []);
+    tabSuspended = suspend;        /* only flip once the signal is actually out */
+    sendInput(suspend ? BROADWAY_EVENT_SUSPEND : BROADWAY_EVENT_RESUME, []);
+}
+
+function sendVisibility(visible)
+{
+    if (suspendTimer) {            /* a visibility change cancels any pending suspend */
+        clearTimeout(suspendTimer);
+        suspendTimer = null;
+    }
+    if (visible) {
+        flushSuspend(false);       /* thaw immediately */
+        return;
+    }
+    if (tabSuspended || pageUnloading)
+        return;                    /* already frozen, or the page is on its way out */
+    suspendTimer = setTimeout(function () {
+        suspendTimer = null;
+        /* Bail if we became visible again or the page is now leaving. */
+        if (document.visibilityState === "visible" || pageUnloading)
+            return;
+        flushSuspend(true);
+    }, SUSPEND_DEBOUNCE_MS);
 }
 
 /* Reconnect only if the link looks down, so a tab switch on a healthy socket
