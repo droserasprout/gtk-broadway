@@ -158,5 +158,9 @@ void                broadway_server_surface_set_input_region  (BroadwayServer *s
  * so it connects back to this same display. */
 void                broadway_server_set_display               (BroadwayServer *server,
                                                                const char     *display);
+/* Called by the daemon when a GTK client connects, so the server knows which
+ * clients predate a debug-menu summon. */
+void                broadway_server_client_connected          (BroadwayServer *server,
+                                                               guint32         client_id);
 
 

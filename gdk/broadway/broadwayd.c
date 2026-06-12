@@ -599,6 +599,7 @@ incoming_client (GSocketService    *service,
 
   client = g_new0 (BroadwayClient, 1);
   client->id = client_id_count++;
+  broadway_server_client_connected (server, client->id);
   client->connection = g_object_ref (connection);
   client->textures = g_hash_table_new_full (g_direct_hash, g_direct_equal, NULL, NULL);
 

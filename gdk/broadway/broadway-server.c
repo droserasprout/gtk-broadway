@@ -69,6 +69,9 @@ struct _BroadwayServer {
                        * toplevels (menu, gallery, dialogs) stay pinned above
                        * other surfaces, newest on top (0 => none) */
   gboolean expecting_menu_surface; /* tag the next toplevel as the debug menu */
+  guint32 last_gtk_client_id;   /* newest daemon (unix socket) client id seen */
+  guint32 menu_client_floor;    /* only clients newer than this at summon time
+                                 * can be the spawned menu */
   int show_keyboard;
 
   /* Debug-menu stats. session_id identifies this daemon run; the byte/frame
@@ -823,12 +826,20 @@ static GSocket *menu_sock = NULL;        /* daemon end of the control socketpair
 static guint    menu_stats_timer = 0;
 static GSource *menu_read_source = NULL;
 static gint64   menu_spawn_failed_at = 0; /* monotonic time of last failed spawn */
+static guint    menu_expect_timer = 0;    /* clears expecting_menu_surface if the
+                                           * spawned menu never maps a toplevel */
 
 #define MENU_SPAWN_RETRY_US (10 * G_USEC_PER_SEC)
+#define MENU_EXPECT_TIMEOUT_SECONDS 10
 
 static void
 menu_control_teardown (void)
 {
+  if (menu_expect_timer != 0)
+    {
+      g_source_remove (menu_expect_timer);
+      menu_expect_timer = 0;
+    }
   if (menu_stats_timer != 0)
     {
       g_source_remove (menu_stats_timer);
@@ -1033,6 +1044,18 @@ menu_on_readable (GSocket *sock, GIOCondition cond, gpointer user_data)
   return G_SOURCE_CONTINUE;
 }
 
+static gboolean
+menu_expect_timeout (gpointer user_data)
+{
+  BroadwayServer *server = user_data;
+
+  /* The menu never mapped a toplevel; stop expecting so a later unrelated
+   * surface isn't mis-tagged as the menu. */
+  server->expecting_menu_surface = FALSE;
+  menu_expect_timer = 0;
+  return G_SOURCE_REMOVE;
+}
+
 static void
 menu_child_exited (GPid pid, gint status, gpointer user_data)
 {
@@ -1109,8 +1132,16 @@ broadway_server_summon_menu (BroadwayServer *server)
   else
     {
       menu_spawn_failed_at = 0;
-      /* The next non-popup surface to appear is the menu: pin it on top. */
+      /* The menu is the next non-popup surface from a client that connects
+       * after this point: pin it on top. The floor keeps dialogs/drag surfaces
+       * from already-connected clients out; the timer stops expecting if the
+       * menu never maps. */
       server->expecting_menu_surface = TRUE;
+      server->menu_client_floor = server->last_gtk_client_id;
+      if (menu_expect_timer != 0)
+        g_source_remove (menu_expect_timer);
+      menu_expect_timer = g_timeout_add_seconds (MENU_EXPECT_TIMEOUT_SECONDS,
+                                                 menu_expect_timeout, server);
       g_child_watch_add (menu_pid, menu_child_exited, server);
 
       menu_sock = g_socket_new_from_fd (sv[0], NULL); /* takes ownership of sv[0] */
@@ -1138,6 +1169,16 @@ broadway_server_set_display (BroadwayServer *server,
 {
   g_free (server->display);
   server->display = g_strdup (display);
+}
+
+void
+broadway_server_client_connected (BroadwayServer *server,
+                                  guint32         client_id)
+{
+  /* Track the newest GTK client id so the menu matcher can tell clients that
+   * connected after the summon apart from pre-existing ones. */
+  if (client_id > server->last_gtk_client_id)
+    server->last_gtk_client_id = client_id;
 }
 
 static void
@@ -2924,12 +2965,20 @@ broadway_server_new_surface (BroadwayServer *server,
   else
     fake_configure_notify (server, surface);
 
-  if (server->expecting_menu_surface && !is_popup)
+  if (server->expecting_menu_surface && !is_popup &&
+      client > server->menu_client_floor)
     {
       /* First toplevel from the spawned debug menu: pin its whole client
-       * (menu window + gallery + dialogs) above all other surfaces. */
+       * (menu window + gallery + dialogs) above all other surfaces. Only a
+       * client that connected after the summon qualifies; client ids are
+       * monotonic, so anything at or below the floor predates the spawn. */
       server->expecting_menu_surface = FALSE;
       server->menu_owner = surface->owner;
+      if (menu_expect_timer != 0)
+        {
+          g_source_remove (menu_expect_timer);
+          menu_expect_timer = 0;
+        }
     }
 
   /* Keep the menu toplevels on top; a freshly mapped one (e.g. the gallery) was
