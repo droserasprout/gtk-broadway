@@ -2971,8 +2971,11 @@ gtk_notebook_gesture_pressed (GtkGestureClick *gesture,
 
   /* Touch: defer selecting the tab to release, so a drag along the tab strip can
    * pan between tabs (gtk_notebook_tab_scroll_*) instead of switching the page.
-   * A plain tap selects the recorded tab in gtk_notebook_tab_scroll_end(). */
-  if (event_is_touch (event))
+   * Only when the strip can actually pan; otherwise fall through to the normal
+   * press path (focus handoff, reorder/detach arming). */
+  if (event_is_touch (event) &&
+      gtk_notebook_tab_pixel_scroll (notebook) &&
+      gtk_notebook_tab_pan_max (notebook) > 0)
     {
       notebook->touch_press_tab = get_tab_at_pos (notebook, x, y);
       notebook->touch_scrolling = FALSE;
@@ -3210,8 +3213,10 @@ gtk_notebook_gesture_released (GtkGestureClick *gesture,
 
   /* Touch: a press on a tab deferred its selection (see gtk_notebook_gesture_pressed).
    * Commit it now on release -- unless the gesture became a tab-strip pan, which
-   * claims the sequence and cancels this gesture instead of releasing it. */
-  if (event_is_touch (event))
+   * claims the sequence and cancels this gesture instead of releasing it. A touch
+   * press that took the normal path (non-pannable strip) set pressed_button and
+   * must fall through like a mouse release to finish reorder/arrow handling. */
+  if (event_is_touch (event) && notebook->pressed_button == 0)
     {
       GList *tab = notebook->touch_press_tab;
 
