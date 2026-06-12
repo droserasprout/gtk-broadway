@@ -4500,6 +4500,16 @@ function resetClientState()
     firstTouchDownId = null;
     firstTouchDownRawId = null;
     activeTouches = {};
+    touchSurfaceIds = {};
+    pinchActive = false;
+    suppressTouchForward = false;
+    /* A grab held at disconnect may point at a dead surface id and would route
+     * all input there; the daemon re-asserts any live grab after the resync. */
+    grab.surface = null;
+    grab.ownerEvents = false;
+    grab.implicit = false;
+    lastState = 0;
+    pendingMove = null;
 }
 
 function onSessionToken(token, cid)
