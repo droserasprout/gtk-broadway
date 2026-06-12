@@ -917,9 +917,14 @@ TransformNodes.prototype.insertNode = function(parent, previousSibling, is_tople
                 border_colors[1] === border_colors[2] &&
                 border_colors[2] === border_colors[3]) {
                 var bg = previousSibling;
+                /* Size must agree too - an unrelated sibling (parent background,
+                 * separator) whose origin happens to fall within tolerance must
+                 * not donate its geometry to the border. */
                 if (bg && bg.tagName === "DIV" && bg.style.width &&
                     Math.abs(parseFloat(bg.style.left) - rrect.bounds.x) <= border_widths[0] + 1 &&
-                    Math.abs(parseFloat(bg.style.top) - rrect.bounds.y) <= border_widths[0] + 1) {
+                    Math.abs(parseFloat(bg.style.top) - rrect.bounds.y) <= border_widths[0] + 1 &&
+                    Math.abs(parseFloat(bg.style.width) - rrect.bounds.width) <= border_widths[0] + 1 &&
+                    Math.abs(parseFloat(bg.style.height) - rrect.bounds.height) <= border_widths[0] + 1) {
                     div.style["left"] = bg.style.left;
                     div.style["top"] = bg.style.top;
                     div.style["width"] = bg.style.width;
