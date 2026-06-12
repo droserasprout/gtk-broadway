@@ -5519,6 +5519,10 @@ gtk_label_content_detach (GdkContentProvider *provider,
 
   self->select_info->selection_anchor = self->select_info->selection_end;
 
+  /* same teardown as the other collapse paths: drop stale touch UI */
+  gtk_label_selection_bubble_popup_unset (self);
+  gtk_label_update_handles (self);
+
   gtk_widget_queue_draw (GTK_WIDGET (self));
 }
 
