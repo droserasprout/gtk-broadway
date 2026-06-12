@@ -8,6 +8,8 @@ Versioning is not semver: release tags are `vX[.Y]` (fork revision), package ver
 
 Project renamed to Brotway, a GTK4 Broadway fork.
 
+Highlights: the GTK cursor reaches the browser, taps no longer stick on Android Chrome, reconnect survives slow links and double drops, and stale display references no longer blank the UI.
+
 ### Added
 
 - **Dynamic cursor** - forward the GTK cursor shape to the browser as a CSS cursor
@@ -23,27 +25,21 @@ Project renamed to Brotway, a GTK4 Broadway fork.
 
 ### Fixed
 
-- Fixed reconnect loop after a network switch (backoff resets only on a confirmed session)
-- Icon and cell glyphs no longer drift a row under a scrolled list (translate node emitted in absolute, not parent-local, coordinates)
-- Popovers anchored outside the browser monitor now open instead of no-opping with a `Gdk-CRITICAL`
-- Touch: releases were sent with the raw browser id while presses sent the mapped one - on Android Chrome every tap left a stuck sequence (begin without end)
-- Touch: the cancel that aborts the first finger's tap at pinch-begin now actually reaches GTK on Android Chrome
-- Touch: sequences follow the pointer grab - no more tap-through past an open popup, no raise/focus churn while a grab is live
-- Android OSK: backspace and delete forwarded via `beforeinput`; GBoard's key buffer is refilled after each commit
-- Reconnect: a live connection is no longer declared dead while the initial resync is still streaming (60s first-message grace; resync textures flushed as separate frames)
-- Reconnect: a drop during resume no longer skips the client reset, which duplicated every window
-- Reconnect: grab, button and touch state are reset with the session, and surface cursors are replayed
-- Stale node/surface/texture references in display ops warn and skip instead of throwing away the rest of the frame batch
-- A texture patched onto an already-deleted node no longer leaks for the session
-- Borders no longer adopt size and corner radii from an unrelated neighboring node
-- Destroying and recreating a surface id in one batch no longer drops the new surface
-- Node reuse re-encodes when the enclosing clip moved, instead of replaying geometry against the stale offset
-- Texture dedup keys include the native format and color state, with a second hash against collisions
-- Colorized-texture cache eviction now actually frees the decoded copies
-- Label: the copy bubble dismisses when the selection collapses; dragging a selection handle keeps at least one character selected
-- Notebook: touch tab reorder and detach work again when the tab strip doesn't scroll; a non-overflowing strip no longer eats horizontal scroll
-- Tree view: tapping a row of a multi-selection collapses to it on release instead of doing nothing
-- Debug menu: failed spawns back off; the menu window is matched by client (other apps' dialogs no longer get pinned on top); traffic rate no longer wraps after a daemon restart
+- Touch: taps no longer stick on Android Chrome - releases carried the wrong sequence id, and the pinch-begin cancel was never delivered
+- Touch: sequences follow the pointer grab - no tap-through past an open popup, no raise/focus churn while a grab is live
+- Touch: on-screen keyboard backspace and delete now reach GTK; GBoard's key buffer is refilled after each commit
+- Reconnect: fixed reconnect loop after a network switch (backoff resets only on a confirmed session)
+- Reconnect: a slow initial resync is no longer killed mid-stream and looped (60s first-message grace; resync textures flushed as separate frames)
+- Reconnect: a drop during resume no longer duplicates every window; grab, button and touch state are reset and surface cursors replayed
+- Rendering: stale node/surface/texture references in display ops warn and skip instead of throwing away the rest of the frame batch, and no longer leak the patched texture
+- Rendering: node reuse re-encodes when the enclosing clip moved; destroying and recreating a surface id in one batch no longer drops the new surface
+- Rendering: texture dedup can no longer alias two different images; colorized-texture cache eviction actually frees the decoded copies
+- Rendering: icon and cell glyphs no longer drift a row under a scrolled list; borders no longer adopt geometry from an unrelated neighboring node
+- Rendering: popovers anchored outside the browser monitor now open instead of no-opping with a `Gdk-CRITICAL`
+- Widgets: the label copy bubble dismisses when the selection collapses; dragging a selection handle keeps at least one character selected
+- Widgets: notebook touch tab reorder and detach work when the strip doesn't scroll, and a non-overflowing strip no longer eats horizontal scroll
+- Widgets: tapping a row of a multi-selection collapses to it on release instead of doing nothing
+- Debug menu: failed spawns back off, the menu window is matched by client (other apps' dialogs no longer get pinned on top), plus internal teardown and stats fixes
 
 ### Security
 
