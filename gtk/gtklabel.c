@@ -482,6 +482,9 @@ static void gtk_label_select_region_index (GtkLabel *self,
                                            int       end_index);
 static void gtk_label_update_handles      (GtkLabel *self);
 static void gtk_label_clear_dismiss_controller (GtkLabel *self);
+static int  gtk_label_move_logically      (GtkLabel *self,
+                                           int       start,
+                                           int       count);
 static void gtk_label_update_active_link  (GtkWidget *widget,
                                            double     x,
                                            double     y);
@@ -4770,10 +4773,22 @@ gtk_label_handle_dragged (GtkTextHandle *handle,
   min = MIN (info->selection_anchor, info->selection_end);
   max = MAX (info->selection_anchor, info->selection_end);
 
+  /* Avoid running past the other handle: keep at least one char selected
+   * (mirrors GtkText), or the empty selection would hide the dragged handle. */
   if (handle == info->text_handles[0])
-    gtk_label_select_region_index (self, MIN (index, max), max);  /* move start */
+    {
+      /* move start */
+      if (index >= max)
+        index = gtk_label_move_logically (self, max, -1);
+      gtk_label_select_region_index (self, index, max);
+    }
   else
-    gtk_label_select_region_index (self, min, MAX (index, min));  /* move end */
+    {
+      /* move end */
+      if (index <= min)
+        index = gtk_label_move_logically (self, min, 1);
+      gtk_label_select_region_index (self, min, index);
+    }
 }
 
 static void
