@@ -35,3 +35,7 @@ Broadway always stayed an experimental, lightly-maintained corner of GTK, and in
 The patched GTK is built Broadway-only and published as a Debian package, `gtk4-brotway`, that overlays stock `libgtk-4-1` / `libgtk-4-bin`. It replaces only `libgtk-4.so` and the `gtk4-broadwayd` daemon, leaving the rest of GTK in place ([Installation](guide/installation.md)).
 
 The base, GTK 4.22.4 (`4.22.4-brotway`), is built for amd64 and arm64 ([Supported versions](guide/versions.md)).
+
+## License
+
+Same as GTK: the GNU Lesser General Public License, version 2.1 or later (`LGPL-2.1-or-later`). The patches inherit the license of the files they modify; the full text is in [`COPYING`](https://github.com/droserasprout/gtk-brotway/blob/ci/COPYING).
