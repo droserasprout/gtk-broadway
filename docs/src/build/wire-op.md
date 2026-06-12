@@ -35,19 +35,22 @@ _gdk_broadway_server_open_uri (GdkBroadwayServer *server,
                                const char        *uri)
 ```
 
-It clamps `len` to `BROADWAY_CLIPBOARD_MAX_SIZE`, sizes the message as `G_STRUCT_OFFSET (BroadwayRequestOpenUri, uri) + len`, and sends it with `gdk_broadway_server_send_message_with_size (..., size, BROADWAY_REQUEST_OPEN_URI, -1)`.
+It clamps `len` to `BROADWAY_CLIPBOARD_MAX_SIZE`, sizes the message as `G_STRUCT_OFFSET (BroadwayRequestOpenUri, uri) + len`, pads the size to 4 bytes (zero-filled, so the daemon's framing loop keeps later requests aligned), and sends it with `gdk_broadway_server_send_message_with_size (..., size, BROADWAY_REQUEST_OPEN_URI, -1)`.
 
 ## 4. Daemon dispatch
 
-`broadwayd.c` routes requests in the `client_handle_request` switch. For variable-length payloads, clamp the wire `len` against the framed request size before reading - never trust the client-supplied length:
+`broadwayd.c` routes requests in the `client_handle_request` switch. For variable-length payloads, reject a request framed smaller than its fixed header (the subtraction below would wrap), then clamp the wire `len` against the framed request size before reading - never trust the client-supplied length:
 
 ```c
 case BROADWAY_REQUEST_OPEN_URI:
-  gsize max = request->base.size -
-              G_STRUCT_OFFSET (BroadwayRequestOpenUri, uri);
-  guint32 len = request->open_uri.len > max
-                ? (guint32) max : request->open_uri.len;
-  broadway_server_open_uri (server, request->open_uri.uri, len);
+  if (request->base.size >= G_STRUCT_OFFSET (BroadwayRequestOpenUri, uri))
+    {
+      gsize max = request->base.size -
+                  G_STRUCT_OFFSET (BroadwayRequestOpenUri, uri);
+      guint32 len = request->open_uri.len > max
+                    ? (guint32) max : request->open_uri.len;
+      broadway_server_open_uri (server, request->open_uri.uri, len);
+    }
 ```
 
 ## 5. Daemon to browser

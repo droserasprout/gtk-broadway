@@ -22,6 +22,6 @@ The first version used a `gtk_snapshot_push_mask(GSK_MASK_MODE_ALPHA)` alpha mas
 
 ## Telling a tap from a pan
 
-GtkNotebook selects on *press*, so a drag-from-a-tab would switch pages before any motion. For touchscreen events `gesture_pressed` only **records** the tab, and the select commits on **release** in `gesture_released`, unless the touch-only `GtkGestureDrag` claimed the sequence as a horizontal pan first, which cancels the click gesture and drops the deferred tap. Commit threshold: `TAB_SCROLL_THRESHOLD` = 8px.
+GtkNotebook selects on *press*, so a drag-from-a-tab would switch pages before any motion. For touchscreen events `gesture_pressed` only **records** the tab, and the select commits on **release** in `gesture_released`, unless the touch-only `GtkGestureDrag` claimed the sequence as a horizontal pan first, which cancels the click gesture and drops the deferred tap. Commit threshold: `TAB_SCROLL_THRESHOLD` = 8px. The deferral only engages when the strip can actually pan (`touch_pan_max > 0`); otherwise touch falls through to the stock press path, so reorder/detach arming and focus handoff keep working. The deferred tab is held as its page pointer and re-validated on release - the `GList` link could be freed and reused by another tab mid-gesture.
 
-The drag gesture is touch-only, so desktop reorder and click stay stock. Wheel over the strip pans horizontally, or switches the page and scrolls it into view on vertical.
+The drag gesture is touch-only, so desktop reorder and click stay stock. Wheel over the strip pans horizontally, or switches the page and scrolls it into view on vertical; a strip with nothing to pan propagates the wheel instead of consuming it.

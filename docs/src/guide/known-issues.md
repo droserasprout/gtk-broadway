@@ -12,7 +12,7 @@ Bugs are tracked on the [issue tracker](https://github.com/droserasprout/gtk-bro
 
 ## No fix yet
 
-- **Tap leak into pinch and pan.** The first finger's tap can still register when a second finger lands to start a gesture. No solution found yet without adding input latency; the pinch state machine suppresses the worst case ([details](../internals/zoom.md#no-tap-leak-on-pinch)).
+- **Tap leak into pinch and pan.** The first finger's tap can still register when a second finger lands to start a gesture. No solution found yet without adding input latency; the pinch state machine suppresses the worst case, now on Android Chrome too ([details](../internals/zoom.md#no-tap-leak-on-pinch)).
 
 - **Emoji widget.** Slow and ugly over Broadway.
 

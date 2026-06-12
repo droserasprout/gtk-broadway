@@ -10,6 +10,8 @@ GTK gates all touch text UI - selection handles, the Cut/Copy/Paste bubble - on 
 
 Touch listeners on `document` are passive by default in Firefox, so `ev.preventDefault()` did nothing: a real tap fired `touchstart`, a small move, then `touchcancel` (never `touchend`), eating ~half of all taps. Registering them with `{passive: false}` fixes it (`touch-action: none` alone didn't). `touchcancel` was also unhandled, stranding `firstTouchDownId` and the implicit grab; the fix routes it to `onTouchEnd`. `touch-action: none` is set on `html, body` in `client.html` as a declarative complement. *(broadwayd-only.)*
 
+Android Chrome offsets `touch.identifier` by a global counter, so the client remaps ids before the wire; `touchend`/`touchcancel` sent the raw browser id while begin/move sent the mapped one, so every tap there left GTK a begin-without-end sequence - a stuck implicit grab. All wire events now send the mapped id. *(broadwayd-only.)*
+
 ## Gestures survive repaints
 
 A scroll/drag died after ~0.5s: events kept firing to the original target node, but GTK detaches it from the DOM on the first surface repaint, and once detached it stops bubbling to `document`. The fix: on `touchstart`, also attach move/end/cancel to `ev.target` (survives detachment), cache the surface id per touch (`touchSurfaceIds`), and dedupe via a per-event `broadwayHandled` flag so the document and target paths don't double-send. *(broadwayd-only.)*
@@ -22,7 +24,7 @@ The OSK lagged one gesture behind because `SET_SHOW_KEYBOARD` was only applied o
 
 Non-Latin text (Cyrillic, CJK), gesture-typed words, autocorrect replacements, and dead keys never reached the widget, while paste and Latin typing worked. GBoard reports those as a keyCode-229 `keydown` (the IME "processing" code) which the client drops; the real character arrives only as a `beforeinput`/composition event on the hidden OSK input. The fix: in that handler, also forward `insertText` / `insertReplacementText` via `commitTextToGtk(ev.data)`, and commit composition on `compositionend` (Broadway has no preedit). Dedup guards (`lastKeyPressTime`, `lastCompositionEndTime`, `imeComposing`) stop a Latin char inserting twice. *(broadwayd-only.)*
 
-> Autocorrect *deletions* (`deleteContentBackward`) are deliberately not bridged, to avoid double-deletes against the physical-backspace `keydown(8)` path.
+OSK backspace and delete also arrive only as keyCode-229 keydowns; the same `beforeinput` handler forwards `deleteContentBackward` / `deleteContentForward` as 0xFF08 / 0xFFFF key pairs (an earlier `input`-listener replay path was dead code). On Android Chrome the hidden input is primed with an 80-space buffer - GBoard stops emitting deletes on a visually empty field - and the buffer is refilled after each commit instead of being left empty. *(broadwayd-only.)*
 
 ## No spurious hover
 
@@ -35,6 +37,8 @@ These turn on the popup/toplevel distinction, carried by the [`is_popup` wire fl
 **Tap-outside dismiss.** `check_autohide` looks up the grab on the event's device (now the touchscreen), but the popover grab is on the logical pointer. The fix falls back to `device->associated`; a fallback can only find a grab, never hold one, so it can't strand a grab and freeze input. *(libgtk, `gdk/gdksurface.c`.)*
 
 **Bubble dismiss vs Cut/Copy/Paste.** The action fired instead of the bubble dismissing first: the daemon raised and focused the tapped surface on every touch-begin (mirroring button-press), so tapping the bubble (a popup) moved keyboard focus to it, the toplevel's focused `GtkText` emitted focus-out, and its handler hid the bubble before the button's release could run. The fix: on `TOUCH`, only raise+focus genuine toplevels (`!is_popup`), skip popups. (Wayland xdg_popups don't take keyboard focus on click either.) *(daemon.)*
+
+**Tap-through past popups.** Touch events bypassed the daemon's pointer-grab routing, so with a popup grab live a tap landed on the surface beneath it. Touch now follows the pointer grab, routed per sequence - a hash records the client chosen at BEGIN, so UPDATE/END can't be split across clients when the grab changes mid-touch - and the raise/focus block above gained the same no-grab guard as `BUTTON_PRESS`. *(daemon.)*
 
 **Reopen SIGSEGV.** `_gtk_gesture_update_point` inserted a point into `priv->points` (NULL `event`) before assigning `data->event`, and a re-entrant gesture check dereferenced the not-yet-set event. The fix assigns `data->event` before the hash insert, covering all ~8 deref sites at once. *(libgtk, `gtk/gtkgesture.c`.)*
 

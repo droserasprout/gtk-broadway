@@ -38,7 +38,7 @@ Stock events are `0`-`14` (`ENTER` ... `ROUNDTRIP_NOTIFY`); `TOUCH` (5) already 
 
 The fork appends `BROADWAY_REQUEST_SET_CLIPBOARD`, `BROADWAY_REQUEST_REQUEST_CLIPBOARD`, `BROADWAY_REQUEST_SET_INPUT_REGION`, `BROADWAY_REQUEST_OPEN_URI`, and `BROADWAY_REQUEST_SET_CURSOR`, with matching structs (`BroadwayRequestSetClipboard`, `BroadwayRequestOpenUri`, `BroadwayRequestSetInputRegion`, `BroadwayRequestSetCursor`).
 
-Variable-length requests use `len + bytes` framing (`guint32 len; char text[1];`), the same shape as `SET_NODES`; the daemon clamps `len` to the framed request size before reading.
+Variable-length requests use `len + bytes` framing (`guint32 len; char text[1];`), the same shape as `SET_NODES`. The sender pads the request size to 4 bytes so the daemon's framing loop reads aligned structs in place; the daemon rejects a request framed smaller than its fixed header (the subtraction would wrap the clamp), then clamps `len` to the framed request size before reading.
 
 ## Changed stock struct: `is_popup` on `NEW_SURFACE`
 
@@ -61,4 +61,4 @@ The GDK client sets `is_popup` from `surface->parent != NULL`, and the daemon st
 #define BROADWAY_CLIPBOARD_MAX_SIZE (16 * 1024 * 1024)
 ```
 
-This caps the allocation a browser-supplied length (malicious or buggy) can drive on the daemon, and the resulting reply size on the client. The clipboard and open-URI paths clamp against the framed message size first, then this ceiling.
+This caps the allocation a browser-supplied length (malicious or buggy) can drive on the daemon, and the resulting reply size on the client. The clipboard and open-URI paths clamp against the framed message size first, then this ceiling. Browser event frames are length-checked the same way: the base event header (type, serial, time) and the `PING` payload are bounds-checked against the frame before any field read.

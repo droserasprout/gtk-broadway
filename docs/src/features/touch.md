@@ -26,11 +26,15 @@ Stock Broadway treats a touchscreen as a mouse, so GTK's touch text-editing UI n
 - Dropdowns select the row you tapped, not always the first.
 - No crash when reopening the selection bubble.
 - Copy reappears in the bubble after Select-All.
+- Taps on Android Chrome no longer leave a stuck touch grab - begin and end now send the same remapped touch id.
+- Backspace and Delete work from the Android OSK (GBoard reports them only as `beforeinput`).
+- A tap can't activate a widget beneath an open popup - touch follows the pointer grab now.
+- The bubble dismisses when a tap collapses the selection, and a handle drag can't empty it (keeps one character, like GtkText).
+- Tapping an already-selected row in a multi-select list collapses the selection to it on release.
 
 ## Limitations
 
 - The first tap can leak into a pinch or pan when a second finger lands; no fix yet without adding input latency. See [pinch zoom implementation](../internals/zoom.md#no-tap-leak-on-pinch) for the related zoom case.
 - The emoji widget is slow and ugly over Broadway.
-- Autocorrect *deletions* are deliberately not bridged (to avoid double-deletes).
 
 > The per-fix mechanics - sourcing the touchscreen device, passive-listener and `touchcancel` handling, OSK/IME plumbing, the popover/menu/dropdown fixes - are in [Touch implementation](../internals/touch.md).

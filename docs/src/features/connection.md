@@ -17,8 +17,9 @@ Any WebSocket interruption drops the session in stock Broadway: screen-off, a Wi
 ## What works
 
 - **In-place reconnect** after screen-off or a network change - the session resumes without a reload.
-- The last frame stays dimmed under a spinner until the daemon's resync repaints.
-- A **heartbeat** catches half-open sockets that never fire the browser's `onclose`.
+- The last frame stays dimmed under a spinner until the daemon's resync repaints; resync textures stream as separate frames, so a slow link keeps progressing.
+- A **heartbeat** catches half-open sockets that never fire the browser's `onclose`; a fresh socket gets a 60s first-message grace, so a slow resync isn't killed mid-transfer.
+- **Cursors survive the reconnect** - the daemon remembers each surface's cursor and replays it on resync.
 - **Single-display arbitration** - two browsers don't fight over the single Broadway display; the newest fresh page load wins.
 - Timers freeze on screen-off, so they burn no CPU while the device sleeps.
 - **Rendering pauses on a hidden tab** - backgrounding or switching away from the tab streams zero frames; the socket stays open, so switching back repaints just the delta, with no reconnect or resync.
