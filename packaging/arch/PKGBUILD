@@ -10,9 +10,12 @@
 # ABI note: the fork .so only overrides libgtk-4.so.1, so the system gtk4 must be
 # the same upstream series (4.22.x <-> 4.22.4-brotway).
 
+# pkgver is the brotway release (3.0.0); the gtk base (4.22.4) is implied by the
+# depends=gtk4 ABI and the source tag. Bump pkgver to track a new release.
 pkgname=gtk4-brotway
-pkgver=4.22.4
+pkgver=3.0.0
 pkgrel=1
+_gtkbase=4.22.4
 pkgdesc="GTK 4.22 Broadway backend fork (clipboard + touch), private-prefix overlay"
 arch=('x86_64' 'aarch64')
 url="https://github.com/droserasprout/gtk-brotway"
@@ -23,16 +26,10 @@ makedepends=('meson' 'ninja' 'git' 'pkgconf' 'gettext' 'sassc' 'python'
              'fribidi' 'harfbuzz' 'libxkbcommon' 'libjpeg-turbo' 'libpng'
              'libtiff' 'libdrm')
 
-_branch=4.22.4-brotway
-source=("gtk::git+https://github.com/droserasprout/gtk-brotway.git#branch=$_branch"
+source=("gtk::git+https://github.com/droserasprout/gtk-brotway.git#tag=$_gtkbase-$pkgver"
         'gtk4-brotway-run')
 sha256sums=('SKIP'
             'SKIP')
-
-pkgver() {
-    cd "$srcdir/gtk"
-    printf '4.22.4.r%s.g%s' "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
-}
 
 build() {
     cd "$srcdir/gtk"
