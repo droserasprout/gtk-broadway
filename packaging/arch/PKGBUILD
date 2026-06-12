@@ -1,0 +1,68 @@
+# Manual Arch/CachyOS package for the brotway GTK fork (broadway-only).
+# NOT wired into CI - build it by hand: `makepkg -si`.
+#
+# Conflict-free overlay: the patched libgtk-4 + gtk4-broadwayd land in a private
+# prefix (/usr/lib/gtk4-brotway), NOT over the stock gtk4 files, so install and
+# removal stay clean and `pacman -Syu` never fights it. Opt into the fork per
+# launch via gtk4-brotway-run (LD_LIBRARY_PATH). The rest of gtk4 (gir, wayland,
+# x11, schemas) stays stock.
+#
+# ABI note: the fork .so only overrides libgtk-4.so.1, so the system gtk4 must be
+# the same upstream series (4.22.x <-> 4.22.4-brotway).
+
+pkgname=gtk4-brotway
+pkgver=4.22.4
+pkgrel=1
+pkgdesc="GTK 4.22 Broadway backend fork (clipboard + touch), private-prefix overlay"
+arch=('x86_64' 'aarch64')
+url="https://github.com/droserasprout/gtk-brotway"
+license=('LGPL-2.1-or-later')
+depends=('gtk4')
+makedepends=('meson' 'ninja' 'git' 'pkgconf' 'gettext' 'sassc' 'python'
+             'glib2' 'cairo' 'pango' 'gdk-pixbuf2' 'graphene' 'libepoxy'
+             'fribidi' 'harfbuzz' 'libxkbcommon' 'libjpeg-turbo' 'libpng'
+             'libtiff' 'libdrm')
+
+_branch=4.22.4-brotway
+source=("gtk::git+https://github.com/droserasprout/gtk-brotway.git#branch=$_branch"
+        'gtk4-brotway-run')
+sha256sums=('SKIP'
+            'SKIP')
+
+pkgver() {
+    cd "$srcdir/gtk"
+    printf '4.22.4.r%s.g%s' "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
+}
+
+build() {
+    cd "$srcdir/gtk"
+    # Broadway-only build, matching the .deb recipe. arch-meson sets buildtype plain.
+    arch-meson _build \
+        -Dbroadway-backend=true \
+        -Dx11-backend=false -Dwayland-backend=false -Dwin32-backend=false -Dmacos-backend=false \
+        -Dvulkan=disabled -Dintrospection=disabled -Ddocumentation=false -Dman-pages=false \
+        -Dbuild-testsuite=false -Dbuild-tests=false -Dbuild-examples=false -Dbuild-demos=false \
+        -Dmedia-gstreamer=disabled -Dprint-cups=disabled
+    meson compile -C _build
+}
+
+package() {
+    cd "$srcdir/gtk"
+    local prefix="$pkgdir/usr/lib/gtk4-brotway"
+    # Real SONAME read from the build output (e.g. libgtk-4.so.1.2200.4).
+    local so
+    so="$(basename "$(readlink -f _build/gtk/libgtk-4.so.1)")"
+    [ -n "$so" ]
+
+    install -Dm755 "_build/gtk/$so" "$prefix/$so"
+    ln -s "$so" "$prefix/libgtk-4.so.1"
+    ln -s libgtk-4.so.1 "$prefix/libgtk-4.so"
+
+    # broadwayd lives in the private prefix; the wrapper invokes it by full path.
+    install -Dm755 _build/gdk/broadway/gtk4-broadwayd "$prefix/gtk4-broadwayd"
+
+    # Net-new names - no clash with stock gtk4. broadwayd spawns the debug menu
+    # by this name via PATH (BROADWAY_DEBUGMENU default).
+    install -Dm755 _build/tools/gtk4-brotway-debugmenu "$pkgdir/usr/bin/gtk4-brotway-debugmenu"
+    install -Dm755 "$srcdir/gtk4-brotway-run" "$pkgdir/usr/bin/gtk4-brotway-run"
+}

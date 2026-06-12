@@ -59,7 +59,7 @@ jobs:
         run: |
           apt-get update
           apt-get install -y --no-install-recommends \
-            build-essential ccache meson ninja-build pkg-config gettext python3 git ca-certificates zstd \
+            build-essential ccache meson ninja-build pkg-config gettext gettext-base python3 git ca-certificates zstd \
             libglib2.0-dev libglib2.0-dev-bin libgraphene-1.0-dev libcairo2-dev libpango1.0-dev \
             libgdk-pixbuf-2.0-dev libepoxy-dev libxkbcommon-dev libfribidi-dev libharfbuzz-dev \
             libjpeg-dev libpng-dev libtiff-dev libdrm-dev
@@ -67,6 +67,16 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ inputs.ref }}
+
+      # The main checkout above replaces the workspace with the fork source. The
+      # .deb packaging templates live on the `ci` branch, so pull just those into
+      # _ci/ via a second sparse checkout.
+      - name: Checkout packaging templates (ci)
+        uses: actions/checkout@v4
+        with:
+          ref: ci
+          sparse-checkout: packaging/debian
+          path: _ci
 
       # ccache persists across runs so unchanged .c files relink without recompiling.
       # Keyed per (gtk, arch); the SHA suffix + prefix restore-keys give each run the
@@ -117,27 +127,12 @@ jobs:
           # (BROADWAY_EVENT_MENU). Without it the menu silently fails to spawn.
           test -f _build/tools/gtk4-brotway-debugmenu
           install -m755 _build/tools/gtk4-brotway-debugmenu pkgroot/usr/bin/gtk4-brotway-debugmenu
-          cat > pkgroot/DEBIAN/control <<EOF
-          Package: gtk4-brotway
-          Version: ${DEB_VERSION}
-          Architecture: ${ARCH}
-          Maintainer: Lev Gorodetskii <github@drsr.io>
-          Section: libs
-          Priority: optional
-          Homepage: https://github.com/droserasprout/gtk-brotway
-          Depends: ${RUNTIME_PKGS}
-          Replaces: ${RUNTIME_PKGS}, gtk4-broadway-fork
-          Conflicts: gtk4-broadway-fork
-          Provides: gtk4-broadway-fork
-          Description: GTK ${GTK_VERSION} Broadway backend (clipboard + touch fork)
-           Patched libgtk-4 shared object plus the gtk4-broadwayd daemon for the
-           Broadway backend, adding bi-directional clipboard and touch/Android input
-           fixes and repointing the libgtk-4.so.1 SONAME link at them. Overlays
-           libgtk-4-1 / libgtk-4-bin (Depends + Replaces), leaving the rest of apt's
-           GTK (gir, common, ...) untouched.
-          EOF
-          printf '#!/bin/sh\nset -e\nldconfig\n' > pkgroot/DEBIAN/postinst
-          chmod 755 pkgroot/DEBIAN/postinst
+          # Control + postinst come from packaging/debian/ on the ci branch (the
+          # _ci sparse checkout). envsubst fills only the named vars.
+          export DEB_VERSION
+          envsubst '${DEB_VERSION} ${ARCH} ${GTK_VERSION} ${RUNTIME_PKGS}' \
+            < _ci/packaging/debian/control.in > pkgroot/DEBIAN/control
+          install -m755 _ci/packaging/debian/postinst pkgroot/DEBIAN/postinst
           # Stable, unversioned per-base name (the 'latest' release asset). The release
           # job derives the version-stamped name for vN tags.
           DEB_FILE="gtk4-brotway_${GTK_VERSION}_${ARCH}.deb"

@@ -1,0 +1,17 @@
+Package: gtk4-brotway
+Version: ${DEB_VERSION}
+Architecture: ${ARCH}
+Maintainer: Lev Gorodetskii <github@drsr.io>
+Section: libs
+Priority: optional
+Homepage: https://github.com/droserasprout/gtk-brotway
+Depends: ${RUNTIME_PKGS}
+Replaces: ${RUNTIME_PKGS}, gtk4-broadway-fork
+Conflicts: gtk4-broadway-fork
+Provides: gtk4-broadway-fork
+Description: GTK ${GTK_VERSION} Broadway backend (clipboard + touch fork)
+ Patched libgtk-4 shared object plus the gtk4-broadwayd daemon for the
+ Broadway backend, adding bi-directional clipboard and touch/Android input
+ fixes and repointing the libgtk-4.so.1 SONAME link at them. Overlays
+ libgtk-4-1 / libgtk-4-bin (Depends + Replaces), leaving the rest of apt's
+ GTK (gir, common, ...) untouched.
