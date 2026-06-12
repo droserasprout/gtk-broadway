@@ -32,6 +32,7 @@
 #include "gdkdevice-broadway.h"
 #include "gdkdeviceprivate.h"
 #include <gdk/gdktextureprivate.h>
+#include <gdk/gdkcolorstateprivate.h>
 #include "gdkprivate.h"
 #include "gdksurface-broadway.h"
 
@@ -63,9 +64,15 @@ G_DEFINE_TYPE (GdkBroadwayDisplay, gdk_broadway_display, GDK_TYPE_DISPLAY)
 
 typedef struct {
   guint64 hash;     /* FNV-1a-64 of downloaded raw pixels */
+  guint64 hash2;    /* independent second hash of the same bytes; a single 64-bit
+                     * hash colliding would alias unrelated images for the LRU's
+                     * lifetime, so equality demands both */
   int     width;
   int     height;
-  int     format;   /* (int) GdkMemoryFormat of the downloaded pixels */
+  int     format;   /* (int) native GdkMemoryFormat: the wire PNG encodes at the
+                     * texture's native depth, so same downloads != same wire bytes */
+  GdkColorState *color_state; /* native color state, also wire-encoded. Borrowed
+                               * in lookup keys; entries own a ref */
 } ContentKey;
 
 typedef struct {
@@ -75,12 +82,15 @@ typedef struct {
   guint      refcount;  /* live GdkTextures sharing this id; only refcount==0 is evictable */
 } ContentCacheEntry;
 
+/* color_state is deliberately not hashed: distinct-but-equal GdkColorState
+ * objects must land in the same bucket for content_key_equal to see them. */
 static guint
 content_key_hash (gconstpointer v)
 {
   const ContentKey *k = v;
 
   return (guint) (k->hash ^ (k->hash >> 32) ^
+                  k->hash2 ^ (k->hash2 >> 32) ^
                   ((guint64) k->width << 16) ^ (guint) k->height ^
                   ((guint64) k->format << 8));
 }
@@ -92,16 +102,18 @@ content_key_equal (gconstpointer a,
   const ContentKey *ka = a;
   const ContentKey *kb = b;
 
-  return ka->hash == kb->hash && ka->width == kb->width &&
-         ka->height == kb->height && ka->format == kb->format;
+  return ka->hash == kb->hash && ka->hash2 == kb->hash2 &&
+         ka->width == kb->width && ka->height == kb->height &&
+         ka->format == kb->format &&
+         gdk_color_state_equal (ka->color_state, kb->color_state);
 }
 
 /* Hash the texture's raw pixels. Returns FALSE (skip dedup) for very large
  * textures, whose download+hash cost is not worth it and which rarely re-upload
  * identically. gdk_texture_download() always yields GDK_MEMORY_DEFAULT
- * (premultiplied BGRA, 4 bpp) regardless of native format, so hash that and key
- * on GDK_MEMORY_DEFAULT - two textures that download identically also PNG-encode
- * identically. */
+ * (premultiplied BGRA, 4 bpp) regardless of native format, so hash that - but
+ * key on the NATIVE format and color state too: the wire PNG (gdkpng.c) encodes
+ * those, so identical 8-bit sRGB downloads can still differ on the wire. */
 static gboolean
 content_key_for_texture (GdkTexture *texture,
                          ContentKey *key)
@@ -111,7 +123,7 @@ content_key_for_texture (GdkTexture *texture,
   gsize stride, size, i, n_words;
   guchar *data;
   const guchar *p;
-  guint64 h;
+  guint64 h, h2;
 
   if (width <= 0 || height <= 0 ||
       (gint64) width * height > BROADWAY_CONTENT_CACHE_MAX_PIXELS)
@@ -123,8 +135,11 @@ content_key_for_texture (GdkTexture *texture,
   gdk_texture_download (texture, data, stride);
 
   /* FNV-1a-64, 8 bytes per multiply. The buffer is one contiguous g_malloc, so
-   * walk it as 64-bit words (memcpy: alignment/aliasing-safe) with a <8-byte tail. */
+   * walk it as 64-bit words (memcpy: alignment/aliasing-safe) with a <8-byte tail.
+   * h2 is an MMIX-LCG mix over the same words: a second independent hash in the
+   * same pass, instead of keeping full pixel copies for byte compares. */
   h = 1469598103934665603ULL;
+  h2 = 0;
   n_words = size / 8;
   p = data;
   for (i = 0; i < n_words; i++, p += 8)
@@ -132,16 +147,22 @@ content_key_for_texture (GdkTexture *texture,
       guint64 w;
       memcpy (&w, p, 8);
       h = (h ^ w) * 1099511628211ULL;
+      h2 = (h2 + w) * 6364136223846793005ULL + 1442695040888963407ULL;
     }
   for (i = n_words * 8; i < size; i++)
-    h = (h ^ data[i]) * 1099511628211ULL;
+    {
+      h = (h ^ data[i]) * 1099511628211ULL;
+      h2 = (h2 + data[i]) * 6364136223846793005ULL + 1442695040888963407ULL;
+    }
 
   g_free (data);
 
   key->hash = h;
+  key->hash2 = h2;
   key->width = width;
   key->height = height;
-  key->format = (int) GDK_MEMORY_DEFAULT;
+  key->format = (int) gdk_texture_get_format (texture);
+  key->color_state = gdk_texture_get_color_state (texture); /* borrowed; texture outlives the lookup */
   return TRUE;
 }
 
@@ -172,6 +193,7 @@ content_cache_evict_if_needed (GdkBroadwayDisplay *display)
           g_hash_table_remove (display->content_texture_cache, &entry->key);
           g_queue_delete_link (&display->content_texture_lru, link);
           gdk_broadway_server_release_texture (display->server, entry->id);
+          gdk_color_state_unref (entry->key.color_state);
           g_free (entry);
           display->content_texture_count--;
         }
@@ -187,6 +209,7 @@ content_cache_insert (GdkBroadwayDisplay *display,
   ContentCacheEntry *entry = g_new0 (ContentCacheEntry, 1);
 
   entry->key = *key;
+  gdk_color_state_ref (entry->key.color_state); /* entry outlives the texture */
   entry->id = id;
   entry->refcount = 1;
   g_queue_push_head (&display->content_texture_lru, entry);
@@ -209,7 +232,12 @@ content_cache_destroy_all (GdkBroadwayDisplay *display)
     return;
 
   for (l = display->content_texture_lru.head; l != NULL; l = l->next)
-    g_free (l->data);
+    {
+      ContentCacheEntry *entry = l->data;
+
+      gdk_color_state_unref (entry->key.color_state);
+      g_free (entry);
+    }
   g_queue_clear (&display->content_texture_lru);
   g_hash_table_destroy (display->content_texture_cache);
   display->content_texture_cache = NULL;
