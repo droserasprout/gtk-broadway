@@ -161,6 +161,7 @@ struct BroadwaySurface {
   BroadwayRect input_region_rect;  /* interactive area when mode == 2 */
   BroadwayNode *nodes;
   GHashTable *node_lookup;
+  char *cursor_name;               /* last CSS cursor sent; replayed on resync */
 };
 
 struct _BroadwayTexture {
@@ -371,6 +372,7 @@ broadway_surface_free (BroadwayServer *server,
   if (surface->nodes)
     broadway_node_unref (server, surface->nodes);
   g_hash_table_unref (surface->node_lookup);
+  g_free (surface->cursor_name);
   g_free (surface);
 }
 
@@ -2419,6 +2421,17 @@ broadway_server_surface_set_cursor (BroadwayServer *server,
                                     const char     *name,
                                     gsize           len)
 {
+  BroadwaySurface *surface;
+
+  /* Remember it for resync: the app side dedups (impl->cursor_name) and
+   * won't re-send after a browser reconnect. */
+  surface = broadway_server_lookup_surface (server, id);
+  if (surface)
+    {
+      g_free (surface->cursor_name);
+      surface->cursor_name = g_strndup (name, len);
+    }
+
   if (server->output)
     {
       broadway_output_set_cursor (server->output, id, name, len);
@@ -2964,6 +2977,11 @@ broadway_server_resync_surfaces (BroadwayServer *server)
         broadway_output_set_input_region (server->output, surface->id,
                                           surface->input_region_mode,
                                           &surface->input_region_rect);
+
+      if (surface->cursor_name)
+        broadway_output_set_cursor (server->output, surface->id,
+                                    surface->cursor_name,
+                                    strlen (surface->cursor_name));
 
       if (surface->visible)
         broadway_output_show_surface (server->output, surface->id);
