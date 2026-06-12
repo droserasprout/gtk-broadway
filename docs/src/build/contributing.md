@@ -14,6 +14,7 @@ Four ground rules shape every patch:
 - **GTK 4.x only - never GTK5.** GTK5 removes Broadway (and X11) entirely, so the fork is anchored to the GTK 4.x lifetime; please do not open GTK5 ports. Background: [Re-forking a new GTK release](reforking.md).
 - **Stay close to upstream.** Small, surgical diffs rebase and review easier; prefer the minimal change that solves the problem.
 - **We do not upstream.** Patches live here for the life of GTK4, not in GNOME's GTK.
+- **App-agnostic docs.** The fork serves any GTK4 binary. Docs and examples never name a specific downstream app or deployment - keep them generic (`your-gtk4-app`).
 
 ## Supported base
 

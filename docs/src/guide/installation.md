@@ -16,7 +16,7 @@ Both only swap the Broadway pieces and leave the rest of your GTK (GIR, `gtk-4-c
 
 ## Docker
 
-The intended deployment. The [nicotineplus-proper](https://github.com/droserasprout/nicotineplus-proper) image installs the arch-matching `.deb` in its `fork` stage over the stock base, then `apt-mark hold`s the GTK runtime. See [Security model](security.md#in-a-container) for the Dockerfile snippet and the operator checklist.
+To bake the fork into an image, install the arch-matching `.deb` over a stock GTK base and `apt-mark hold` the runtime - the same [Ubuntu/Debian](#ubuntu--debian) steps inside a `RUN`. See [Security model](security.md#in-a-container) for the Dockerfile snippet and the operator checklist.
 
 ## Ubuntu / Debian
 

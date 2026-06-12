@@ -31,7 +31,7 @@ gtk4-broadwayd :5
 GDK_BACKEND=broadway BROADWAY_DISPLAY=:5 your-gtk4-app
 ```
 
-Open `http://localhost:8085` in a browser. Copy/paste, touch text editing, and pinch-zoom now work. The fork is app-agnostic - any GTK4 binary works - but for a complete, real-world deployment (the app this fork was built to serve, packaged with the `.deb` and a TLS terminator) see [`nicotineplus-proper`](https://github.com/droserasprout/nicotineplus-proper), which runs Nicotine+ as a browser WebUI on this stack.
+Open `http://localhost:8085` in a browser. Copy/paste, touch text editing, and pinch-zoom now work. The fork is app-agnostic - any GTK4 binary works. For a real (non-localhost) deployment, put it behind a TLS terminator; see [Security model](guide/security.md).
 
 See [Running broadwayd](guide/running.md) for how the pieces fit, and [Security model](guide/security.md) for a real (non-localhost) deployment, which the [clipboard's secure-context requirement](features/clipboard.md#limitations) needs.
 
