@@ -101,4 +101,4 @@ Add the new op/request/event rows to [Wire protocol](../internals/protocol.md) -
 
 ## Landing it
 
-Land the feature on both bases: develop on a `4.22-<topic>` branch first, then mirror it to `4.14-<topic>`. Branch naming, style, and the PR flow are in [Contributing](contributing.md).
+Develop on a `<topic>` branch off `4.22.4-brotway`. Branch naming, style, and the PR flow are in [Contributing](contributing.md).

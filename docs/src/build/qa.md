@@ -1,6 +1,6 @@
 # Release QA
 
-The manual verification pass for a release candidate, run before pushing the `vN` tags ([Release process](release.md)). If the change set touched `libgtk` (not just `broadway.js`/`client.html`), run it on both bases - same patches, two GTK trees.
+The manual verification pass for a release candidate, run before pushing the `vX.Y.Z` tag ([Release process](release.md)). One base, so the pass runs once.
 
 ## Setup
 

@@ -19,15 +19,15 @@ on:
         required: true
         type: string
       gtk:
-        description: "GTK base version, e.g. 4.14.5 (used in the .deb name + caches)."
+        description: "GTK base version, e.g. 4.22.4 (used in the .deb name + caches)."
         required: true
         type: string
       container:
-        description: "Ubuntu image to build in, e.g. ubuntu:24.04 / ubuntu:26.04."
+        description: "Ubuntu image to build in, e.g. ubuntu:26.04."
         required: true
         type: string
       demos:
-        description: "Per-version demos meson flag: -Ddemos=false (4.14) / -Dbuild-demos=false (4.22+)."
+        description: "Demos meson flag: -Dbuild-demos=false (4.22+)."
         required: true
         type: string
 
@@ -84,7 +84,7 @@ jobs:
           ccache --zero-stats
           rm -rf _build
           # meson auto-detects ccache in PATH and uses it as the compiler launcher.
-          # ${{ inputs.demos }} is per-version: -Ddemos (4.14) / -Dbuild-demos (4.22+).
+          # ${{ inputs.demos }} is the demos meson flag (-Dbuild-demos=false).
           meson setup _build \
             -Dbroadway-backend=true \
             -Dx11-backend=false -Dwayland-backend=false -Dwin32-backend=false -Dmacos-backend=false \

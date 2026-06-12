@@ -21,8 +21,8 @@ Treat the daemon port as fully trusted and never expose it directly. Put access 
 The reference deployment installs the arch-matching `.deb` inside a Docker image over apt's GTK and holds the runtime packages - the same three steps as [Installation](installation.md), plus `dpkg --print-architecture` to select between the amd64 and arm64 assets at build time:
 
 ```dockerfile
-ARG GTK_VER=4.22.2
-ARG REL=v2.1
+ARG GTK_VER=4.22.4
+ARG REL=v3.0.0
 RUN arch="$(dpkg --print-architecture)" \
  && wget -O /tmp/gtk.deb "https://github.com/droserasprout/gtk-brotway/releases/download/${REL}/gtk4-brotway_${GTK_VER}-${REL#v}_${arch}.deb" \
  && apt-get install -y /tmp/gtk.deb \
@@ -30,7 +30,7 @@ RUN arch="$(dpkg --print-architecture)" \
  && rm /tmp/gtk.deb
 ```
 
-The base image's GTK must match the `.deb` base ([4.22.2 on `ubuntu:26.04`, 4.14.5 on `ubuntu:24.04`](versions.md)); the overlay replaces the SONAME-versioned `.so` in place.
+The base image's GTK must match the `.deb` base ([4.22.4 on `ubuntu:26.04`](versions.md)); the overlay replaces the SONAME-versioned `.so` in place.
 
 ## Process layout
 

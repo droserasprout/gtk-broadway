@@ -4,11 +4,11 @@ From nothing to a GTK4 app in your browser, with the fork's clipboard and touch 
 
 ## 1. Install the patched GTK
 
-Grab the `.deb` matching your [GTK base](guide/versions.md) and architecture, install it, and hold the stock packages:
+Grab the `.deb` matching your architecture (the [GTK base](guide/versions.md) is 4.22.4 on `ubuntu:26.04`), install it, and hold the stock packages:
 
 ```sh
-rel=v2.1         # the release to install - see the Releases page for the latest tag
-gtk_ver=4.14.5   # use 4.22.2 on an ubuntu:26.04 base
+rel=v3.0.0       # the release to install - see the Releases page for the latest tag
+gtk_ver=4.22.4   # on an ubuntu:26.04 base
 arch="$(dpkg --print-architecture)"
 wget -O gtk.deb "https://github.com/droserasprout/gtk-brotway/releases/download/${rel}/gtk4-brotway_${gtk_ver}-${rel#v}_${arch}.deb"
 apt-get install -y ./gtk.deb

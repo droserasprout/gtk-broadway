@@ -21,7 +21,7 @@ The functional test: touch text selection (handles + Cut/Copy/Paste bubble) and 
 | Blank page behind a proxy | proxy not forwarding the WebSocket upgrade | forward `Upgrade`/`Connection` headers; all ops run over the WS ([Deployment](deployment.md)) |
 | Page loads, app never appears | app not started, or wrong target | run it with `GDK_BACKEND=broadway BROADWAY_DISPLAY=:N` ([Config](config.md)) |
 | Page loads, but shows "disconnected" | another fresh tab took the single display | newest fresh load wins; reload the tab you want to own it ([arbitration](../internals/connection.md#single-display-arbitration-newest-fresh-open-wins)) |
-| App fails to start / can't load `libgtk-4.so` | `.deb` base doesn't match the system GTK (SONAME mismatch) | install the base matching your Ubuntu ([Supported versions](versions.md)); see below |
+| App fails to start / can't load `libgtk-4.so` | `.deb` base doesn't match the system GTK (SONAME mismatch) | run the 4.22.4 deb on an `ubuntu:26.04` (GTK 4.22.x) base ([Supported versions](versions.md)); see below |
 | Touch UI / OSK / clipboard missing | stock GTK loaded, not the fork | confirm the package + hold above |
 | Features worked, then vanished | `apt upgrade` reverted to stock GTK | re-install the `.deb`, then `apt-mark hold libgtk-4-1 libgtk-4-bin` ([Installation](installation.md)) |
 | Copy/paste silently does nothing | insecure context over remote `http://` | serve `https://` or `http://localhost` ([secure context](running.md#secure-context-note)) |
@@ -38,7 +38,7 @@ dpkg -s libgtk-4-1 | grep ^Version       # the apt GTK version (e.g. 4.22.x on u
 ls -l /usr/lib/*/libgtk-4.so.1            # the SONAME the symlink points at
 ```
 
-A `4.14.5` deb on a `4.22.x` system (or vice versa) leaves a dangling SONAME and the app won't load. Install the base that matches: [4.14.5 on `ubuntu:24.04`, 4.22.2 on `ubuntu:26.04`](versions.md).
+A `4.22.4` deb on a system with a different GTK SONAME leaves a dangling link and the app won't load. The fork targets GTK 4.22.x; run it on an `ubuntu:26.04` base ([Supported versions](versions.md)).
 
 ## Iterating on a change that didn't take effect
 

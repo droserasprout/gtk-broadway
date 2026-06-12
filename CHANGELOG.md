@@ -2,18 +2,20 @@
 
 All notable changes to this project will be documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-Versioning is not semver: release tags are `vX[.Y]` (fork revision), package versions are `<gtk-base>-X[.Y]`, e.g. `4.22.2-2.1`. See [Supported versions](https://droserasprout.github.io/gtk-brotway/guide/versions.html).
+Versioning from v3: release tags are three-part `vX.Y.Z` (semver *format*, loose discipline - no compatibility contract); package versions are `<gtk-base>-X.Y.Z`, e.g. `4.22.4-3.0.0`. Single base (GTK 4.22.x). See [Supported versions](https://droserasprout.github.io/gtk-brotway/guide/versions.html).
 
-## [Unreleased]
+## [v3.0.0] - 2026-06-12
 
 Project renamed to Brotway, a GTK4 Broadway fork.
 
-Highlights: the GTK cursor reaches the browser, taps no longer stick on Android Chrome, reconnect survives slow links and double drops, and stale display references no longer blank the UI.
+Documentation is available at [droserasprout.github.io/gtk-brotway](https://droserasprout.github.io/gtk-brotway/).
+
+Release highlights: huge performance gains, the GTK cursor reaches the browser, taps no longer stick on Android Chrome, reconnect survives slow links and double drops, and stale display references no longer blank the UI.
 
 ### Added
 
-- **Dynamic cursor** - forward the GTK cursor shape to the browser as a CSS cursor
-- **PNG encoding preset** - Fast/Compact, switchable in the debug menu or via `BROADWAY_PNG`
+- Dynamic cursor: forward the GTK cursor shape to the browser as a CSS cursor
+- PNG encoding preset: Fast/Compact, switchable in the debug menu or via `BROADWAY_PNG`
 - Pause rendering on a hidden browser tab; resume repaints a delta without reconnect
 - Debug menu: frame-pacing metrics and texture upload/release rates
 - Debug menu: pin fixed screen size and scale
@@ -23,9 +25,13 @@ Highlights: the GTK cursor reaches the browser, taps no longer stick on Android 
 - Renamed package `gtk4-broadway-fork` -> `gtk4-brotway` (new package Provides/Replaces the old)
 - Renamed binary `gtk4-broadway-debugmenu` -> `gtk4-brotway-debugmenu`
 
+### Removed
+
+- Dropped the GTK 4.14 / ubuntu:24.04 base; v3 is single-base on GTK 4.22.4. The last 4.14 build is v2.1.
+
 ### Fixed
 
-- Touch: taps no longer stick on Android Chrome - releases carried the wrong sequence id, and the pinch-begin cancel was never delivered
+- Touch: taps no longer stick on Android Chrome -  the pinch-begin cancel was never delivered due to the wrong sequence id
 - Touch: sequences follow the pointer grab - no tap-through past an open popup, no raise/focus churn while a grab is live
 - Touch: on-screen keyboard backspace and delete now reach GTK; GBoard's key buffer is refilled after each commit
 - Reconnect: fixed reconnect loop after a network switch (backoff resets only on a confirmed session)

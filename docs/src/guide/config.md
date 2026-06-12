@@ -61,4 +61,4 @@ Set per origin by `broadway.js`:
 
 ## Build-time flags
 
-Not runtime config, but the two knobs that vary per base, covered in [Building from source](../build/from-source.md): `-Dbroadway-backend=true` with every other backend off, and the demos flag (`-Dbuild-demos=false` on 4.22, `-Ddemos=false` on 4.14).
+Not runtime config, but the build knobs covered in [Building from source](../build/from-source.md): `-Dbroadway-backend=true` with every other backend off, and `-Dbuild-demos=false`.

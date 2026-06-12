@@ -1,20 +1,18 @@
-# Build the Broadway clipboard/touch fork for every supported GTK base and collect
-# all artifacts into ONE immutable GitHub Release. Lives on the orphan `ci` branch.
+# Build the single-base Broadway clipboard/touch fork (GTK 4.22.x) and collect both
+# arch artifacts into ONE immutable GitHub Release. Lives on the orphan `ci` branch.
 #
-# On a vN tag, each base is built from its PINNED per-version tag <gtk>-N (which must
-# be created manually first), and all four artifacts (2 bases x 2 arches) are
-# published, per base x arch, as:
-#   gtk4-brotway_<gtk>-<N>_<arch>.deb     (e.g. ..._4.22.2-123_amd64.deb)
+# On a vX.Y.Z tag, the code is built from its PINNED per-version tag <gtk>-<X.Y.Z>
+# (created manually first), and both artifacts (2 arches) are published as:
+#   gtk4-brotway_<gtk>-<X.Y.Z>_<arch>.deb   (e.g. ..._4.22.4-3.0.0_amd64.deb)
 #
-# Release notes come from the `## [vN]` section of CHANGELOG.md on this `ci` branch
-# (single source of truth), so promote [Unreleased] -> [v123] and commit it here
-# BEFORE tagging - the v123 tag must point at the commit that has the section.
+# Release notes come from the `## [vX.Y.Z]` section of CHANGELOG.md on this `ci`
+# branch (single source of truth), so promote [Unreleased] -> [v3.0.0] and commit it
+# here BEFORE tagging - the v tag must point at the commit that has the section.
 #
-# Cutting v123:
-#   # on ci: promote [Unreleased] -> ## [v123] - <date> in CHANGELOG.md, commit, push
-#   git tag 4.14.5-123 <commit> && git push origin 4.14.5-123
-#   git tag 4.22.2-123 <commit> && git push origin 4.22.2-123
-#   git tag v123 ci             && git push origin v123
+# Cutting v3.0.0:
+#   # on ci: promote [Unreleased] -> ## [v3.0.0] - <date> in CHANGELOG.md, commit, push
+#   git tag 4.22.4-3.0.0 <code-commit> && git push origin 4.22.4-3.0.0
+#   git tag v3.0.0 ci                  && git push origin v3.0.0
 name: Release Broadway GTK .debs
 
 on:
@@ -39,8 +37,7 @@ jobs:
       fail-fast: false
       matrix:
         target:
-          - { gtk: "4.14.5", container: "ubuntu:24.04", demos: "-Ddemos=false" }
-          - { gtk: "4.22.2", container: "ubuntu:26.04", demos: "-Dbuild-demos=false" }
+          - { gtk: "4.22.4", container: "ubuntu:26.04", demos: "-Dbuild-demos=false" }
     # Build the pinned per-version tag <gtk>-N. A missing tag fails checkout in
     # build.yml, so the release does not publish.
     uses: ./.github/workflows/build.yml
@@ -81,7 +78,7 @@ jobs:
           ' CHANGELOG.md | sed -e '/./,$!d' > notes.md   # strip leading blank lines
           # Fall back to a generic line if the section was missing/empty.
           if [ ! -s notes.md ]; then
-            echo "Multi-base (4.14.5, 4.22.2) multi-arch (amd64, arm64) GTK Brotway, revision ${REV}." > notes.md
+            echo "Single-base (4.22.4) multi-arch (amd64, arm64) GTK Brotway, revision ${REV}." > notes.md
           fi
           echo "--- release notes for ${TAG} ---"; cat notes.md
 

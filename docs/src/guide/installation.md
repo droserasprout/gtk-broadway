@@ -15,18 +15,18 @@ Everything else from apt's GTK (the GIR, `gtk-4-common`, themes, ...) is left un
 
 ## Install
 
-Pick the asset matching your Ubuntu base and architecture:
+Pick the asset matching your architecture (the base is GTK 4.22.4 on `ubuntu:26.04`):
 
 ```sh
-rel=v2.1         # the release to install - see the Releases page for the latest tag
-gtk_ver=4.14.5   # use 4.22.2 on an ubuntu:26.04 base
+rel=v3.0.0       # the release to install - see the Releases page for the latest tag
+gtk_ver=4.22.4   # on an ubuntu:26.04 base
 arch="$(dpkg --print-architecture)"
 wget -O gtk.deb "https://github.com/droserasprout/gtk-brotway/releases/download/${rel}/gtk4-brotway_${gtk_ver}-${rel#v}_${arch}.deb"
 apt-get install -y ./gtk.deb
 apt-mark hold libgtk-4-1 libgtk-4-bin
 ```
 
-The asset name encodes base and architecture: `gtk4-brotway_<gtk>-<rev>_<arch>.deb` (e.g. `gtk4-brotway_4.22.2-2.1_amd64.deb`).
+The asset name encodes base and architecture: `gtk4-brotway_<gtk>-<rev>_<arch>.deb` (e.g. `gtk4-brotway_4.22.4-3.0.0_amd64.deb`).
 
 > To always grab the newest release without hardcoding the tag, resolve it from the GitHub API first:
 >

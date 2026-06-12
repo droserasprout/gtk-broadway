@@ -10,8 +10,7 @@ Broadway was [deprecated](https://www.phoronix.com/news/GTK-X11-Now-Deprecated) 
 
 | GTK    | Ubuntu base    | SONAME                 | Main branch    | Patch |
 | ------ | -------------- | ---------------------- | -------------- | ----- |
-| 4.14.5 | `ubuntu:24.04` | `libgtk-4.so.1.1400.5` | [`4.14.5-fork`](https://github.com/droserasprout/gtk-brotway/tree/4.14.5-fork) | [diff](https://github.com/droserasprout/gtk-brotway/compare/4.14.5...4.14.5-fork) |
-| 4.22.2 | `ubuntu:26.04` | `libgtk-4.so.1.2200.2` | [`4.22.2-fork`](https://github.com/droserasprout/gtk-brotway/tree/4.22.2-fork) | [diff](https://github.com/droserasprout/gtk-brotway/compare/4.22.2...4.22.2-fork) |
+| 4.22.4 | `ubuntu:26.04` | `libgtk-4.so.1.2200.4` | [`4.22.4-brotway`](https://github.com/droserasprout/gtk-brotway/tree/4.22.4-brotway) | [diff](https://github.com/droserasprout/gtk-brotway/compare/4.22.4...4.22.4-brotway) |
 
 Supported architectures: `amd64`, `arm64`. GTK older than 4.14 is not supported and won't be; see [Supported versions](https://droserasprout.github.io/gtk-brotway/guide/versions.html).
 
@@ -19,11 +18,11 @@ Supported architectures: `amd64`, `arm64`. GTK older than 4.14 is not supported 
 
 A Debian package `gtk4-brotway` is built by CI and published to [GitHub Releases](https://github.com/droserasprout/gtk-brotway/releases). It Depends/Replaces `libgtk-4-1` and `libgtk-4-bin`, overlaying only the patched `libgtk-4.so`, `gtk4-broadwayd`, and the debug-menu binary, keeping the rest of GTK in place.
 
-Pick the asset matching your Ubuntu base and architecture:
+Pick the asset matching your architecture:
 
 ```sh
-rel=v2.1         # the release to install - see the Releases page for the latest tag
-gtk_ver=4.14.5   # 4.22.2 on ubuntu:26.04
+rel=v3.0.0       # the release to install - see the Releases page for the latest tag
+gtk_ver=4.22.4   # on an ubuntu:26.04 base
 arch="$(dpkg --print-architecture)"
 wget -O gtk.deb "https://github.com/droserasprout/gtk-brotway/releases/download/${rel}/gtk4-brotway_${gtk_ver}-${rel#v}_${arch}.deb"
 apt-get install -y ./gtk.deb
@@ -56,7 +55,7 @@ The [backend comparison](https://droserasprout.github.io/gtk-brotway/features/co
 
 ## Building from source
 
-The Broadway-only Meson config, the per-base flags, and the build dependencies are in [Building from source](https://droserasprout.github.io/gtk-brotway/build/from-source.html). For hacking on the fork itself, start with [Contributing](https://droserasprout.github.io/gtk-brotway/build/contributing.html).
+The Broadway-only Meson config and the build dependencies are in [Building from source](https://droserasprout.github.io/gtk-brotway/build/from-source.html). For hacking on the fork itself, start with [Contributing](https://droserasprout.github.io/gtk-brotway/build/contributing.html).
 
 ## Known issues
 
