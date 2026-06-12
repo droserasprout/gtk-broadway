@@ -4851,14 +4851,27 @@ gtk_label_dismiss_event (GtkEventControllerLegacy *controller,
   GtkLabelSelectionInfo *info = self->select_info;
   GdkEventType type;
   GtkWidget *root, *picked;
+  gboolean touch_ui_up;
   double sx, sy, tx, ty;
 
   type = gdk_event_get_event_type (event);
   if (type != GDK_BUTTON_PRESS && type != GDK_TOUCH_BEGIN)
     return FALSE;
 
-  if (info == NULL || !info->text_handles_enabled ||
-      info->selection_anchor == info->selection_end)
+  if (info == NULL || !info->text_handles_enabled)
+    return FALSE;
+
+  /* Dismiss also when only the bubble/handles linger over a collapsed
+   * selection, not just when there is a selection to drop. */
+  touch_ui_up =
+    (info->selection_bubble &&
+     gtk_widget_get_visible (info->selection_bubble)) ||
+    (info->text_handles[0] &&
+     gtk_widget_get_visible (GTK_WIDGET (info->text_handles[0]))) ||
+    (info->text_handles[1] &&
+     gtk_widget_get_visible (GTK_WIDGET (info->text_handles[1])));
+
+  if (info->selection_anchor == info->selection_end && !touch_ui_up)
     return FALSE;
 
   root = gtk_event_controller_get_widget (GTK_EVENT_CONTROLLER (controller));
@@ -4873,6 +4886,8 @@ gtk_label_dismiss_event (GtkEventControllerLegacy *controller,
   gtk_label_selection_bubble_popup_unset (self);
   info->text_handles_enabled = FALSE;
   gtk_label_select_region_index (self, info->selection_end, info->selection_end);
+  /* select_region_index is a no-op when already collapsed; hide explicitly */
+  gtk_label_update_handles (self);
   return FALSE;
 }
 
@@ -5185,8 +5200,12 @@ gtk_label_drag_gesture_begin (GtkGestureDrag *gesture,
           info->drag_start_y = start_y;
         }
       else
-        /* start a replacement */
-        gtk_label_select_region_index (self, index, index);
+        {
+          /* start a replacement; drop any touch bubble left over from the
+           * old selection (handles are hidden by select_region_index) */
+          gtk_label_select_region_index (self, index, index);
+          gtk_label_selection_bubble_popup_unset (self);
+        }
     }
 }
 
