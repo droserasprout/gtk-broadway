@@ -104,3 +104,33 @@ body,
 blockquote {
     border-radius: 6px;
 }
+
+/* Keep the status icons in the backend comparison table centered even when a
+ * cell carries a footnote: pull the marker out of the cell flow so it doesn't
+ * shift the icon off-center relative to footnote-less rows. */
+.content td:has(> sup.footnote-reference) {
+    position: relative;
+}
+
+.content td > sup.footnote-reference {
+    position: absolute;
+    top: 0.1em;
+    right: 0.3em;
+    font-size: 0.65em;
+    line-height: 1;
+}
+
+/* Category rows in the comparison table (a bold label in the first cell, the
+ * rest empty) read as section headers: a tinted band, a larger label, and a
+ * gap separating them from the group above. */
+.content table tbody tr:has(> td:first-child > strong:only-child) > td {
+    background: var(--table-header-bg);
+    border-top: 3px solid var(--bg);
+    padding-top: 0.4em;
+    padding-bottom: 0.4em;
+}
+
+.content table tbody tr:has(> td:first-child > strong:only-child) > td:first-child {
+    font-size: 1.08em;
+    letter-spacing: 0.03em;
+}
