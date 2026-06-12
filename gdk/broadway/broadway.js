@@ -375,7 +375,8 @@ var lastCompositionEndTime = 0;
 var lastCompositionText = "";
 var showKeyboard = false;
 var showKeyboardChanged = false;
-var firstTouchDownId = null;
+var firstTouchDownId = null;     /* mapped id (touchIdentifier), as sent on the wire */
+var firstTouchDownRawId = null;  /* browser identifier, keys activeTouches/touchSurfaceIds */
 /* Surface id per active touch, captured at touchstart. A drag keeps routing to
  * the right surface even after GTK repaints and detaches the node it began on. */
 var touchSurfaceIds = {};
@@ -1334,6 +1335,7 @@ function handleDisplayCommands(display_commands)
 	    if (id == realSurfaceWithMouse) {
 		realSurfaceWithMouse = 0;
 		firstTouchDownId = null;
+		firstTouchDownRawId = null;
 	    }
            delete surfaces[id];
             break;
@@ -3919,17 +3921,18 @@ function onMouseWheel(ev)
 function endInFlightGtkTouch() {
     if (firstTouchDownId == null)
         return;
-    var pt = activeTouches[firstTouchDownId];
+    var pt = activeTouches[firstTouchDownRawId];
     if (pt != null) {
-        var origId = touchSurfaceIds[firstTouchDownId];
+        var origId = touchSurfaceIds[firstTouchDownRawId];
         if (origId === undefined)
             origId = 0;
         var id = getEffectiveEventTarget (origId);
         var pos = getPositionsFromAbsCoord(pt.x / zoomFactor, pt.y / zoomFactor, id);
         sendInput (BROADWAY_EVENT_TOUCH, [3, id, firstTouchDownId, 1, pos.rootX, pos.rootY, pos.winX, pos.winY, lastState]);
     }
-    delete touchSurfaceIds[firstTouchDownId];
+    delete touchSurfaceIds[firstTouchDownRawId];
     firstTouchDownId = null;
+    firstTouchDownRawId = null;
 }
 
 function beginPinch() {
@@ -3989,6 +3992,7 @@ function onTouchStart(ev) {
 
         if (firstTouchDownId == null) {
             firstTouchDownId = touchId;
+            firstTouchDownRawId = touch.identifier;
             isEmulated = 1;
 
             /* Track the touched surface (grab handling needs it), but emit no
@@ -4128,6 +4132,7 @@ function onTouchEnd(ev) {
         if (firstTouchDownId == touchId) {
             isEmulated = 1;
             firstTouchDownId = null;
+            firstTouchDownRawId = null;
         }
 
         sendInput (BROADWAY_EVENT_TOUCH, [touchType, id, touchId, isEmulated, pos.rootX, pos.rootY, pos.winX, pos.winY, lastState]);
@@ -4432,6 +4437,7 @@ function resetClientState()
     surfaceWithMouse = 0;
     realSurfaceWithMouse = 0;
     firstTouchDownId = null;
+    firstTouchDownRawId = null;
     activeTouches = {};
 }
 
