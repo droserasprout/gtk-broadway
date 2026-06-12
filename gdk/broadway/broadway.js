@@ -4524,7 +4524,9 @@ function onSessionToken(token, cid)
                 clearTimeout(resumeSafetyTimer);
             resumeSafetyTimer = setTimeout(function () {
                 resumeSafetyTimer = null;
-                if (reconnecting) {
+                /* Only on a live socket: if the link dropped again, the
+                 * overlay must stay up and `reconnecting` must stay true. */
+                if (reconnecting && ws && ws.readyState === WebSocket.OPEN) {
                     reconnecting = false;
                     awaitFirstFrame = false;
                     hideOverlay();
@@ -4585,6 +4587,15 @@ function handleConnectionLost()
     if (!reconnecting) {
         reconnecting = true;
         showOverlay("reconnecting");
+    }
+    /* Disarm any pending resume (first-frame rAF / safety timer) from a prior
+     * session: firing now would clear `reconnecting` and drop the overlay
+     * while the link is down, and the next resume would then skip
+     * resetClientState. */
+    awaitFirstFrame = false;
+    if (resumeSafetyTimer) {
+        clearTimeout(resumeSafetyTimer);
+        resumeSafetyTimer = null;
     }
     /* Drop the possibly half-open socket so the next connect() is clean. */
     if (ws) {
@@ -4750,12 +4761,8 @@ function connect()
         /* onclose follows and drives the reconnect. */
     };
     ws.onclose = function() {
-        inputSocket = null;
-        if (sessionInvalidated)
-            return;
-        reconnecting = true;
-        showOverlay("reconnecting");
-        scheduleReconnect();
+        /* Also disarms a pending resume rAF/safety timer. */
+        handleConnectionLost();
     };
     ws.onmessage = function(event) {
         handleMessage(event.data);
