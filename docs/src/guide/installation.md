@@ -41,6 +41,6 @@ The asset name encodes base and architecture: `gtk4-brotway_<gtk>-<rev>_<arch>.d
 
 ## In a container
 
-Same steps inside a Docker image; see [Deploying behind TLS](deployment.md#in-a-container) for the Dockerfile snippet and the full operator checklist.
+Same steps inside a Docker image; see [Security model](security.md#in-a-container) for the Dockerfile snippet and the full operator checklist.
 
 > To undo the overlay: `apt-mark unhold libgtk-4-1 libgtk-4-bin` then `apt-get install --reinstall libgtk-4-1 libgtk-4-bin`.

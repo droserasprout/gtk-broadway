@@ -22,7 +22,7 @@
   - [Scaling & HiDPI](features/scaling.md)
   - [Desktop & rendering fixes](features/desktop-fixes.md)
 - [Running broadwayd](guide/running.md)
-- [Deploying behind TLS](guide/deployment.md)
+- [Security model](guide/security.md)
 - [Configuration reference](guide/config.md)
 - [Troubleshooting](guide/troubleshooting.md)
 - [Known issues](guide/known-issues.md)

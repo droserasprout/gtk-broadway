@@ -1,16 +1,20 @@
-# Deploying behind TLS
+# Security model
 
-[Installation](installation.md) and [Running broadwayd](running.md) cover a single local session. This page is the operator view: serving the fork to real clients over the network, with a container and a TLS terminator.
+Broadway was built for a trusted local display, not the open network. The fork keeps that posture, so the model is short and worth stating before any deployment:
+
+- **No authentication.** The daemon serves the app to anyone who can open `8080 + N`. There is no login, token, or per-user check anywhere in the stack.
+- **No transport encryption.** The daemon speaks plain HTTP and WebSocket; nothing is encrypted until you put TLS in front of it.
+- **Last connected browser wins.** The [single-display arbitration](../internals/connection.md#single-display-arbitration-newest-fresh-open-wins) hands the live session to the **newest** fresh page load. A stranger who reaches the port doesn't just view the app, they take it over from whoever is using it.
+
+Treat the daemon port as fully trusted and never expose it directly. The rest of this page is how to put a session on the network anyway: terminate TLS, add auth, and keep the port private.
 
 ## Why TLS is not optional
 
 The [clipboard bridge](../features/clipboard.md) needs a [secure context](running.md#secure-context-note) (`https://` or `http://localhost`), so any deployment beyond localhost has to terminate TLS in front of the daemon. The reference deployment runs behind Traefik in Docker Swarm for exactly this reason.
 
-## Access control - Broadway has none
+## Adding access control
 
-Broadway ships **no authentication**. The daemon serves the app to anyone who can open `8080 + N`, and there is no login, token, or per-user check anywhere in the stack. Worse, the [single-display arbitration](../internals/connection.md#single-display-arbitration-newest-fresh-open-wins) means the **newest** fresh page load takes ownership of the session - so a stranger who reaches the port doesn't just view the app, they take over the live session from whoever is using it.
-
-Treat the daemon port as fully trusted and never expose it directly. Put access control in front of it at the same TLS terminator:
+Broadway has none of its own (see the model above), so put it at the same TLS terminator:
 
 - **HTTP basic auth** (Traefik `basicauth` middleware, nginx `auth_basic`, Caddy `basicauth`), or a forward-auth / SSO middleware for anything multi-user.
 - **Network isolation** - bind the daemon to loopback or an internal Docker network so only the proxy can reach it; never publish `8080 + N` on a public interface.
