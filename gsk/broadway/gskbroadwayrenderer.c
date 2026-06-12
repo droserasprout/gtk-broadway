@@ -1150,6 +1150,12 @@ gsk_broadway_renderer_add_node (GskRenderer *renderer,
               {
                 GdkTexture *colorized_texture = get_colorized_texture (texture, color_matrix, color_offset);
                 guint32 texture_id = gdk_broadway_display_ensure_texture (display, colorized_texture);
+                /* Transfer the ref to node_textures: pins the texture past the
+                 * frame flush (a colorized-cache eviction mid-frame must not
+                 * finalize an id already emitted), and dropping it at end of
+                 * frame leaves the cache entry as the only owner, so eviction
+                 * actually frees the decoded copy instead of leaking it. */
+                g_ptr_array_add (self->node_textures, colorized_texture);
                 add_rect (nodes, &child->bounds, offset_x, offset_y);
                 add_uint32 (nodes, texture_id);
               }
