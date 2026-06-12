@@ -1140,6 +1140,11 @@ parse_input_message (BroadwayInput *input, const unsigned char *message, gsize p
 
   memset (&msg, 0, sizeof (msg));
 
+  /* The browser is untrusted: a frame too short for even the base header
+   * (type, serial, time) would read past it. */
+  if (payload_len < 3 * sizeof (guint32))
+    return;
+
   p = (guint32 *) message;
 
   msg.base.type = ntohl (*p++);
@@ -1277,6 +1282,8 @@ parse_input_message (BroadwayInput *input, const unsigned char *message, gsize p
   case BROADWAY_EVENT_PING:
     /* Liveness probe: reply, don't forward to the app. The payload carries the
      * client's last measured round-trip (ms), surfaced in the debug menu. */
+    if (payload_len < 4 * sizeof (guint32))
+      return; /* truncated frame */
     server->last_latency_ms = ntohl (*p++);
     if (server->output)
       {
