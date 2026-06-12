@@ -335,6 +335,12 @@ var overlayEl = null;
  * a foreground tab, cellular handover). Any inbound message counts as a PONG. */
 var HEARTBEAT_MS = 2500;
 var HEARTBEAT_TIMEOUT_MS = 7000;
+/* The post-(re)connect resync arrives as one giant ws frame (all textures +
+ * node trees); onmessage only fires on the COMPLETE frame and the daemon is
+ * blocked writing it, so it can't pong. Give a fresh socket much longer to
+ * deliver its first message before declaring the link dead. */
+var FIRST_MESSAGE_TIMEOUT_MS = 60000;
+var awaitingFirstMessage = false;
 var heartbeatTimer = null;
 var lastPongTime = 0;
 var pingSentTime = 0;          /* when the last PING went out, for RTT measurement */
@@ -1883,6 +1889,7 @@ function handleMessage(message)
         return;
 
     lastPongTime = Date.now();     /* any inbound data proves the link is alive */
+    awaitingFirstMessage = false;
 
     if (!active) {
         start();
@@ -4667,8 +4674,11 @@ function heartbeatTick()
         return;
     }
     /* No PONG in a while: dead link, or a socket that opened but never got its
-     * SESSION (data path wedged with no onclose). */
-    if (Date.now() - lastPongTime > HEARTBEAT_TIMEOUT_MS) {
+     * SESSION (data path wedged with no onclose). A socket still waiting on
+     * its first message gets the long timeout: killing it mid-resync would
+     * just retrigger the same full resync, forever on a slow link. */
+    if (Date.now() - lastPongTime >
+        (awaitingFirstMessage ? FIRST_MESSAGE_TIMEOUT_MS : HEARTBEAT_TIMEOUT_MS)) {
         handleConnectionLost();
         return;
     }
@@ -4714,6 +4724,7 @@ function connect()
     ws.onopen = function() {
         inputSocket = ws;
         lastPongTime = Date.now(); /* fresh socket: don't immediately time out */
+        awaitingFirstMessage = true;
         /* Backoff is NOT reset here. A raw socket open is not a working session:
          * after a network switch the daemon may reject/close us (lost ownership,
          * or a flaky path drops the socket before SESSION). Resetting here would
