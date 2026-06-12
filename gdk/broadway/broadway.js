@@ -1196,11 +1196,15 @@ TransformNodes.prototype.execute = function(display_commands)
             var textureNode = this.nodes[textureNodeId];
             var textureId = this.decode_uint32();
             var texture = textures[textureId];
-            if (texture) {
+            if (!texture) {
+                console.warn("broadway: PATCH_TEXTURE references unknown texture " + textureId);
+            } else if (!textureNode) {
+                /* Don't ref for a node we can't patch - the display phase skips
+                 * the command and the decode ref would leak the texture forever. */
+                console.warn("broadway: PATCH_TEXTURE references unknown node " + textureNodeId);
+            } else {
                 texture.ref();
                 this.display_commands.push([DISPLAY_OP_CHANGE_TEXTURE, textureNode, texture]);
-            } else {
-                console.warn("broadway: PATCH_TEXTURE references unknown texture " + textureId);
             }
             break;
         case BROADWAY_NODE_OP_PATCH_TRANSFORM:
