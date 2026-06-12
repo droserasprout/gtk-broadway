@@ -170,11 +170,12 @@ on_control_readable (GSocket *sock, GIOCondition cond, gpointer user_data)
       if (got >= 7)
         {
           /* Traffic rate from the byte delta since the last push (the daemon
-           * sends cumulative bytes ~every 500ms). */
+           * sends cumulative bytes ~every 500ms). bytes < prev_bytes means the
+           * daemon counter reset (reconnect): show 0, prev_bytes reseeds below. */
           static guint64 prev_bytes = 0;
           static gint64 prev_time = 0;
           gint64 now = g_get_monotonic_time ();
-          double rate = (prev_time != 0 && now > prev_time)
+          double rate = (prev_time != 0 && now > prev_time && bytes >= prev_bytes)
                           ? (double) (bytes - prev_bytes) * G_USEC_PER_SEC / (now - prev_time)
                           : 0;
           char *traffic = format_bytes (bytes);
