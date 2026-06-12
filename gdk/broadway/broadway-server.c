@@ -340,6 +340,8 @@ broadway_server_init (BroadwayServer *server)
                        root);
 }
 
+static void menu_control_teardown (void);
+
 static void
 broadway_server_finalize (GObject *object)
 {
@@ -355,6 +357,9 @@ broadway_server_finalize (GObject *object)
       g_free (de);
     }
   g_slist_free (server->deferred_enters);
+
+  /* The menu control sources and child watch hold the server raw. */
+  menu_control_teardown ();
 
   g_free (server->address);
   g_free (server->display);
@@ -856,6 +861,7 @@ static GSource *menu_read_source = NULL;
 static gint64   menu_spawn_failed_at = 0; /* monotonic time of last failed spawn */
 static guint    menu_expect_timer = 0;    /* clears expecting_menu_surface if the
                                            * spawned menu never maps a toplevel */
+static guint    menu_child_watch = 0;
 
 #define MENU_SPAWN_RETRY_US (10 * G_USEC_PER_SEC)
 #define MENU_EXPECT_TIMEOUT_SECONDS 10
@@ -863,6 +869,11 @@ static guint    menu_expect_timer = 0;    /* clears expecting_menu_surface if th
 static void
 menu_control_teardown (void)
 {
+  if (menu_child_watch != 0)
+    {
+      g_source_remove (menu_child_watch);
+      menu_child_watch = 0;
+    }
   if (menu_expect_timer != 0)
     {
       g_source_remove (menu_expect_timer);
@@ -1092,6 +1103,7 @@ menu_child_exited (GPid pid, gint status, gpointer user_data)
   g_spawn_close_pid (pid);
   if (pid == menu_pid)
     menu_pid = 0;
+  menu_child_watch = 0; /* one-shot; auto-removed after this callback */
   /* If it died before ever mapping a toplevel, don't mis-tag the next one. */
   server->expecting_menu_surface = FALSE;
   menu_control_teardown ();
@@ -1170,7 +1182,7 @@ broadway_server_summon_menu (BroadwayServer *server)
         g_source_remove (menu_expect_timer);
       menu_expect_timer = g_timeout_add_seconds (MENU_EXPECT_TIMEOUT_SECONDS,
                                                  menu_expect_timeout, server);
-      g_child_watch_add (menu_pid, menu_child_exited, server);
+      menu_child_watch = g_child_watch_add (menu_pid, menu_child_exited, server);
 
       menu_sock = g_socket_new_from_fd (sv[0], NULL); /* takes ownership of sv[0] */
       if (menu_sock != NULL)
