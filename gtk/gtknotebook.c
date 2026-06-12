@@ -2914,6 +2914,9 @@ gtk_notebook_tab_wheel (GtkEventControllerScroll *controller,
     return GDK_EVENT_PROPAGATE;
 
   notebook->touch_pan_max = gtk_notebook_tab_pan_max (notebook);
+  if (notebook->touch_pan_max <= 0)
+    return GDK_EVENT_PROPAGATE;  /* strip doesn't overflow - nothing to pan */
+
   notebook->touch_pan_px = CLAMP (notebook->touch_pan_px + dx * TAB_WHEEL_STEP,
                                   0, notebook->touch_pan_max);
   gtk_widget_queue_allocate (notebook->tabs_widget);
