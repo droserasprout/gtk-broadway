@@ -4130,7 +4130,7 @@ function onTouchEnd(ev) {
             firstTouchDownId = null;
         }
 
-        sendInput (BROADWAY_EVENT_TOUCH, [touchType, id, touch.identifier, isEmulated, pos.rootX, pos.rootY, pos.winX, pos.winY, lastState]);
+        sendInput (BROADWAY_EVENT_TOUCH, [touchType, id, touchId, isEmulated, pos.rootX, pos.rootY, pos.winX, pos.winY, lastState]);
     }
 }
 
