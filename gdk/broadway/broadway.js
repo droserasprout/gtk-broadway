@@ -1338,6 +1338,12 @@ function handleDisplayCommands(display_commands)
             break;
         case DISPLAY_OP_DELETE_SURFACE:
             var id = cmd[1];
+            /* A NEW_SURFACE for the same id can land in the same drain (decode
+             * writes surfaces[] immediately, this delete is deferred to the rAF
+             * phase): the entry then belongs to the new, live surface - leave
+             * it and its state alone. */
+            if (surfaces[id] !== cmd[2])
+                break;
 	    if (id == surfaceWithMouse) {
 		surfaceWithMouse = 0;
 	    }
@@ -1572,7 +1578,8 @@ function handleCommands(cmd, display_commands, new_textures, modified_trees)
 
             display_commands.push([DISPLAY_OP_DELETE_NODE, div]);
             // We need to delay this until its really deleted because we can still get events to it
-            display_commands.push([DISPLAY_OP_DELETE_SURFACE, id]);
+            // Pass the surface object too: a NEW_SURFACE may reuse the id before the delete runs
+            display_commands.push([DISPLAY_OP_DELETE_SURFACE, id, surface]);
             break;
 
         case BROADWAY_OP_ROUNDTRIP:
