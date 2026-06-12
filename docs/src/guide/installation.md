@@ -1,19 +1,24 @@
 # Installation
 
-The fork ships as a Debian package, `gtk4-brotway`, built by CI and published to [GitHub Releases](https://github.com/droserasprout/gtk-brotway/releases).
+The fork is distributed two ways:
 
-## What the package does
+- **Debian package** `gtk4-brotway` - built by CI, published to [GitHub Releases](https://github.com/droserasprout/gtk-brotway/releases). This is what the Docker image installs, and it works on any Ubuntu/Debian host. It *transparently* overlays the stock GTK runtime (every Broadway app uses the fork, no opt-in).
+- **Arch PKGBUILD** (`packaging/arch/`) - built by hand with `makepkg`. A *conflict-free* private-prefix overlay you opt into per launch via the `gtk4-brotway-run` wrapper.
 
-The package `Depends` on and `Replaces` the stock runtime packages `libgtk-4-1` and `libgtk-4-bin`. It overlays only:
+Both only swap the Broadway pieces and leave the rest of your GTK (GIR, `gtk-4-common`, themes, ...) untouched - so the package and your system must agree on the GTK base version (4.22.x). See [Supported versions](versions.md).
 
-- the patched `libgtk-4.so` (the SONAME-versioned shared object, e.g. `libgtk-4.so.1.2200.2`),
+## What gets overlaid
+
+- the patched `libgtk-4.so` (the SONAME-versioned object, e.g. `libgtk-4.so.1.2200.4`),
 - the `libgtk-4.so.1` SONAME symlink, re-pointed at the patched `.so`,
 - the `gtk4-broadwayd` daemon binary,
-- the `gtk4-brotway-debugmenu` binary (net-new file; the daemon spawns the [debug menu](../internals/debug-menu.md) by name).
+- the `gtk4-brotway-debugmenu` binary (net-new; the daemon spawns the [debug menu](../internals/debug-menu.md) by name).
 
-Everything else from apt's GTK (the GIR, `gtk-4-common`, themes, ...) is left untouched. That is why the package and your system must agree on the GTK base version. See [Supported versions](versions.md).
+## Docker
 
-## Install
+The intended deployment. The [nicotineplus-proper](https://github.com/droserasprout/nicotineplus-proper) image installs the arch-matching `.deb` in its `fork` stage over the stock base, then `apt-mark hold`s the GTK runtime. See [Security model](security.md#in-a-container) for the Dockerfile snippet and the operator checklist.
+
+## Ubuntu / Debian
 
 Pick the asset matching your architecture (the base is GTK 4.22.4 on `ubuntu:26.04`):
 
@@ -35,12 +40,29 @@ The asset name encodes base and architecture: `gtk4-brotway_<gtk>-<rev>_<arch>.d
 >   | grep -oP '"tag_name":\s*"\K[^"]+')"
 > ```
 
-## Hold the stock packages
+### Hold the stock packages
 
-`apt-mark hold libgtk-4-1 libgtk-4-bin` matters: it stops a later `apt upgrade` from re-installing the stock GTK files over the patched ones. Skip the hold and a routine system upgrade silently reverts the fork, so Broadway loses clipboard/touch until you re-install the `.deb`.
-
-## In a container
-
-Same steps inside a Docker image; see [Security model](security.md#in-a-container) for the Dockerfile snippet and the full operator checklist.
+The `apt-mark hold libgtk-4-1 libgtk-4-bin` matters: it stops a later `apt upgrade` from re-installing the stock GTK files over the patched ones. Skip the hold and a routine system upgrade silently reverts the fork, so Broadway loses clipboard/touch until you re-install the `.deb`.
 
 > To undo the overlay: `apt-mark unhold libgtk-4-1 libgtk-4-bin` then `apt-get install --reinstall libgtk-4-1 libgtk-4-bin`.
+
+## Arch / CachyOS
+
+No prebuilt package - build it locally with the PKGBUILD on the `ci` branch. Your system `gtk4` must be the same upstream series (currently `1:4.22.4`).
+
+```sh
+git clone -b ci https://github.com/droserasprout/gtk-brotway
+cd gtk-brotway/packaging/arch
+makepkg -si
+```
+
+Unlike the `.deb`, this does **not** replace your system GTK. The patched lib and `gtk4-broadwayd` install into a private prefix (`/usr/lib/gtk4-brotway/`), so install/removal stay clean and `pacman -Syu` never fights it. Opt into the fork per launch:
+
+```sh
+gtk4-brotway-run gtk4-widget-factory
+# -> http://localhost:8085  (triple-Shift = debug menu)
+
+BROTWAY_PORT=9000 BROTWAY_DISPLAY=:7 gtk4-brotway-run gnome-calculator
+```
+
+The wrapper points `LD_LIBRARY_PATH` at the prefix, starts the fork's `broadwayd`, and tears it down on exit. To uninstall: `pacman -R gtk4-brotway`.
