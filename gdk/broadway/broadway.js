@@ -1610,7 +1610,13 @@ function handleCommands(cmd, display_commands, new_textures, modified_trees)
 
         case BROADWAY_OP_RELEASE_TEXTURE:
             id = cmd.get_32();
-            textures[id].unref();
+            /* A stale/double release would throw mid-message and desync the
+             * node table from the display ops. Skip gracefully like
+             * NODE_TEXTURE / PATCH_TEXTURE. */
+            if (textures[id])
+                textures[id].unref();
+            else
+                console.warn("broadway: RELEASE_TEXTURE references unknown texture " + id);
             break;
 
         case BROADWAY_OP_SET_NODES:
