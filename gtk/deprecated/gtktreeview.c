@@ -505,6 +505,10 @@ typedef struct
   guint modify_selection_pressed : 1;
   guint extend_selection_pressed : 1;
 
+  /* touch: press on a selected row in MULTIPLE mode deferred the
+   * collapse-to-this-row to release (so a drag keeps the selection) */
+  guint touch_press_deferred : 1;
+
   guint in_top_row_to_dy : 1;
 
   /* interactive search */
@@ -2768,6 +2772,9 @@ gtk_tree_view_click_gesture_pressed (GtkGestureClick *gesture,
   gboolean rtl;
   GtkWidget *target;
 
+  /* Stale from a press whose release never fired (claimed/cancelled sequence) */
+  priv->touch_press_deferred = FALSE;
+
   gtk_tree_view_convert_widget_to_bin_window_coords (tree_view, x, y,
                                                      &bin_x, &bin_y);
 
@@ -3005,7 +3012,9 @@ gtk_tree_view_click_gesture_pressed (GtkGestureClick *gesture,
           /* Touch: don't collapse a multi-row selection when pressing an
            * already-selected row. Long-press is the only context-menu trigger
            * on touch and must act on the whole selection; the collapse would
-           * otherwise fire here at touch-down, before the long-press does. */
+           * otherwise fire here at touch-down, before the long-press does.
+           * A plain tap commits it in gtk_tree_view_click_gesture_released. */
+          priv->touch_press_deferred = TRUE;
         }
       else
         {
@@ -3298,7 +3307,11 @@ gtk_tree_view_click_gesture_released (GtkGestureClick *gesture,
   GtkTreeViewPrivate *priv = gtk_tree_view_get_instance_private (tree_view);
   GdkEventSequence *sequence;
   gboolean modify, extend;
+  gboolean touch_deferred;
   guint button;
+
+  touch_deferred = priv->touch_press_deferred;
+  priv->touch_press_deferred = FALSE;
 
   button = gtk_gesture_single_get_current_button (GTK_GESTURE_SINGLE (gesture));
   sequence = gtk_gesture_single_get_current_sequence (GTK_GESTURE_SINGLE (gesture));
@@ -3309,6 +3322,21 @@ gtk_tree_view_click_gesture_released (GtkGestureClick *gesture,
     return;
 
   get_current_selection_modifiers (GTK_EVENT_CONTROLLER (gesture), &modify, &extend);
+
+  /* Touch: the press on this already-selected row deferred the collapse of the
+   * multi-selection (see gtk_tree_view_click_gesture_pressed). It stayed a
+   * plain tap (a drag/rubber-band claims the sequence and cancels this
+   * gesture), so collapse to the tapped row and move the cursor now. */
+  if (touch_deferred && !modify && !extend &&
+      priv->rubber_band_status == RUBBER_BAND_OFF)
+    {
+      GtkTreePath *path;
+
+      path = _gtk_tree_path_new_from_rbtree (priv->button_pressed_tree,
+                                             priv->button_pressed_node);
+      gtk_tree_view_real_set_cursor (tree_view, path, CLEAR_AND_SELECT | CLAMP_NODE);
+      gtk_tree_path_free (path);
+    }
 
   if (priv->arrow_prelit)
     {
