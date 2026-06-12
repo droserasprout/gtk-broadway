@@ -939,9 +939,12 @@ _gdk_broadway_server_set_clipboard_text (GdkBroadwayServer *server,
     len = BROADWAY_CLIPBOARD_MAX_SIZE;
 
   size = G_STRUCT_OFFSET (BroadwayRequestSetClipboard, text) + len;
+  /* Pad to 4 bytes (zero-filled) so the daemon's framing loop keeps the
+   * following requests in the stream aligned. */
+  size = (size + 3) & ~(gsize) 3;
   /* Allocate at least the full struct so accessing msg->len stays in bounds
    * (the text[1] member makes sizeof larger than size when len is small). */
-  msg = g_malloc0 (MAX (size + 1, sizeof *msg));
+  msg = g_malloc0 (MAX (size, sizeof *msg));
 
   msg->len = (guint32) len;
   if (len > 0)
@@ -975,9 +978,11 @@ _gdk_broadway_server_open_uri (GdkBroadwayServer *server,
     len = BROADWAY_CLIPBOARD_MAX_SIZE;
 
   size = G_STRUCT_OFFSET (BroadwayRequestOpenUri, uri) + len;
+  /* Pad to 4 bytes (zero-filled) to keep the daemon's request stream aligned. */
+  size = (size + 3) & ~(gsize) 3;
   /* Allocate at least the full struct so accessing msg->len stays in bounds
    * (the uri[1] member makes sizeof larger than size when len is small). */
-  msg = g_malloc0 (MAX (size + 1, sizeof *msg));
+  msg = g_malloc0 (MAX (size, sizeof *msg));
 
   msg->len = (guint32) len;
   memcpy (msg->uri, uri, len);
@@ -997,9 +1002,11 @@ _gdk_broadway_server_surface_set_cursor (GdkBroadwayServer *server,
   BroadwayRequestSetCursor *msg;
 
   size = G_STRUCT_OFFSET (BroadwayRequestSetCursor, name) + len;
+  /* Pad to 4 bytes (zero-filled) to keep the daemon's request stream aligned. */
+  size = (size + 3) & ~(gsize) 3;
   /* Allocate at least the full struct so accessing msg->len stays in bounds
    * (the name[1] member makes sizeof larger than size when len is small). */
-  msg = g_malloc0 (MAX (size + 1, sizeof *msg));
+  msg = g_malloc0 (MAX (size, sizeof *msg));
 
   msg->id = id;
   msg->len = (guint32) len;
