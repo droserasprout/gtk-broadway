@@ -1,6 +1,6 @@
 # Touch implementation
 
-The user-facing summary is in [Touch interface](../features/touch.md). This page covers the individual fixes. Each is tagged **broadwayd-only** (`broadway.js` / `client.html` / daemon C) or **libgtk** (GDK / GTK widgets); see [broadwayd vs libgtk](build-split.md).
+The user-facing summary is in [Touch interface](../features/touch.md). This page covers the individual fixes. Each is tagged **broadwayd-only** (`broadway.js` / `client.html` / daemon C) or **libgtk** (GDK / GTK widgets); see [broadwayd vs libgtk](../build/from-source.md#iterating-broadwayd-vs-libgtk).
 
 ## Source touch as a touchscreen
 

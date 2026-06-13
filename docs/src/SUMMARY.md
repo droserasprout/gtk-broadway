@@ -7,6 +7,7 @@
 
 - [Supported versions](guide/versions.md)
 - [Installation](guide/installation.md)
+- [Running](guide/running.md)
 
 # User Guide
 
@@ -21,7 +22,6 @@
   - [Connection management](features/connection.md)
   - [Scaling & HiDPI](features/scaling.md)
   - [Desktop & rendering fixes](features/desktop-fixes.md)
-- [Running broadwayd](guide/running.md)
 - [Security model](guide/security.md)
 - [Configuration reference](guide/config.md)
 - [Troubleshooting](guide/troubleshooting.md)
@@ -40,7 +40,6 @@
 # Internals
 
 - [Architecture](internals/architecture.md)
-  - [broadwayd vs libgtk](internals/build-split.md)
 - [Wire protocol](internals/protocol.md)
 - [Input region & pointer](internals/input-region.md)
 - [Rendering & performance](internals/performance.md)

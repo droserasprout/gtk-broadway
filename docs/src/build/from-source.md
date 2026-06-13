@@ -18,7 +18,20 @@ ninja -C _build
 - `_build/gtk/libgtk-4.so.1.<minor>.<micro>`, the patched shared object (e.g. `libgtk-4.so.1.2200.4`).
 - `_build/gdk/broadway/gtk4-broadwayd`, the daemon.
 
-`ninja -C _build` also regenerates `broadwayjs.h` / `clienthtml.h` from `broadway.js` / `client.html`; which changes need only a daemon restart and which need the full library is covered in [broadwayd vs libgtk](../internals/build-split.md).
+`ninja -C _build` also regenerates `broadwayjs.h` / `clienthtml.h` from `broadway.js` / `client.html`.
+
+## Iterating: broadwayd vs libgtk
+
+Every fork change is one of two kinds, which decides how you rebuild and reload it:
+
+| Change in... | Rebuild | Restart | Browser |
+|---|---|---|---|
+| `broadway.js` / `client.html` / daemon C | daemon (`ninja`, incremental) | daemon | plain reload |
+| GDK backend / GSK renderer / GTK widget | `libgtk-4.so` | the app | plain reload |
+
+A **broadwayd-only** change (`broadway.js`, `client.html`, or daemon C) is the fast loop: restart the daemon, reload the tab. The client files are embedded into the daemon (generated into `clienthtml.h` / `broadwayjs.h`), so even a pure JS change needs the daemon rebuilt - but `ninja` does that incrementally and the page is served `no-store`, so a plain reload picks it up. A **libgtk** change (GDK backend, GSK renderer, or a GTK widget) is the slow loop: rebuild `libgtk-4.so` and restart the app.
+
+The `gtk4-brotway` `.deb` ships both the patched `libgtk-4.so` and `gtk4-broadwayd`, so a single release always covers both kinds of change.
 
 ## Build dependencies
 

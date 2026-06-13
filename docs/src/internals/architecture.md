@@ -42,4 +42,4 @@ For those variable-length payloads the daemon clamps `len` to the framed message
 
 ## broadwayd-only vs libgtk
 
-Every fork change lives on one side of a split - client/daemon versus the library - which drives both iteration and shipping; see [broadwayd vs libgtk](build-split.md).
+Every fork change lives on one side of a split - client/daemon versus the library - which drives both iteration and shipping; see [broadwayd vs libgtk](../build/from-source.md#iterating-broadwayd-vs-libgtk).

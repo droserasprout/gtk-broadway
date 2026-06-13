@@ -90,7 +90,7 @@ That one spot covers `gtk_show_uri`, `GtkUriLauncher`, and auto-link activation 
 
 ## 8. Iterating
 
-The change spans both halves of the [broadwayd vs libgtk split](../internals/build-split.md):
+The change spans both halves of the [broadwayd vs libgtk split](from-source.md#iterating-broadwayd-vs-libgtk):
 
 - Daemon C + `broadway.js` (steps 4-6): incremental `ninja` rebuild (it re-embeds the JS), restart `gtk4-broadwayd`, reload the tab.
 - libgtk (steps 3 and 7): rebuild `libgtk-4.so` and restart the app.

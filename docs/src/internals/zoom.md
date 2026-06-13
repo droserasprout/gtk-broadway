@@ -1,6 +1,6 @@
 # Pinch zoom implementation
 
-The user-facing summary is in [Pinch to zoom](../features/zoom.md). This page covers the mechanism. It is entirely [broadwayd-only](build-split.md) (`broadway.js` / `client.html`).
+The user-facing summary is in [Pinch to zoom](../features/zoom.md). This page covers the mechanism. It is entirely [broadwayd-only](../build/from-source.md#iterating-broadwayd-vs-libgtk) (`broadway.js` / `client.html`).
 
 ## Reflow, not the native scale
 

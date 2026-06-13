@@ -1,6 +1,6 @@
 # Notebook implementation
 
-The user-facing summary is in [Notebook tabs](../features/notebook.md). This is a [libgtk](build-split.md) change (`gtk/gtknotebook.c`), gated to Broadway.
+The user-facing summary is in [Notebook tabs](../features/notebook.md). This is a [libgtk](../build/from-source.md#iterating-broadwayd-vs-libgtk) change (`gtk/gtknotebook.c`), gated to Broadway.
 
 ## One unified model
 

@@ -71,7 +71,7 @@ node --check gdk/broadway/broadway.js
 
 ### Build / restart iteration
 
-Whether a change needs only a `gtk4-broadwayd` restart or the full library rebuilt and the app restarted: see [broadwayd vs libgtk](../internals/build-split.md). Build outputs are listed in [What you get](from-source.md#what-you-get).
+Whether a change needs only a `gtk4-broadwayd` restart or the full library rebuilt and the app restarted: see [broadwayd vs libgtk](from-source.md#iterating-broadwayd-vs-libgtk). Build outputs are listed in [What you get](from-source.md#what-you-get).
 
 ## Code style
 
