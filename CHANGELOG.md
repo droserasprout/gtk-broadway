@@ -2,7 +2,13 @@
 
 All notable changes to this project will be documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-Versioning from v3: release tags are three-part `vX.Y.Z` (semver *format*, loose discipline - no compatibility contract); package versions are `<gtk-base>-X.Y.Z`, e.g. `4.22.4-3.0.0`. Single base (GTK 4.22.x). See [Supported versions](https://droserasprout.github.io/gtk-brotway/guide/versions.html).
+Versioning from v3: release tags are three-part `vX.Y.Z` (semver *format*, loose discipline - no compatibility contract); package versions are `<gtk-base>-X.Y.Z`, e.g. `4.22.4-3.0.0`. Single base (GTK 4.22.x). See [Requirements](https://droserasprout.github.io/gtk-brotway/guide/requirements.html).
+
+## [Unreleased]
+
+### Added
+
+- Prebuilt base image on GHCR (`ghcr.io/droserasprout/gtk-brotway:<tag>`): an app-agnostic Ubuntu GTK runtime with the Broadway fork `.deb` overlaid and held, plus the SVG icon loader + Adwaita icons and `GDK_BACKEND=broadway` so a GTK4 app renders on it out of the box. `FROM` it for any GTK4 Broadway binary. Built multi-arch (amd64, arm64) per release.
 
 ## [v3.0.0] - 2026-06-12
 

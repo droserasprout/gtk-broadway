@@ -44,7 +44,7 @@ Pins the browser's logical screen **Width × Height × Scale** (integer scale on
 | Section | Widgets | Exercises |
 |---|---|---|
 | Text & clipboard | two `GtkEntry`, selectable `GtkLabel`, `GtkTextView` | [clipboard](../features/clipboard.md), [touch selection](../features/touch.md), OSK/IME |
-| Notebook tabs | scrollable `GtkNotebook`, overflowing | [tab pixel-scroll](../features/notebook.md) |
+| Notebook tabs | scrollable `GtkNotebook`, overflowing | [tab pixel-scroll](../features/widgets.md#notebook-tabs) |
 | Menus & popups | `GtkDropDown`, popover, "Open dialog" | [right-row tap, menu-tap freeze](../features/touch.md), autohide, centering |
 | Scrolling list | `GtkListBox`, 25 rows in a scroller | gesture-survives-repaint, hover prelight, [node/texture reuse](performance.md) |
 | Animation & links | `GtkSpinner`, `GtkSwitch`, `GtkLinkButton` | continuous-repaint traffic, [open-uri](../features/open-uri.md) |

@@ -25,7 +25,7 @@ Broadway always stayed an experimental, lightly-maintained corner of GTK, and in
 - **[Connection management](features/connection.md):** in-place reconnect with a session token and a PING/PONG heartbeat; survives screen-off and network handovers.
 - **[Scaling & HiDPI](features/scaling.md):** crisp icons under scale transforms.
 - **[Pinch to zoom](features/zoom.md):** two-finger UI zoom that re-renders crisply.
-- **[Notebook tabs](features/notebook.md):** drag/wheel scrolling of the tab strip on touch.
+- **[Notebook tabs](features/widgets.md#notebook-tabs):** drag/wheel scrolling of the tab strip on touch.
 - **[Opening links](features/open-uri.md):** clicked links open in the viewing browser.
 - **[Dynamic cursor](features/cursor.md):** the browser pointer follows GTK's cursor shape (resize edges, text, links).
 - **[Desktop & rendering fixes](features/desktop-fixes.md):** no white flash, centered windows, popups on their anchor, click-through shadows, seam-free borders.

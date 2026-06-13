@@ -8,6 +8,4 @@ Bugs are tracked on the [issue tracker](https://github.com/droserasprout/gtk-bro
 
 - **Clipboard copy on insecure origins.** Copy may silently fail outside a user gesture, since `navigator.clipboard` is gated to secure contexts. Serve over `https://` or `http://localhost`.
 
-- **Popovers on an oversized unmaximized window.** When the window is larger than the browser viewport (HiDPI or browser zoom), its tracked position can desync from where the browser draws it, so menus open off-anchor or off-screen. Maximize the window to correct it.
-
 Tested browsers live in [Requirements](requirements.md#tested-browsers).

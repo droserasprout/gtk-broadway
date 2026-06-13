@@ -18,7 +18,7 @@ Open `http://localhost:8085`, then Triple-Shift > **Test gallery** ([debug menu]
 - [ ] **Clipboard, both directions** - Ctrl+C/V and right-click Copy/Paste between the gallery's text widgets and a host editor ([Clipboard](../features/clipboard.md)).
 - [ ] **Links** - the gallery's link button opens in a new browser tab ([Opening links](../features/open-uri.md)).
 - [ ] **Dynamic cursor** - resize arrows on the window edges, I-beam over text, hand over links ([Dynamic cursor](../features/cursor.md)).
-- [ ] **Notebook wheel** - wheel over the tab strip pans it; a vertical wheel switches pages ([Notebook tabs](../features/notebook.md)).
+- [ ] **Notebook wheel** - wheel over the tab strip pans it; a vertical wheel switches pages ([Notebook tabs](../features/widgets.md#notebook-tabs)).
 - [ ] **Window placement** - the gallery, a new toplevel, opens centered, not top-left ([Desktop & rendering fixes](../features/desktop-fixes.md)).
 - [ ] **No white flash** on page load ([Desktop & rendering fixes](../features/desktop-fixes.md)).
 
@@ -28,7 +28,7 @@ Open `http://localhost:8085`, then Triple-Shift > **Test gallery** ([debug menu]
 - [ ] **On-screen keyboard** - shows on entry focus and hides again, with no one-gesture lag.
 - [ ] **IME / non-Latin input** - Cyrillic or CJK, autocorrect replacements.
 - [ ] **Pinch zoom** - follows the fingers, sharpens once they lift, and survives a page reload ([Pinch to zoom](../features/zoom.md)).
-- [ ] **Tab strip** - drag scrolls it pixel-for-pixel; a plain tap still selects a tab ([Notebook tabs](../features/notebook.md)).
+- [ ] **Tab strip** - drag scrolls it pixel-for-pixel; a plain tap still selects a tab ([Notebook tabs](../features/widgets.md#notebook-tabs)).
 - [ ] **Tap outside** - a tap outside a popover or menu dismisses it ([Touch interface](../features/touch.md)).
 
 ## Connection drills

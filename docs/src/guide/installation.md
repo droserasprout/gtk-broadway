@@ -2,7 +2,7 @@
 
 The fork is distributed three ways:
 
-- **Debian package** `gtk4-brotway` - built by CI, published to [GitHub Releases](https://github.com/droserasprout/gtk-brotway/releases). It works on any Ubuntu/Debian host and *transparently* overlays the stock GTK runtime (every Broadway app uses the fork, no opt-in).
+- **Debian package** `gtk4-brotway` - built by CI, published to [GitHub Releases](https://github.com/droserasprout/gtk-brotway/releases). For a headless/container Broadway host: it *transparently* overlays the stock GTK runtime (every Broadway app uses the fork, no opt-in). **Not for desktops** - see the warning under [Ubuntu / Debian](#ubuntu--debian).
 - **Base Docker image** `ghcr.io/droserasprout/gtk-brotway` - the `.deb` baked over a stock Ubuntu GTK runtime, multi-arch (amd64, arm64). App-agnostic: `FROM` it for any GTK4 Broadway binary. See [Docker](#docker).
 - **Arch PKGBUILD** (`packaging/arch/`) - built by hand with `makepkg`. A *conflict-free* private-prefix overlay you opt into per launch via the `gtk4-brotway-run` wrapper.
 
@@ -29,6 +29,8 @@ It carries no app and no language bindings - just the patched GTK, `gtk4-broadwa
 To bake the fork into your own base instead, install the arch-matching `.deb` over a stock GTK base and `apt-mark hold` the runtime - the same [Ubuntu/Debian](#ubuntu--debian) steps inside a `RUN`. See [Security model](security.md#in-a-container) for the Dockerfile snippet and the operator checklist.
 
 ## Ubuntu / Debian
+
+> **Warning - broadway-only, do not install on a desktop.** This `.deb` is compiled Broadway-only (no X11/Wayland backend) and overlays the system `libgtk-4` in place. On a Wayland/X11 desktop that leaves every GTK4 app unable to open the display, so they **won't start**. Install it only on a headless host or container that serves apps over Broadway. To run the fork on a desktop without touching system GTK, use a private-prefix install instead - the [Arch PKGBUILD](#arch--cachyos) shows the pattern (or [build from source](../build/from-source.md) and point `LD_LIBRARY_PATH` at it).
 
 Pick the asset matching your architecture (the base is GTK 4.22.4 on `ubuntu:26.04`):
 

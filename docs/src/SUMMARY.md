@@ -15,7 +15,7 @@
   - [Clipboard](features/clipboard.md)
   - [Touch interface](features/touch.md)
   - [Pinch to zoom](features/zoom.md)
-  - [Notebook tabs](features/notebook.md)
+  - [Widgets](features/widgets.md)
   - [Opening links](features/open-uri.md)
   - [Dynamic cursor](features/cursor.md)
   - [Connection management](features/connection.md)
