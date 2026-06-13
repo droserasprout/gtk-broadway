@@ -34,7 +34,7 @@ RUN arch="$(dpkg --print-architecture)" \
  && rm /tmp/gtk.deb
 ```
 
-The base image's GTK must match the `.deb` base ([4.22.4 on `ubuntu:26.04`](versions.md)); the overlay replaces the SONAME-versioned `.so` in place.
+The base image's GTK must match the `.deb` base ([4.22.4 on `ubuntu:26.04`](requirements.md)); the overlay replaces the SONAME-versioned `.so` in place.
 
 ## Process layout
 

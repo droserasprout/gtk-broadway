@@ -8,7 +8,7 @@ Broadway (and X11) are deprecated since GTK 4.17.4 and removed entirely in GTK5,
 
 ## Branch model
 
-The fork repo holds, per [Supported versions](../guide/versions.md):
+The fork repo holds, per [Requirements](../guide/requirements.md):
 
 - **`4.22.4-brotway`** - upstream GTK at that tag plus the fork commits. This is what releases build from.
 - **Per-feature branches** (e.g. `connection-management`) - where each feature was developed before merging into the fork tip.

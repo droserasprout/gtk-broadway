@@ -4,7 +4,7 @@ From nothing to a GTK4 app in your browser, with the fork's full Broadway featur
 
 ## 1. Install the patched GTK
 
-Grab the `.deb` matching your architecture (the [GTK base](guide/versions.md) is 4.22.4 on `ubuntu:26.04`), install it, and hold the stock packages:
+Grab the `.deb` matching your architecture (the [GTK base](guide/requirements.md) is 4.22.4 on `ubuntu:26.04`), install it, and hold the stock packages:
 
 ```sh
 rel=v3.0.0       # the release to install - see the Releases page for the latest tag
@@ -39,4 +39,5 @@ See [Running broadwayd](guide/running.md) for how the pieces fit, and [Security 
 
 - [Features](features/comparison.md) - what the fork adds over stock Broadway, feature by feature.
 - [Configuration reference](guide/config.md) - every env var, port, and client-side setting.
-- [Known issues](guide/known-issues.md) - what doesn't work, and tested browser/OS combinations.
+- [Requirements](guide/requirements.md) - host/client support and tested browser/OS combinations.
+- [Known issues](guide/known-issues.md) - what doesn't work.

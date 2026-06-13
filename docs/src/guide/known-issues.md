@@ -10,13 +10,4 @@ Bugs are tracked on the [issue tracker](https://github.com/droserasprout/gtk-bro
 
 - **Popovers on an oversized unmaximized window.** When the window is larger than the browser viewport (HiDPI or browser zoom), its tracked position can desync from where the browser draws it, so menus open off-anchor or off-screen. Maximize the window to correct it.
 
-## Tested configurations
-
-- **Desktop:** Firefox 151.0.2, Chromium 148.0.7778.178
-- **Android:** Firefox Beta 152.0b4, Google Chrome 146.0.7680.119
-- **Transport:** HTTP on `localhost`, and HTTPS behind Traefik in Docker Swarm
-
-## Not tested
-
-- iOS
-- Mixed devices (e.g. laptops with a touchscreen)
+Tested browsers live in [Requirements](requirements.md#tested-browsers).

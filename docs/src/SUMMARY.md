@@ -5,7 +5,7 @@
 
 # Getting started
 
-- [Supported versions](guide/versions.md)
+- [Requirements](guide/requirements.md)
 - [Installation](guide/installation.md)
 - [Running](guide/running.md)
 

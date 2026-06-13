@@ -6,7 +6,7 @@ The fork is distributed three ways:
 - **Base Docker image** `ghcr.io/droserasprout/gtk-brotway` - the `.deb` baked over a stock Ubuntu GTK runtime, multi-arch (amd64, arm64). App-agnostic: `FROM` it for any GTK4 Broadway binary. See [Docker](#docker).
 - **Arch PKGBUILD** (`packaging/arch/`) - built by hand with `makepkg`. A *conflict-free* private-prefix overlay you opt into per launch via the `gtk4-brotway-run` wrapper.
 
-Both only swap the Broadway pieces and leave the rest of your GTK (GIR, `gtk-4-common`, themes, ...) untouched - so the package and your system must agree on the GTK base version (4.22.x). See [Supported versions](versions.md).
+Both only swap the Broadway pieces and leave the rest of your GTK (GIR, `gtk-4-common`, themes, ...) untouched - so the package and your system must agree on the GTK base version (4.22.x). See [Requirements](requirements.md).
 
 ## What gets overlaid
 

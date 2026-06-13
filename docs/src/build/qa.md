@@ -49,4 +49,4 @@ Toggle **Paint flashing** in the debug menu; how to read it is in [Good vs bad r
 
 ## Record what you tested
 
-Update **Tested configurations** in [Known issues](../guide/known-issues.md#tested-configurations) with the exact browser and OS versions this pass ran on. Those versions are snapshots of the QA pass - nothing else updates them.
+Update **Tested browsers** in [Requirements](../guide/requirements.md#tested-browsers) with the exact browser and OS versions this pass ran on. Those versions are snapshots of the QA pass - nothing else updates them.

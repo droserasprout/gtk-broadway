@@ -18,7 +18,7 @@ Four ground rules shape every patch:
 
 ## Supported base
 
-One GTK base: `4.22.4-brotway` (4.22.4 on the Ubuntu 26.04 base). Table, SONAME, and the patch diff: [Supported versions](../guide/versions.md).
+One GTK base: `4.22.4-brotway` (4.22.4 on the Ubuntu 26.04 base). Table, SONAME, and the patch diff: [Requirements](../guide/requirements.md).
 
 ## Branch naming
 
