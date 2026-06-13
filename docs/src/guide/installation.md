@@ -42,7 +42,7 @@ The asset name encodes base and architecture: `gtk4-brotway_<gtk>-<rev>_<arch>.d
 
 ### Hold the stock packages
 
-The `apt-mark hold libgtk-4-1 libgtk-4-bin` matters: it stops a later `apt upgrade` from re-installing the stock GTK files over the patched ones. Skip the hold and a routine system upgrade silently reverts the fork, so Broadway loses clipboard/touch until you re-install the `.deb`.
+The `apt-mark hold libgtk-4-1 libgtk-4-bin` matters: it stops a later `apt upgrade` from re-installing the stock GTK files over the patched ones. Skip the hold and a routine system upgrade silently reverts the fork, so Broadway loses every patched feature until you re-install the `.deb`.
 
 > To undo the overlay: `apt-mark unhold libgtk-4-1 libgtk-4-bin` then `apt-get install --reinstall libgtk-4-1 libgtk-4-bin`.
 

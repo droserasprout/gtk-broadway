@@ -1,6 +1,6 @@
 # Quickstart
 
-From nothing to a GTK4 app in your browser, with the fork's clipboard and touch support. Three steps: install the `.deb`, start the daemon, point an app at it.
+From nothing to a GTK4 app in your browser, with the fork's full Broadway feature set. Three steps: install the `.deb`, start the daemon, point an app at it.
 
 ## 1. Install the patched GTK
 
