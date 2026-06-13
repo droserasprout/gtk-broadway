@@ -1,0 +1,13 @@
+// markdownlint config for the mdbook docs. The disabled rules clash with the
+// docs' deliberate conventions; every other default rule stays on.
+{
+  "default": true,
+  "MD013": false, // line length: paragraphs are one line, no hard wrap
+  "MD033": false, // inline HTML: <video>/<img> blocks in feature pages
+  "MD060": false, // table column padding style
+  "MD025": false, // multiple H1: mdbook SUMMARY uses `# Part` headers
+  "MD042": false, // empty links: mdbook draft parents like [Maintainer Guide]()
+  "MD036": false, // emphasis-as-heading: **New in vN** badges, *captions*
+  "MD040": false, // fenced code language: some plain output/tree blocks
+  "MD028": false  // blank line between two adjacent blockquotes
+}
