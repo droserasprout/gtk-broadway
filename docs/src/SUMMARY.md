@@ -31,10 +31,11 @@
 - [Contributing](build/contributing.md)
 - [Building from source](build/from-source.md)
 - [Adding a wire op](build/wire-op.md)
-- [Re-forking a new GTK release](build/reforking.md)
-- [CI & packaging](build/ci.md)
-- [Release QA](build/qa.md)
-- [Release process](build/release.md)
+- [Maintainer Guide]()
+  - [Re-forking a new GTK release](build/reforking.md)
+  - [CI & packaging](build/ci.md)
+  - [Release QA](build/qa.md)
+  - [Release process](build/release.md)
 
 # Internals
 
