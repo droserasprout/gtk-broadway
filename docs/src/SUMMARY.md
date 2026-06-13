@@ -11,8 +11,7 @@
 
 # User Guide
 
-- [Features]()
-  - [Backend comparison](features/comparison.md)
+- [Features](features/comparison.md)
   - [Clipboard](features/clipboard.md)
   - [Touch interface](features/touch.md)
   - [Pinch to zoom](features/zoom.md)
