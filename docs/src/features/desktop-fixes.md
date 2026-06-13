@@ -1,6 +1,6 @@
 # Desktop & rendering fixes
 
-Beyond the headline features, the fork fixes a set of rendering-correctness and desktop-interaction problems stock Broadway has, mostly around client-side decorations and the browser host. These need no touch device; they improve the plain desktop-browser session too.
+The fork fixes a set of rendering-correctness and desktop-interaction problems stock Broadway has, mostly around client-side decorations and the browser host. These need no touch device; they improve the plain desktop-browser session too.
 
 ## Rendering correctness
 
@@ -23,4 +23,4 @@ Beyond the headline features, the fork fixes a set of rendering-correctness and 
 - **No crash when starting a drag from a text selection.**
 - **Clicking empty space in a list clears the selection.**
 
-> Several of these (anchor placement, click-through shadow) share machinery with the touch fixes; the shadow shape is the same [input-region](../internals/input-region.md) op. Per-fix history is in the [Changelog](../changelog.md).
+> Anchor placement and click-through shadow share the [input-region](../internals/input-region.md) op with the touch fixes. Per-fix history: [Changelog](../changelog.md).

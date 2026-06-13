@@ -1,6 +1,20 @@
 # Brotway, a GTK Broadway fork
 
-This is a fork of GTK that fills in the missing pieces of the Broadway backend, keeping it usable through the GTK4 lifecycle as a thin layer on stock GTK, with no intent to upstream.
+<!--
+  Record (host GTK4 app served over the fork's Broadway, dark theme):
+    GTK_THEME=Adwaita:dark make run-widget-factory HOST_PORT=8080   # serves gtk4-widget-factory on :8080
+    make record URL=http://localhost:8080/ SCENARIO=tools/local/scenarios/introduction.json \
+      OUT=docs-and-ci/docs/src/images/introduction.mp4 FORMATS=mp4 SCALE=2 COLOR_SCHEME=dark INDICATORS=0 PRE_MS=200 POST_MS=300
+  Poster: ffmpeg -i docs-and-ci/docs/src/images/introduction.mp4 -frames:v 1 -vf scale=1280:800 docs-and-ci/docs/src/images/introduction.png
+-->
+<video src="images/introduction.mp4" poster="images/introduction.png"
+  autoplay loop muted playsinline
+  style="float:right;width:46%;max-width:560px;margin:0.25rem 0 1rem 1.5rem;border-radius:6px">
+  <img src="images/introduction.png" alt="A native GTK app rendering live in a browser tab over Broadway, its spinners and progress animating in a real GTK window"
+    style="float:right;width:46%;max-width:560px;margin:0.25rem 0 1rem 1.5rem;border-radius:6px">
+</video>
+
+This is a fork of GTK that fills in the missing pieces of the Broadway backend, keeping it usable through the GTK4 lifecycle as a thin layer on stock GTK.
 
 ## What is Broadway? {#broadway}
 

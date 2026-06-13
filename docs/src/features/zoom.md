@@ -10,7 +10,7 @@
 </video>
 -->
 
-Two-finger pinch zooms the whole UI (0.25x-5x) with a real re-layout and re-render, just like desktop Firefox's Ctrl+scroll page-zoom - not a stretched bitmap. Mobile browsers refuse to page-zoom a `user-scalable=no` page, so the fork drives it manually.
+Two-finger pinch zooms the whole UI (0.25x-5x) with a real re-layout and re-render, not a stretched bitmap. Mobile browsers refuse to page-zoom a `user-scalable=no` page, so the fork drives it manually.
 
 ## What works
 
@@ -23,4 +23,4 @@ Two-finger pinch zooms the whole UI (0.25x-5x) with a real re-layout and re-rend
 
 - When a second finger lands to start a pinch, the first finger's tap can still register; the pinch state machine suppresses the worst case (see [implementation](../internals/zoom.md#no-tap-leak-on-pinch)) but not all of it. See [Known issues](../guide/known-issues.md).
 
-> How the reflow, the live preview, the coordinate remap, and tap-leak suppression work is in [Pinch zoom implementation](../internals/zoom.md).
+> Reflow, live preview, coordinate remap, and tap-leak suppression: [Pinch zoom implementation](../internals/zoom.md).

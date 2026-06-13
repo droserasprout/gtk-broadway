@@ -10,7 +10,7 @@ Treat the daemon port as fully trusted and never expose it directly. The rest of
 
 ## Why TLS is not optional
 
-The [clipboard bridge](../features/clipboard.md) needs a [secure context](running.md#secure-context-note) (`https://` or `http://localhost`), so any deployment beyond localhost has to terminate TLS in front of the daemon. The reference deployment runs behind Traefik in Docker Swarm for exactly this reason.
+The [clipboard bridge](../features/clipboard.md) needs a [secure context](running.md#secure-context-note) (`https://` or `http://localhost`), so any deployment beyond localhost has to terminate TLS in front of the daemon. The reference deployment runs behind Traefik in Docker Swarm.
 
 ## Adding access control
 

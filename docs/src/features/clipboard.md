@@ -25,4 +25,4 @@ Stock Broadway has no clipboard. The fork bridges `GdkClipboard` <-> `gtk4-broad
 - **Text only.** No image or rich-clipboard support; the read path rejects non-text.
 - `navigator.clipboard` needs a [secure context](../guide/running.md#secure-context-note): over plain `http://`, copy may silently fail outside a user gesture. Serve over `https://` or `http://localhost`.
 
-> The push-vs-request/reply wire paths, the hidden textarea, the length clamps, and touch-keyboard paste are in [Clipboard implementation](../internals/clipboard.md).
+> Wire paths and internals: [Clipboard implementation](../internals/clipboard.md).

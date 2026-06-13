@@ -11,7 +11,7 @@ A **Triple-Shift** (press Shift three times quickly) summons a server-side debug
 
 ## Performance section
 
-This section shows Session id, Traffic (total bytes), Framerate, Latency, and Textures. **Latency** is the real browser-to-daemon round-trip: the client times its [heartbeat](../features/connection.md) PING/PONG and reports the last RTT in the next PING payload (`server->last_latency_ms`). **Textures** is the live texture buffer the browser holds (count plus summed PNG bytes across `server->textures`), the footprint kept warm by the [content texture cache](performance.md), with the per-second **upload** and **release** rates. `up/s` is every `broadway_server_upload_texture`, i.e. the client's content-cache *miss* rate (hits never cross the wire); sustained `up/s` on a static screen means the cache is thrashing.
+This section shows Session id, Traffic (total bytes), Framerate, Latency, and Textures. **Latency** is the browser-to-daemon RTT, timed off the [heartbeat](../features/connection.md) PING/PONG (`server->last_latency_ms`). **Textures** is the live buffer the browser holds (count plus summed PNG bytes across `server->textures`), with per-second **upload** and **release** rates; `up/s` is the content-cache *miss* rate (hits never cross the wire), so sustained `up/s` on a static screen means thrashing. See [Performance](performance.md#performance-section-metrics) for reading these under load.
 
 ## Smoothness section
 

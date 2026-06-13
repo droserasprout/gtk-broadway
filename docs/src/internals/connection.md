@@ -8,7 +8,7 @@ On every connect the daemon sends a random per-daemon token via `BROADWAY_OP_SES
 
 If the token is unchanged it's the same live daemon, so the client resumes in place. A changed token means the daemon restarted; that, or an explicit `DISCONNECTED`, means the session is gone, so the client shows the disconnected icon until refresh.
 
-On resume the client resets its display and input state (`resetClientState`: surfaces, pointer grab, button state, pending move, touch tracking), then the daemon resyncs surfaces, textures, the live grab, and each surface's remembered cursor (cursors used to be lost - the app side dedups cursor re-sends, so nothing repaired them). A second drop mid-resume disarms the pending resume timer/rAF; one firing while down used to clear the `reconnecting` flag, so the next resume skipped the reset and duplicated every surface.
+On resume the client resets its display and input state (`resetClientState`: surfaces, pointer grab, button state, pending move, touch tracking), then the daemon resyncs surfaces, textures, the live grab, and each surface's remembered cursor (cursor re-sends are deduped app-side, so the resync must replay them). A second drop mid-resume disarms the pending resume timer/rAF; one firing while down used to clear the `reconnecting` flag, so the next resume skipped the reset and duplicated every surface.
 
 ## Heartbeat (`PING` / `PONG`)
 

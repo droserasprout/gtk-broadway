@@ -4,6 +4,6 @@ Icons (and anything under a scale or rotate transform) rendered blurry on HiDPI 
 
 ## Fix
 
-Two changes. First, scale/rotate transforms now go through the cairo fallback at the display resolution rather than being applied as a matrix to a lower-resolution texture, so the result comes out sharp. Second, Broadway reuses cached textures across frames, so on a scale change we drop the cache; the cached textures then re-rasterize at the new scale instead of being stretched.
+Two changes. First, scale/rotate transforms now go through the cairo fallback at the display resolution rather than being applied as a matrix to a lower-resolution texture, so the result comes out sharp. Second, Broadway reuses cached textures across frames, so on a scale change we drop the cache; the cached textures then re-rasterize at the new scale.
 
 Icons are no longer blurry under scale transforms or on HiDPI, and the re-render after a [pinch](zoom.md) settles crisp.

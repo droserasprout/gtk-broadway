@@ -1,6 +1,6 @@
 # Widgets
 
-Per-widget behavior the fork changes on top of stock GTK - mostly to make touch interaction work, since stock Broadway delivers no real touchscreen and GTK's touch paths never fire (see [Touch interface](touch.md)). Each patch is gated to the Broadway backend.
+Per-widget behavior the fork changes to enable touch interaction (stock Broadway delivers no real touchscreen, so GTK's touch paths never fire - see [Touch interface](touch.md)). Each patch is gated to the Broadway backend.
 
 ## Notebook tabs
 
@@ -24,7 +24,7 @@ On Broadway the `GtkNotebook` tab bar becomes a single **pixel-scrolled** strip,
 
 > App-side note: an app can disable tab *reordering* under Broadway (via `set_tab_reorderable`) so the native reorder-drag doesn't compete with the pan, and zero the notebook header's horizontal padding so tabs reach the true edge.
 
-> The unified pixel-scroll model, the show-all-plus-offset layout, the CSS-undershoot fades, and tap-vs-pan detection are in [Notebook implementation](../internals/notebook.md).
+> Pixel-scroll model, show-all-plus-offset layout, CSS-undershoot fades, and tap-vs-pan detection: [Notebook implementation](../internals/notebook.md).
 
 ## Labels
 

@@ -112,4 +112,4 @@ The cells where the fork beats stock Broadway: text clipboard, real touch (event
 
 [^a11y]: AT-SPI over D-Bus on the Linux backends (`gtkatspicontext.c`), AccessKit on Windows/macOS (`gtkaccesskitcontext.c`, build-time `HAVE_ACCESSKIT`). Broadway has no a11y bridge.
 
-[^settings]: Dark-mode / accent / font settings come from the xdg settings portal on Wayland, XSETTINGS on X11, and AppKit (`NSAppearance`) on macOS. Broadway has no desktop session to read from; theming is whatever CSS the app ships.
+[^settings]: Dark-mode / accent / font settings come from the xdg settings portal on Wayland, XSETTINGS on X11, and AppKit (`NSAppearance`) on macOS. Broadway has no desktop session; theming is whatever CSS the app ships.

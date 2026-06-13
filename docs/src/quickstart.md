@@ -1,6 +1,6 @@
 # Quickstart
 
-From nothing to a GTK4 app in your browser, with the fork's full Broadway feature set. Three steps: install the `.deb`, start the daemon, point an app at it.
+From nothing to a GTK4 app in your browser. Three steps: install the `.deb`, start the daemon, point an app at it.
 
 ## 1. Install the patched GTK
 
@@ -33,7 +33,7 @@ GDK_BACKEND=broadway BROADWAY_DISPLAY=:5 your-gtk4-app
 
 Open `http://localhost:8085` in a browser. Copy/paste, touch text editing, and pinch-zoom now work. The fork is app-agnostic - any GTK4 binary works. For a real (non-localhost) deployment, put it behind a TLS terminator; see [Security model](guide/security.md).
 
-See [Running broadwayd](guide/running.md) for how the pieces fit, and [Security model](guide/security.md) for a real (non-localhost) deployment, which the [clipboard's secure-context requirement](features/clipboard.md#limitations) needs.
+See [Running broadwayd](guide/running.md) for how the pieces fit. A non-localhost deployment also needs a [secure context](features/clipboard.md#limitations) for the clipboard.
 
 ## Next steps
 

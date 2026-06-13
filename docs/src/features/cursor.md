@@ -25,10 +25,10 @@ It applies to every surface - toplevels, dialogs, and popups/menus alike - and t
 
 ## Limitations
 
-This mirrors GTK's cursor *intent* onto the browser's CSS `cursor`; there is no compositor here owning the pointer. So:
+This mirrors GTK's cursor *intent* onto the browser's CSS `cursor`. So:
 
 - Only **named** cursors map. A custom image/texture cursor (rare) falls back to the default arrow.
 - The glyph, theme, and hotspot are the **browser's** - it renders its own OS cursor for the requested keyword.
 - Touch never sends a cursor (it's gated to the mouse pointer); this is a desktop-browser nicety.
 
-> The `BROADWAY_OP_SET_CURSOR` op, the GDK-name-to-CSS mapping, and why the daemon dedups are in [Dynamic cursor implementation](../internals/cursor.md).
+> The `BROADWAY_OP_SET_CURSOR` op, name-to-CSS mapping, and daemon dedup: [Dynamic cursor implementation](../internals/cursor.md).

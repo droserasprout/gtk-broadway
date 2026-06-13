@@ -1,6 +1,6 @@
 # Troubleshooting
 
-Symptom-first. [Known issues](known-issues.md) lists what is by-design unsupported; this page is for things that should work but don't, almost always a deployment or install mismatch.
+Symptom-first. [Known issues](known-issues.md) lists what is by-design unsupported; this page is for things that should work but don't, usually a deployment or install mismatch.
 
 ## Is the fork actually loaded?
 

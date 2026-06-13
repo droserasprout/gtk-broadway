@@ -6,7 +6,7 @@
     style="max-width:100%;border-radius:6px">
 </video>
 
-Stock Broadway treats a touchscreen as a mouse, so GTK's touch text-editing UI never appears and many taps get dropped. The fork sources real touchscreen events and makes touch a first-class input.
+Stock Broadway treats a touchscreen as a mouse, so GTK's touch text-editing UI never appears and many taps get dropped. The fork sources real touchscreen events and makes touch first-class input.
 
 ## What works
 
@@ -37,4 +37,4 @@ Stock Broadway treats a touchscreen as a mouse, so GTK's touch text-editing UI n
 - The first tap can leak into a pinch or pan when a second finger lands; no fix yet without adding input latency. See [pinch zoom implementation](../internals/zoom.md#no-tap-leak-on-pinch) for the related zoom case.
 - The emoji widget is slow and ugly over Broadway.
 
-> The per-fix mechanics - sourcing the touchscreen device, passive-listener and `touchcancel` handling, OSK/IME plumbing, the popover/menu/dropdown fixes - are in [Touch implementation](../internals/touch.md).
+> Per-fix mechanics - device sourcing, passive-listener/`touchcancel` handling, OSK/IME plumbing, popover/menu/dropdown fixes: [Touch implementation](../internals/touch.md).

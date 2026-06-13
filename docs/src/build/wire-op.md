@@ -74,7 +74,7 @@ case BROADWAY_OP_OPEN_URI:
     break;
 ```
 
-`cmd.get_data()` reads the `len + bytes` framing for you. Before building, sanity-check the JS: `node --check gdk/broadway/broadway.js`.
+`cmd.get_data()` reads the `len + bytes` framing. Before building, sanity-check the JS: `node --check gdk/broadway/broadway.js`.
 
 ## 7. If the app needs to call it
 
