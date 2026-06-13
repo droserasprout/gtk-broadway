@@ -62,33 +62,33 @@ Legend: **🟢** full support, **🟡** partial/workaround/caveats, **🔴** not
 
 The cells where the fork beats stock Broadway: text clipboard, real touch (events, text-selection UI, pinch-zoom), OSK and IME bridging, named mouse cursors, HiDPI reflow, opening external links, and session management (in-place reconnect, hidden-tab rendering pause). It also fixes a set of rendering-correctness problems stock Broadway has with client-side decorations: popups land on their anchor instead of offset by their shadow, a popover's shadow passes clicks through (the [input region](../internals/input-region.md) carries its shape), and uniform widget borders render without the 1px seam stock leaves between a border and its background. Cross-process DnD, rich/image clipboard, PRIMARY selection, and GPU rendering stay unsupported, same as stock. Every windowing and platform-integration row is untouched by the fork.
 
-[^clip]: Stock upstream Broadway ships no `GdkClipboard` at all. The fork adds `gdkclipboard-broadway.c` with `SET_CLIPBOARD` / `REQUEST_CLIPBOARD` ops bridging `navigator.clipboard`, both directions. See [Clipboard](clipboard.md).
+[^clip]: Stock upstream Broadway ships no `GdkClipboard`. The fork adds one, bridging the browser clipboard in both directions. See [Clipboard](clipboard.md).
 
-[^rich]: Text-only by design (`text/plain;charset=utf-8`); the read path rejects non-text. No image / `GdkTexture` / `GdkPixbuf` support.
+[^rich]: Text-only by design; the read path rejects non-text. No image clipboard support.
 
-[^primary]: No `GDK_SELECTION_PRIMARY` handling; browsers expose no JS API for the PRIMARY selection.
+[^primary]: Browsers expose no JS API for the PRIMARY selection.
 
-[^dnd]: `gdkdnd-broadway.c` is still a stub. Within-app drag works only as far as stock does; the fork does not touch real DnD.
+[^dnd]: Broadway's DnD backend is still a stub. Within-app drag works only as far as stock does; the fork does not touch real DnD.
 
-[^touchstock]: Stock Broadway delivers touch as a `core_pointer` mouse. GTK's touch text UI gates on `GDK_SOURCE_TOUCHSCREEN`, which never fires. The fork creates a real touchscreen device. See [Touch interface](touch.md).
+[^touchstock]: Stock Broadway delivers touch as mouse events, so GTK's touch text UI (gated on a real touchscreen device) never fires. The fork creates one. See [Touch interface](touch.md).
 
-[^zoom]: Whole-UI zoom 0.25x-5x, JS-side `zoomFactor`, persisted per-origin in `localStorage`, verified on mobile Firefox. See [Pinch to zoom](zoom.md).
+[^zoom]: Whole-UI zoom 0.25x-5x, persisted per-origin, verified on mobile Firefox. See [Pinch to zoom](zoom.md).
 
-[^stylus]: A stylus works as plain pointer/touch input; pressure, tilt, and tool identity are not bridged (browser Pointer Events carry them, but no `GdkDeviceTool` is created).
+[^stylus]: A stylus works as plain pointer/touch input; pressure, tilt, and tool identity are not bridged.
 
 [^osk]: Show/hide mostly synced; residual flicker on mixed selection-bubble focus state.
 
-[^cursor]: Stock Broadway always shows the default arrow. The fork forwards GTK's per-surface cursor name via `BROADWAY_OP_SET_CURSOR` to the browser's CSS `cursor` (resize edges, text, links, ...). See [Dynamic cursor](cursor.md).
+[^cursor]: Stock Broadway always shows the default arrow. The fork forwards GTK's per-surface cursor to the browser's CSS `cursor` (resize edges, text, links, ...). See [Dynamic cursor](cursor.md).
 
-[^ime]: Non-Latin / CJK / gesture-typed text committed via `commitTextToGtk` / `compositionend`. Autocorrect deletions are not bridged.
+[^ime]: Non-Latin / CJK / gesture-typed text is committed via composition events. Autocorrect deletions are not bridged.
 
 [^scroll]: Broadway forwards wheel scroll, but has no touchpad/source distinction or true smooth scroll; macOS reports everything as surface (smooth) scroll.
 
 [^render]: Broadway has no GPU context. It renders through `gskbroadwayrenderer` (server-side node tree) with a Cairo fallback; the fork does not change this. The other backends reach GL via EGL (Wayland), GLX or EGL (X11), WGL or EGL (Win32); macOS renders via Metal.
 
-[^dmabuf]: Linux-only by construction (`gdkdmabuftexture.c`); imported via `zwp_linux_dmabuf` on Wayland. No other backend builds a dmabuf texture.
+[^dmabuf]: Linux-only by construction; imported via `zwp_linux_dmabuf` on Wayland. No other backend builds a dmabuf texture.
 
-[^offload]: `gdksubsurface-wayland.c` only; lets video/textures bypass the compositor. No `gdksubsurface-*.c` exists for the other backends.
+[^offload]: Wayland only; lets video/textures bypass the compositor. No other backend implements subsurface offload.
 
 [^hidpi]: The fork drives genuine reflow plus crisp scale on zoom. Stock only does integer `devicePixelRatio` sharpening, no resize. See [Scaling & HiDPI](scaling.md).
 
@@ -106,10 +106,10 @@ The cells where the fork beats stock Broadway: text clipboard, real touch (event
 
 [^tooltip]: The fork suppresses spurious `:hover` / tooltips on touch taps.
 
-[^popup]: The fork fixes autohide dismiss-on-tap, `GtkDropDown` correct-item selection, and the menu-tap freeze (`REASSERT_POINTER`).
+[^popup]: The fork fixes autohide dismiss-on-tap, `GtkDropDown` correct-item selection, and the menu-tap freeze.
 
-[^uri]: The fork adds `BROADWAY_OP_OPEN_URI` + `gdk_broadway_display_show_uri`, hooked through `gtk_show_uri_full` to `window.open(..., "_blank")`. See [Opening links](open-uri.md).
+[^uri]: The fork routes external URIs to the browser's `window.open`, hooked through `gtk_show_uri`. See [Opening links](open-uri.md).
 
-[^a11y]: AT-SPI over D-Bus on the Linux backends (`gtkatspicontext.c`), AccessKit on Windows/macOS (`gtkaccesskitcontext.c`, build-time `HAVE_ACCESSKIT`). Broadway has no a11y bridge.
+[^a11y]: AT-SPI over D-Bus on the Linux backends, AccessKit on Windows/macOS. Broadway has no a11y bridge.
 
 [^settings]: Dark-mode / accent / font settings come from the xdg settings portal on Wayland, XSETTINGS on X11, and AppKit (`NSAppearance`) on macOS. Broadway has no desktop session; theming is whatever CSS the app ships.

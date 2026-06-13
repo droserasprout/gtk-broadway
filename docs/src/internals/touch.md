@@ -40,12 +40,12 @@ These turn on the popup/toplevel distinction, carried by the [`is_popup` wire fl
 
 **Tap-through past popups.** Touch events bypassed the daemon's pointer-grab routing, so with a popup grab live a tap landed on the surface beneath it. Touch now follows the pointer grab, routed per sequence - a hash records the client chosen at BEGIN, so UPDATE/END can't be split across clients when the grab changes mid-touch - and the raise/focus block above gained the same no-grab guard as `BUTTON_PRESS`. *(daemon.)*
 
-**Reopen SIGSEGV.** `_gtk_gesture_update_point` inserted a point into `priv->points` (NULL `event`) before assigning `data->event`, and a re-entrant gesture check dereferenced the not-yet-set event. The fix assigns `data->event` before the hash insert, covering all ~8 deref sites at once. *(libgtk, `gtk/gtkgesture.c`.)*
+**Reopen SIGSEGV.** Reopening the selection bubble crashed: `_gtk_gesture_update_point` inserted a point before assigning `data->event`, so a re-entrant check dereferenced a NULL event. The fix assigns `data->event` before the insert. *(libgtk, `gtk/gtkgesture.c`.)*
 
 **Copy missing after Select-All.** The bubble is built once, so a caret bubble (Select All / Paste) persisted after Select-All gave it a selection. The fix rebuilds the bubble after a Select-All whose bubble is visible, gated on visibility so keyboard Ctrl+A is unaffected. *(libgtk, `gtktext.c` + `gtktextview.c`.)*
 
 ## Dropdowns and the menu-tap freeze
 
-**Wrong row.** GtkDropDown always selected the first item: `row_activated` ignored the `position` from the activate signal and read `popup_selection.get_selected()`, which only select-on-hover updates, and touch has no hover crossing, so it stayed at 0. The fix sets `popup_selection` to `position` before the filter reset. This is a generic upstream GtkDropDown-on-touch bug, not Broadway-specific. *(libgtk, `gtk/gtkdropdown.c`.)*
+**Wrong row.** GtkDropDown always selected the first item: `row_activated` read `popup_selection.get_selected()`, which only hover updates, and touch has no hover. The fix sets `popup_selection` to the activate signal's `position` first. A generic upstream GtkDropDown-on-touch bug, not Broadway-specific. *(libgtk, `gtk/gtkdropdown.c`.)*
 
 **Menu-tap freeze.** Activating a popup item that destroys the popup left the logical pointer's focus stale, so later taps landed on dead focus. The fix routes a pointer re-assertion through the browser, covered in [Input region & pointer](input-region.md).

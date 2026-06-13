@@ -63,7 +63,7 @@ With Paint flashing on, every changed node gets a translucent overlay so you can
 
 See [Rendering and performance](performance.md#profiling-and-diagnosis) for reading these colors under load.
 
-The daemon sends `BROADWAY_OP_DEBUG_FLASH` (24) to toggle it; the client tags each node as it is applied. Overlays are pooled and drawn in one read-then-write pass with a single recycle timer per frame. An earlier per-node implementation (one `getBoundingClientRect` + `appendChild` + `setTimeout` each) thrashed layout and froze the page under heavy scrolling.
+The daemon sends `BROADWAY_OP_DEBUG_FLASH` (24) to toggle it; the client tags each node as it is applied. Overlays are pooled and drawn in one read-then-write pass with a single recycle timer per frame, so heavy scrolling doesn't thrash layout.
 
 ## How it is wired
 

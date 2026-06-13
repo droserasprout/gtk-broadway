@@ -27,5 +27,3 @@ Gating keeps it from firing in the wrong cases. It fires only when a popup actua
 ## The companion libgtk fix
 
 `REASSERT_POINTER` handles the freeze for popups that close on their own. The dropdown-item path also needed a `check_autohide` touch guard in `gdk/gdksurface.c`. Tapping a dropdown item hit `check_autohide`, which thought the tap was *outside* the popup and dismissed it with a direct `gdk_surface_hide()` (also bypassing `gtk_grab_remove`). The reason: `has_pointer` is only set from pointer crossings, which the touch path never sends. The guard skips the `!has_pointer` nulling for `GDK_TOUCH_BEGIN` (the finger landed on this surface, so trust it), and the item activates instead.
-
-> A libgtk `gtk_window_grab_notify` re-pick was tried and **reverted**: `GtkPopover` grabs with `gtk_grab_add` (GTK-level), not a GDK seat grab, so the GTK-level crossing never reached the GDK-level stale state. The browser-routed recovery is the one that works.

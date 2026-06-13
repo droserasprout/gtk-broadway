@@ -24,7 +24,7 @@ During the pinch only the wrapper transform updates live (so it goes briefly sof
 
 When the second finger lands, mobile Firefox fires `touchcancel` on the first finger. The client routed `touchcancel -> onTouchEnd`, which forwarded a type-2 end, so GTK read begin->end as a tap and activated the widget under the fingers. The fix: in `onTouchEnd`, a `touchcancel` now forwards touch type 3 == `GDK_TOUCH_CANCEL` instead of an end, while a genuine `touchend` still sends type 2. The pinch state machine (`activeTouches`, `beginPinch`, `suppressTouchForward` latched until all fingers lift) backs this up.
 
-Mobile Chrome fires no `touchcancel`: there `beginPinch` itself aborts the first finger's in-flight tap, sending the type-3 cancel via `endInFlightGtkTouch`. Its maps are keyed by the raw browser id (Android Chrome offsets `identifier` by a global counter, so wire ids are remapped), and a lookup with the mapped id missed - the cancel was never sent on Android Chrome until the raw id was tracked alongside the mapped one.
+Mobile Chrome fires no `touchcancel`: there `beginPinch` aborts the first finger's in-flight tap, sending the type-3 cancel via `endInFlightGtkTouch`. Its maps are keyed by the raw browser id (Android Chrome offsets `identifier`, so wire ids are remapped), tracked alongside the mapped id so the cancel resolves.
 
 ## Desktop no-op, persisted zoom
 

@@ -14,7 +14,7 @@ Two-finger pinch zooms the whole UI (0.25x-5x) with a real re-layout and re-rend
 
 ## What works
 
-- **Two-finger pinch** zooms the whole UI from 0.25x to 5x, re-rendering crisply at the new scale.
+- **Two-finger pinch** re-renders the whole UI crisply at the new scale.
 - **Floating** - the magnified view follows the fingers during the pinch and sharpens once they lift.
 - **Per-client** - zoom is local to each browser; desktop keeps native Ctrl+scroll page-zoom.
 - **Persists** across a page refresh - the zoom is remembered per origin.
