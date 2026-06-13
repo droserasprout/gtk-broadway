@@ -15,7 +15,7 @@ apt-get install -y ./gtk.deb
 apt-mark hold libgtk-4-1 libgtk-4-bin
 ```
 
-The `apt-mark hold` keeps a later `apt upgrade` from reverting the fork. See [Installation](guide/installation.md) for what the package overlays and the [hold rationale](guide/installation.md#hold-the-stock-packages).
+The `apt-mark hold` keeps a later `apt upgrade` from reverting the fork. See [Installation](guide/installation.md#ubuntu--debian) for what the package overlays and the hold rationale.
 
 ## 2. Start the daemon
 
