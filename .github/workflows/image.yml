@@ -1,0 +1,77 @@
+# Publish the app-agnostic base Brotway image to GHCR.
+#
+# Builds packaging/docker/Dockerfile multi-arch (amd64 + arm64) and pushes it to
+# ghcr.io/<owner>/gtk-brotway. The image is just a stock Ubuntu GTK runtime with
+# the Broadway fork .deb overlaid and held - FROM it for any GTK4 Broadway binary.
+#
+# Inputs are the per-arch .debs from the matching GitHub Release. On a `vN` tag
+# push this races release.yml (which publishes those .debs), so the download step
+# retries until both assets are present. Use workflow_dispatch to (re)build the
+# image for an already-published tag without touching `latest`.
+name: Publish base Brotway image (GHCR)
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to package (e.g. v3.0.0)"
+        required: true
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4   # ci branch: Dockerfile + packaging
+
+      - name: Resolve tag
+        id: tag
+        run: |
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          case "$TAG" in v*) ;; *) echo "tag must be a vN tag, got '$TAG'" >&2; exit 1 ;; esac
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Download release .debs
+        run: ./packaging/docker/fetch-release-debs.sh "${{ steps.tag.outputs.tag }}"
+
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compute image tags
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          # `latest` moves only on a real tag push, never on a manual backfill of
+          # an older tag.
+          tags: |
+            type=raw,value=${{ steps.tag.outputs.tag }}
+            type=raw,value=latest,enable=${{ github.event_name == 'push' }}
+
+      - name: Build and push (amd64 + arm64)
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: packaging/docker/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}

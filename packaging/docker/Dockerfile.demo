@@ -1,0 +1,33 @@
+# Demo image on top of the base Brotway image: gtk4-widget-factory served over the
+# patched Broadway backend. A broad smoke test that the base image actually renders
+# a real GTK4 app. Not a release artifact - build it locally against a base tag:
+#
+#   docker build -t gtk-brotway:local -f Dockerfile .            # the base (needs debs/)
+#   docker build -t gtk-brotway:demo  -f Dockerfile.demo --build-arg BASE=gtk-brotway:local .
+#   docker run --rm -p 8085:8085 gtk-brotway:demo               # -> http://localhost:8085
+ARG BASE=ghcr.io/droserasprout/gtk-brotway:latest
+FROM ${BASE}
+ARG DEBIAN_FRONTEND=noninteractive
+
+# gtk4-widget-factory (+ gtk4-demo) ship in gtk-4-examples.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends gtk-4-examples \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
+
+# widget-factory's sample list references emblem-default-symbolic, which Ubuntu's
+# Adwaita split dropped (only the fullcolor legacy PNG survives). Alias it to
+# object-select-symbolic - Adwaita's canonical checkmark - so the smoke test renders
+# a clean symbolic icon, not a broken-image placeholder. Beats the 7.6MB legacy theme.
+RUN set -eux; \
+    ln -s ../actions/object-select-symbolic.svg \
+      /usr/share/icons/Adwaita/symbolic/legacy/emblem-default-symbolic.svg; \
+    gtk4-update-icon-cache -f /usr/share/icons/Adwaita
+
+ENV BROADWAY_DISPLAY=:5
+EXPOSE 8085
+
+# broadwayd serves the HTML5 client on 8080+display (:5 -> 8085), bound to all
+# interfaces so a mapped port reaches it; the app connects to that display
+# (GDK_BACKEND=broadway comes from the base). Daemon in the background, app as PID 1.
+CMD ["sh", "-c", "gtk4-broadwayd -a 0.0.0.0 -p 8085 ${BROADWAY_DISPLAY} & sleep 1 && exec gtk4-widget-factory"]

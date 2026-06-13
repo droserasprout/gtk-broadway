@@ -1,8 +1,9 @@
 # Installation
 
-The fork is distributed two ways:
+The fork is distributed three ways:
 
-- **Debian package** `gtk4-brotway` - built by CI, published to [GitHub Releases](https://github.com/droserasprout/gtk-brotway/releases). This is what the Docker image installs, and it works on any Ubuntu/Debian host. It *transparently* overlays the stock GTK runtime (every Broadway app uses the fork, no opt-in).
+- **Debian package** `gtk4-brotway` - built by CI, published to [GitHub Releases](https://github.com/droserasprout/gtk-brotway/releases). It works on any Ubuntu/Debian host and *transparently* overlays the stock GTK runtime (every Broadway app uses the fork, no opt-in).
+- **Base Docker image** `ghcr.io/droserasprout/gtk-brotway` - the `.deb` baked over a stock Ubuntu GTK runtime, multi-arch (amd64, arm64). App-agnostic: `FROM` it for any GTK4 Broadway binary. See [Docker](#docker).
 - **Arch PKGBUILD** (`packaging/arch/`) - built by hand with `makepkg`. A *conflict-free* private-prefix overlay you opt into per launch via the `gtk4-brotway-run` wrapper.
 
 Both only swap the Broadway pieces and leave the rest of your GTK (GIR, `gtk-4-common`, themes, ...) untouched - so the package and your system must agree on the GTK base version (4.22.x). See [Supported versions](versions.md).
@@ -16,7 +17,16 @@ Both only swap the Broadway pieces and leave the rest of your GTK (GIR, `gtk-4-c
 
 ## Docker
 
-To bake the fork into an image, install the arch-matching `.deb` over a stock GTK base and `apt-mark hold` the runtime - the same [Ubuntu/Debian](#ubuntu--debian) steps inside a `RUN`. See [Security model](security.md#in-a-container) for the Dockerfile snippet and the operator checklist.
+The simplest path is the prebuilt **base image** - the `.deb` already baked over a stock Ubuntu GTK runtime, published multi-arch (amd64, arm64) to GHCR per release:
+
+```dockerfile
+FROM ghcr.io/droserasprout/gtk-brotway:v3.0.0   # or :latest
+# ... add your GTK4 app on top; it runs on the patched Broadway backend
+```
+
+It carries no app and no language bindings - just the patched GTK, `gtk4-broadwayd`, and the generic bits any GTK4 app needs to render (the SVG icon loader + Adwaita icons), with `GDK_BACKEND=broadway` set as the default. It is built by the `image.yml` workflow on the `ci` branch from the same release `.deb`s.
+
+To bake the fork into your own base instead, install the arch-matching `.deb` over a stock GTK base and `apt-mark hold` the runtime - the same [Ubuntu/Debian](#ubuntu--debian) steps inside a `RUN`. See [Security model](security.md#in-a-container) for the Dockerfile snippet and the operator checklist.
 
 ## Ubuntu / Debian
 

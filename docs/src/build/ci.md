@@ -1,6 +1,6 @@
 # CI & packaging
 
-CI lives on the orphan **`ci`** branch as two workflows. `.github/workflows/build.yml` is a reusable workflow that compiles the base across both arches and assembles the `.deb` as a workflow artifact, with no publishing. `.github/workflows/release.yml` is the orchestrator: it builds the base and collects the artifacts into one GitHub Release (see [Release process](release.md)).
+CI lives on the orphan **`ci`** branch. `.github/workflows/build.yml` is a reusable workflow that compiles the base across both arches and assembles the `.deb` as a workflow artifact, with no publishing. `.github/workflows/release.yml` is the orchestrator: it builds the base and collects the artifacts into one GitHub Release (see [Release process](release.md)). `.github/workflows/image.yml` then bakes those `.deb`s into the [base Docker image](#base-docker-image) on GHCR.
 
 ## The reusable build (`build.yml`)
 
@@ -22,6 +22,12 @@ The package is built by hand from the Meson output, with no `dh`/`debhelper` inv
 The SONAME comes straight from the build output via `find _build/gtk -name 'libgtk-4.so.1.*.*'`, so a GTK point-release bump needs no edit. The script lays out `usr/lib/<multiarch>/<soname>`, re-points the `libgtk-4.so.1` symlink at it, and adds `usr/bin/gtk4-broadwayd`. The `control` file sets `Package: gtk4-brotway` and lists `libgtk-4-1, libgtk-4-bin` under both `Depends` and `Replaces`, so the package overlays the stock runtime files and leaves the rest of GTK alone. `postinst` is just `ldconfig`. Everything is built with `dpkg-deb --root-owner-group --build` and uploaded as artifact `deb-<gtk>-<arch>`.
 
 Version stamping: a `vX.Y.Z` tag gives revision `X.Y.Z`; everything else gets `0+r<run_number>` for rolling builds. The artifact keeps the stable unversioned name `gtk4-brotway_<gtk>_<arch>.deb`, and the release job derives the version-stamped name from it.
+
+## Base Docker image
+
+`image.yml` publishes the app-agnostic base image `ghcr.io/<owner>/gtk-brotway` - a stock Ubuntu GTK runtime with the fork `.deb` overlaid and `apt-mark hold`ed (`packaging/docker/Dockerfile`). It's the same overlay as a host install, just baked into a layer; `FROM` it for any GTK4 Broadway binary.
+
+It triggers on a `vN` tag (and `workflow_dispatch` with a `tag` input for backfills). The inputs are the release's per-arch `.deb`s, so on a tag push it races `release.yml` and retries `gh release download` until both assets land. The build is multi-arch via `buildx` + QEMU; the Dockerfile picks the deb for the emulated target arch with `dpkg --print-architecture`. Tags pushed: the `vN` tag plus `latest` (the latter only on a real tag push, never a manual backfill).
 
 ## Per-branch validation
 

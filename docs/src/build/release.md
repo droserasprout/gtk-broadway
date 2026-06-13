@@ -27,6 +27,8 @@ Pinning to a code tag means the release records exactly which fork commit each `
 
 The result is what [Installation](../guide/installation.md) downloads, e.g. `gtk4-brotway_4.22.4-3.0.0_amd64.deb`.
 
+The same `vX.Y.Z` tag also triggers [`image.yml`](ci.md#base-docker-image), which waits for those `.deb`s and bakes them into the base image `ghcr.io/<owner>/gtk-brotway:<tag>` (+ `latest`).
+
 ## Version scheme
 
 Release tags use a three-part `vX.Y.Z` form: the semver *format* with no compatibility contract - on a solo fork the numbers are a rough changelog ordering, not an API promise. `v3.0.0` produces `gtk4-brotway_4.22.4-3.0.0` from the pinned `4.22.4-3.0.0` code tag.
