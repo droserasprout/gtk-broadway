@@ -1,10 +1,10 @@
 # Quickstart
 
-From nothing to a GTK4 app in your browser. Three steps: install the `.deb`, start the daemon, point an app at it.
+From nothing to a GTK4 app in your browser. Two steps: install the `.deb`, then launch an app with `gtk4-brotway-run`.
 
 ## 1. Install the patched GTK
 
-Grab the `.deb` matching your architecture (the [GTK base](guide/requirements.md) is 4.22.4 on `ubuntu:26.04`), install it, and hold the stock packages:
+Grab the `.deb` matching your architecture (the [GTK base](guide/requirements.md) is 4.22.4 on `ubuntu:26.04`) and install it:
 
 ```sh
 rel=v3.0.0       # the release to install - see the Releases page for the latest tag
@@ -12,26 +12,19 @@ gtk_ver=4.22.4   # on an ubuntu:26.04 base
 arch="$(dpkg --print-architecture)"
 wget -O gtk.deb "https://github.com/droserasprout/gtk-brotway/releases/download/${rel}/gtk4-brotway_${gtk_ver}-${rel#v}_${arch}.deb"
 apt-get install -y ./gtk.deb
-apt-mark hold libgtk-4-1 libgtk-4-bin
 ```
 
-The `apt-mark hold` keeps a later `apt upgrade` from reverting the fork. See [Installation](guide/installation.md#ubuntu--debian) for what the package overlays and the hold rationale.
+The fork installs into a private prefix and never touches the system GTK, so this is safe on a desktop. See [Installation](guide/installation.md#ubuntu--debian).
 
-## 2. Start the daemon
+## 2. Run an app against it
+
+`gtk4-brotway-run` starts the daemon, runs the app, and tears the daemon down on exit:
 
 ```sh
-gtk4-broadwayd :5
+gtk4-brotway-run your-gtk4-app
 ```
 
-`:5` is the display number; the browser page is served on `http://localhost:8085` (port `8080 + N`).
-
-## 3. Run an app against it
-
-```sh
-GDK_BACKEND=broadway BROADWAY_DISPLAY=:5 your-gtk4-app
-```
-
-Open `http://localhost:8085` in a browser. Copy/paste, touch text editing, and pinch-zoom now work - the fork is app-agnostic, any GTK4 binary does. For a non-localhost deployment, put it behind a TLS terminator; see [Security model](guide/security.md).
+Open `http://localhost:8085` in a browser. Copy/paste, touch text editing, and pinch-zoom now work - the fork is app-agnostic, any GTK4 binary does. For a non-localhost deployment, add `--address 0.0.0.0` and put it behind a TLS terminator; see [Security model](guide/security.md).
 
 See [Running broadwayd](guide/running.md) for how the pieces fit. A non-localhost deployment also needs a [secure context](features/clipboard.md#limitations) for the clipboard.
 

@@ -8,7 +8,12 @@ Versioning from v3: release tags are three-part `vX.Y.Z`; package versions are `
 
 ### Added
 
-- `gtk4-brotway-run`: one-shot launcher (starts `broadwayd`, runs the app, tears it down on exit), now shipped in the `.deb` too; `--auto` picks a free display/port, `--open` opens the browser
+- `gtk4-brotway-run`: one-shot launcher (starts `broadwayd`, runs the app, tears it down on exit), shipped in both packages; `--auto` picks a free display/port, `--open` opens the browser, `--address` sets the broadwayd bind address
+
+### Changed
+
+- The `.deb` now installs into a private prefix (`/usr/lib/gtk4-brotway`) instead of overlaying the system `libgtk-4`, so it no longer breaks other GTK4 apps and is safe on desktops; opt in per launch via `gtk4-brotway-run`. Dropped `Replaces`/`Conflicts`/`Provides` and the `apt-mark hold` requirement.
+- The base Docker image sets `LD_LIBRARY_PATH=/usr/lib/gtk4-brotway` so every containerized app uses the fork transparently.
 
 ## [v3.0.0] - 2026-06-12
 

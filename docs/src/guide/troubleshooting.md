@@ -21,9 +21,8 @@ The functional test: touch text selection (handles + Cut/Copy/Paste bubble) and 
 | Blank page behind a proxy | proxy not forwarding the WebSocket upgrade | forward `Upgrade`/`Connection` headers; all ops run over the WS ([Security model](security.md)) |
 | Page loads, app never appears | app not started, or wrong target | run it with `GDK_BACKEND=broadway BROADWAY_DISPLAY=:N` ([Config](config.md)) |
 | Page loads, but shows "disconnected" | another fresh tab took the single display | newest fresh load wins; reload the tab you want to own it ([arbitration](../internals/connection.md#single-display-arbitration-newest-fresh-open-wins)) |
-| App fails to start / can't load `libgtk-4.so` | `.deb` base doesn't match the system GTK (SONAME mismatch) | run the 4.22.4 deb on an `ubuntu:26.04` (GTK 4.22.x) base ([Requirements](requirements.md)); see below |
-| Touch UI / OSK / clipboard missing | stock GTK loaded, not the fork | confirm the package + hold above |
-| Features worked, then vanished | `apt upgrade` reverted to stock GTK | re-install the `.deb`, then `apt-mark hold libgtk-4-1 libgtk-4-bin` ([Installation](installation.md)) |
+| App fails to start / can't load `libgtk-4.so` | fork base doesn't match the system GTK (SONAME mismatch) | run the 4.22.4 deb on an `ubuntu:26.04` (GTK 4.22.x) base ([Requirements](requirements.md)); see below |
+| Touch UI / OSK / clipboard missing | app launched directly, so it loaded stock GTK | start it via `gtk4-brotway-run` (or export `LD_LIBRARY_PATH=/usr/lib/gtk4-brotway`) |
 | Copy/paste silently does nothing | insecure context over remote `http://` | serve `https://` or `http://localhost` ([secure context](running.md#secure-context-note)) |
 | Middle-click paste doesn't work | PRIMARY selection is unsupported | by design - no JS API for it ([Known issues](known-issues.md)) |
 | Links don't open / "No known URI provider available" | popup blocker caught `window.open` | allow popups for the origin ([Opening links](../features/open-uri.md#limitations)) |
@@ -31,14 +30,14 @@ The functional test: touch text selection (handles + Cut/Copy/Paste bubble) and 
 
 ## Checking the GTK base mismatch
 
-The `.deb` overlays the SONAME-versioned `libgtk-4.so` in place, so its base must match the GTK apt installed. Compare them:
+The fork's `libgtk-4.so` (in `/usr/lib/gtk4-brotway`) loads the system GTK's schemas and loaders, so its base must match the GTK apt installed. Compare them:
 
 ```sh
-dpkg -s libgtk-4-1 | grep ^Version       # the apt GTK version (e.g. 4.22.x on ubuntu:26.04)
-ls -l /usr/lib/*/libgtk-4.so.1            # the SONAME the symlink points at
+dpkg -s libgtk-4-1 | grep ^Version                 # the apt GTK version (e.g. 4.22.x on ubuntu:26.04)
+ls -l /usr/lib/gtk4-brotway/libgtk-4.so.1          # the SONAME the fork ships
 ```
 
-A `4.22.4` deb on a system with a different GTK SONAME leaves a dangling link and the app won't load. The fork targets GTK 4.22.x; run it on an `ubuntu:26.04` base ([Requirements](requirements.md)).
+A `4.22.4` fork on a system with a mismatched GTK series won't load. The fork targets GTK 4.22.x; run it on an `ubuntu:26.04` base ([Requirements](requirements.md)).
 
 ## Iterating on a change that didn't take effect
 

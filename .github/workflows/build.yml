@@ -119,12 +119,19 @@ jobs:
           SO_NAME="$(basename "$(find _build/gtk -maxdepth 1 -type f -name 'libgtk-4.so.1.*.*' | head -n1)")"
           test -n "${SO_NAME}"
           rm -rf pkgroot
-          install -d pkgroot/DEBIAN "pkgroot/usr/lib/${MULTIARCH}" pkgroot/usr/bin
-          install -m644 "_build/gtk/${SO_NAME}" "pkgroot/usr/lib/${MULTIARCH}/${SO_NAME}"
-          ln -sf "${SO_NAME}" "pkgroot/usr/lib/${MULTIARCH}/libgtk-4.so.1"
-          install -m755 _build/gdk/broadway/gtk4-broadwayd pkgroot/usr/bin/gtk4-broadwayd
-          # Native triple-Shift debug-menu client; broadwayd spawns it by name via PATH
-          # (BROADWAY_EVENT_MENU). Without it the menu silently fails to spawn.
+          # Private-prefix overlay (matches the Arch PKGBUILD): the broadway-only
+          # fork lib + daemon land in /usr/lib/gtk4-brotway, NOT over the system
+          # gtk4. Apps opt in via gtk4-brotway-run (LD_LIBRARY_PATH); on a desktop
+          # the rest of GTK keeps its x11/wayland backends. No Replaces/hold.
+          PREFIX=usr/lib/gtk4-brotway
+          install -d pkgroot/DEBIAN "pkgroot/${PREFIX}" pkgroot/usr/bin
+          install -m644 "_build/gtk/${SO_NAME}" "pkgroot/${PREFIX}/${SO_NAME}"
+          ln -sf "${SO_NAME}" "pkgroot/${PREFIX}/libgtk-4.so.1"
+          ln -sf libgtk-4.so.1 "pkgroot/${PREFIX}/libgtk-4.so"
+          # broadwayd lives in the prefix; the launcher invokes it by full path.
+          install -m755 _build/gdk/broadway/gtk4-broadwayd "pkgroot/${PREFIX}/gtk4-broadwayd"
+          # Net-new /usr/bin names (no clash with stock gtk4). broadwayd spawns the
+          # debug menu by name via PATH; without it the menu silently fails to spawn.
           test -f _build/tools/gtk4-brotway-debugmenu
           install -m755 _build/tools/gtk4-brotway-debugmenu pkgroot/usr/bin/gtk4-brotway-debugmenu
           # One-shot launcher: starts broadwayd, runs the app, tears it down on exit.

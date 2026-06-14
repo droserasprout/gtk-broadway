@@ -1,12 +1,14 @@
 # Running broadwayd
 
-Broadway serves a GTK app to the browser in two pieces. The `gtk4-broadwayd` daemon owns the display and the WebSocket. The app itself runs with the Broadway GDK backend, so it connects to that daemon instead of an X11/Wayland display.
+Broadway serves a GTK app to the browser in two pieces. The `gtk4-broadwayd` daemon owns the display and the WebSocket. The app itself runs with the Broadway GDK backend, so it connects to that daemon instead of an X11/Wayland display. [`gtk4-brotway-run`](#one-command) automates both; the manual steps below show what it does (and how to run the daemon from a [source build](../build/from-source.md)).
 
 ## Start the daemon
 
 ```sh
 gtk4-broadwayd :5
 ```
+
+> Packaged installs keep the daemon in the fork prefix (`/usr/lib/gtk4-brotway/gtk4-broadwayd`), not on `PATH` - use the [launcher](#one-command), which invokes it by full path.
 
 `:5` is the Broadway display number. The daemon listens for the browser on HTTP port `8080 + N` (so `:5` maps to `http://localhost:8085`) and for app clients on the matching local Broadway socket. Open the served page in a browser:
 
@@ -26,7 +28,7 @@ The app renders into the daemon, which streams render nodes to every connected b
 
 ## One command
 
-`gtk4-brotway-run` does both steps in one shot: it starts `broadwayd`, runs the app against it, and tears the daemon down on exit. It auto-detects the install layout (the `.deb` system overlay or the Arch private prefix), so the same command works on either.
+`gtk4-brotway-run` does both steps in one shot: it starts `broadwayd`, runs the app against it, and tears the daemon down on exit. Both packages install the fork into the same private prefix (`/usr/lib/gtk4-brotway`); the launcher points `LD_LIBRARY_PATH` at it, so the app uses the fork without touching the system GTK.
 
 ```sh
 gtk4-brotway-run gtk4-widget-factory
@@ -37,6 +39,7 @@ Useful flags:
 
 - `--auto` - pick the first free display/port pair, so several apps can run at once
 - `--open` - open the WebUI in a browser (`$BROWSER`, else `xdg-open`)
+- `--address A` - broadwayd bind address, e.g. `0.0.0.0` to serve a mapped container port (env `BROTWAY_ADDRESS`)
 - `--display :N` / `--port P` - pin them explicitly (env `BROTWAY_DISPLAY` / `BROTWAY_PORT`)
 
 ## The browser client

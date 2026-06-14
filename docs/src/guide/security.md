@@ -22,7 +22,7 @@ Broadway has none of its own (see the model above), so put it at the same TLS te
 
 ## In a container
 
-The reference deployment installs the arch-matching `.deb` inside a Docker image over apt's GTK and holds the runtime packages - the same three steps as [Installation](installation.md), plus `dpkg --print-architecture` to select between the amd64 and arm64 assets at build time:
+The reference deployment installs the arch-matching `.deb` inside a Docker image and points `LD_LIBRARY_PATH` at the fork prefix so every app in the container uses it - the same steps as [Installation](installation.md), plus `dpkg --print-architecture` to select between the amd64 and arm64 assets at build time:
 
 ```dockerfile
 ARG GTK_VER=4.22.4
@@ -30,11 +30,11 @@ ARG REL=v3.0.0
 RUN arch="$(dpkg --print-architecture)" \
  && wget -O /tmp/gtk.deb "https://github.com/droserasprout/gtk-brotway/releases/download/${REL}/gtk4-brotway_${GTK_VER}-${REL#v}_${arch}.deb" \
  && apt-get install -y /tmp/gtk.deb \
- && apt-mark hold libgtk-4-1 libgtk-4-bin \
  && rm /tmp/gtk.deb
+ENV LD_LIBRARY_PATH=/usr/lib/gtk4-brotway
 ```
 
-The base image's GTK must match the `.deb` base ([4.22.4 on `ubuntu:26.04`](requirements.md)); the overlay replaces the SONAME-versioned `.so` in place.
+The base image's GTK must match the `.deb` base ([4.22.4 on `ubuntu:26.04`](requirements.md)); the fork lib loads the system GTK's schemas and loaders. (The prebuilt base image already does all this.)
 
 ## Process layout
 
@@ -109,7 +109,7 @@ WantedBy=multi-user.target
 ## Checklist
 
 - [ ] `.deb` base matches the image's GTK base, arch selected via `dpkg --print-architecture`.
-- [ ] `apt-mark hold libgtk-4-1 libgtk-4-bin` so an image rebuild's `apt upgrade` can't revert it.
+- [ ] `LD_LIBRARY_PATH=/usr/lib/gtk4-brotway` set so apps load the fork (the base image already sets it).
 - [ ] TLS terminated in front of the daemon; WebSocket upgrade forwarded.
 - [ ] Daemon port not published publicly; auth (basic/SSO) enforced at the proxy - Broadway has none.
 - [ ] Reachable over `https://` (or `http://localhost` for local testing) so the clipboard works.

@@ -16,7 +16,7 @@ Terms that recur across the book, for readers coming from outside GTK.
 
 **libgtk** - the patched `libgtk-4.so` shared library, the other half of what the `.deb` ships (alongside the daemon). A change to it needs the **app** restarted, not just the daemon. See [broadwayd vs libgtk](build/from-source.md#iterating-broadwayd-vs-libgtk).
 
-**SONAME** - the versioned shared-object name (e.g. `libgtk-4.so.1.2200.4`). The `.deb` replaces this file in place, so the package base and the system GTK must match. See [Requirements](guide/requirements.md).
+**SONAME** - the versioned shared-object name (e.g. `libgtk-4.so.1.2200.4`). The fork ships its own copy in the prefix; since it loads the system GTK's schemas and loaders, the package base and the system GTK must still be the same 4.22 series. See [Requirements](guide/requirements.md).
 
 **Secure context** - a browser security state (`https://` or `http://localhost`) that gates `navigator.clipboard`. Over plain remote `http://`, the [clipboard](features/clipboard.md) can fail silently.
 

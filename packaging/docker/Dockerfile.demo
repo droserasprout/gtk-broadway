@@ -24,10 +24,9 @@ RUN set -eux; \
       /usr/share/icons/Adwaita/symbolic/legacy/emblem-default-symbolic.svg; \
     gtk4-update-icon-cache -f /usr/share/icons/Adwaita
 
-ENV BROADWAY_DISPLAY=:5
 EXPOSE 8085
 
-# broadwayd serves the HTML5 client on 8080+display (:5 -> 8085), bound to all
-# interfaces so a mapped port reaches it; the app connects to that display
-# (GDK_BACKEND=broadway comes from the base). Daemon in the background, app as PID 1.
-CMD ["sh", "-c", "gtk4-broadwayd -a 0.0.0.0 -p 8085 ${BROADWAY_DISPLAY} & sleep 1 && exec gtk4-widget-factory"]
+# The launcher starts the fork's broadwayd (now in the private prefix) and the
+# app together: --address 0.0.0.0 binds all interfaces so the mapped port reaches
+# it; display :5 -> port 8085. GDK_BACKEND + LD_LIBRARY_PATH come from the base.
+CMD ["gtk4-brotway-run", "--address", "0.0.0.0", "gtk4-widget-factory"]
