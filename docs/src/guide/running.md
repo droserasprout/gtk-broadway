@@ -24,6 +24,21 @@ GDK_BACKEND=broadway BROADWAY_DISPLAY=:5 your-gtk4-app
 
 The app renders into the daemon, which streams render nodes to every connected browser tab. The browser sends input (pointer, touch, keyboard) back over the same socket.
 
+## One command
+
+`gtk4-brotway-run` does both steps in one shot: it starts `broadwayd`, runs the app against it, and tears the daemon down on exit. It auto-detects the install layout (the `.deb` system overlay or the Arch private prefix), so the same command works on either.
+
+```sh
+gtk4-brotway-run gtk4-widget-factory
+# -> http://localhost:8085  (triple-Shift = debug menu)
+```
+
+Useful flags:
+
+- `--auto` - pick the first free display/port pair, so several apps can run at once
+- `--open` - open the WebUI in a browser (`$BROWSER`, else `xdg-open`)
+- `--display :N` / `--port P` - pin them explicitly (env `BROTWAY_DISPLAY` / `BROTWAY_PORT`)
+
 ## The browser client
 
 The page the daemon serves is `client.html` + `broadway.js`, both embedded in the daemon binary. All the fork's browser-side logic lives in `broadway.js`: touch delivery, the clipboard bridge, pinch-zoom, reconnect, the [debug menu](../internals/debug-menu.md), and the paint-flash overlay. Both assets are served `Cache-Control: no-store`, so a plain reload always picks up a rebuilt and restarted `gtk4-broadwayd`. No hard-refresh needed.

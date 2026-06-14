@@ -127,6 +127,9 @@ jobs:
           # (BROADWAY_EVENT_MENU). Without it the menu silently fails to spawn.
           test -f _build/tools/gtk4-brotway-debugmenu
           install -m755 _build/tools/gtk4-brotway-debugmenu pkgroot/usr/bin/gtk4-brotway-debugmenu
+          # One-shot launcher: starts broadwayd, runs the app, tears it down on exit.
+          test -f _build/tools/gtk4-brotway-run
+          install -m755 _build/tools/gtk4-brotway-run pkgroot/usr/bin/gtk4-brotway-run
           # Control + postinst come from packaging/debian/ on the ci branch (the
           # _ci sparse checkout). envsubst fills only the named vars.
           export DEB_VERSION

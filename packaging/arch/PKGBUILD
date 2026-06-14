@@ -26,10 +26,8 @@ makedepends=('meson' 'ninja' 'git' 'pkgconf' 'gettext' 'sassc' 'python'
              'fribidi' 'harfbuzz' 'libxkbcommon' 'libjpeg-turbo' 'libpng'
              'libtiff' 'libdrm')
 
-source=("gtk::git+https://github.com/droserasprout/gtk-brotway.git#tag=$_gtkbase-$pkgver"
-        'gtk4-brotway-run')
-sha256sums=('SKIP'
-            'SKIP')
+source=("gtk::git+https://github.com/droserasprout/gtk-brotway.git#tag=$_gtkbase-$pkgver")
+sha256sums=('SKIP')
 
 build() {
     cd "$srcdir/gtk"
@@ -61,5 +59,6 @@ package() {
     # Net-new names - no clash with stock gtk4. broadwayd spawns the debug menu
     # by this name via PATH (BROADWAY_DEBUGMENU default).
     install -Dm755 _build/tools/gtk4-brotway-debugmenu "$pkgdir/usr/bin/gtk4-brotway-debugmenu"
-    install -Dm755 "$srcdir/gtk4-brotway-run" "$pkgdir/usr/bin/gtk4-brotway-run"
+    # One-shot launcher (meson tool); auto-detects the private prefix at runtime.
+    install -Dm755 _build/tools/gtk4-brotway-run "$pkgdir/usr/bin/gtk4-brotway-run"
 }

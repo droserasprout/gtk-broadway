@@ -58,4 +58,4 @@ gtk4-brotway-run gtk4-widget-factory
 # -> http://localhost:8085  (triple-Shift = debug menu)
 ```
 
-The wrapper points `LD_LIBRARY_PATH` at the prefix, starts the fork's `broadwayd`, and tears it down on exit.
+The launcher points `LD_LIBRARY_PATH` at the prefix, starts the fork's `broadwayd`, and tears it down on exit. It ships in the `.deb` too (where it skips `LD_LIBRARY_PATH`, since the fork is the system GTK) and takes `--auto` / `--open` / `--display` / `--port` - see [Running](running.md#one-command).

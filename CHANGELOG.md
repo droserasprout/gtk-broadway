@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file. The format 
 
 Versioning from v3: release tags are three-part `vX.Y.Z`; package versions are `<gtk-base>-X.Y.Z`, e.g. `4.22.4-3.0.0`. Single base (GTK 4.22.x). See [Requirements](https://droserasprout.github.io/gtk-brotway/guide/requirements.html).
 
+## [Unreleased]
+
+### Added
+
+- `gtk4-brotway-run`: one-shot launcher (starts `broadwayd`, runs the app, tears it down on exit), now shipped in the `.deb` too; `--auto` picks a free display/port, `--open` opens the browser
+
 ## [v3.0.0] - 2026-06-12
 
 Project renamed to Brotway, a GTK4 Broadway fork.
