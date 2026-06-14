@@ -493,6 +493,31 @@ broadway_output_set_cursor (BroadwayOutput *output,
 }
 
 void
+broadway_output_set_title (BroadwayOutput *output,
+                           int             id,
+                           const char     *title,
+                           gsize           len)
+{
+  write_header (output, BROADWAY_OP_SET_TITLE);
+  append_uint16 (output, id);
+  append_uint32 (output, (guint32) len);
+  g_string_append_len (output->buf, title, len);
+}
+
+void
+broadway_output_set_icon (BroadwayOutput *output,
+                          int             id,
+                          const guchar   *data,
+                          gsize           len)
+{
+  write_header (output, BROADWAY_OP_SET_ICON);
+  append_uint16 (output, id);
+  append_uint32 (output, (guint32) len);
+  if (len > 0)
+    g_string_append_len (output->buf, (const char *) data, len);
+}
+
+void
 broadway_output_move_resize_surface (BroadwayOutput *output,
                                      int             id,
                                      gboolean        has_pos,

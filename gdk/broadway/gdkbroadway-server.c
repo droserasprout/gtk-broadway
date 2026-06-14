@@ -1017,3 +1017,61 @@ _gdk_broadway_server_surface_set_cursor (GdkBroadwayServer *server,
                                               size, BROADWAY_REQUEST_SET_CURSOR, -1);
   g_free (msg);
 }
+
+void
+_gdk_broadway_server_surface_set_title (GdkBroadwayServer *server,
+                                        int                id,
+                                        const char        *title)
+{
+  gsize len = title ? strlen (title) : 0;
+  gsize size;
+  BroadwayRequestSetTitle *msg;
+
+  if (len > BROADWAY_CLIPBOARD_MAX_SIZE)
+    len = BROADWAY_CLIPBOARD_MAX_SIZE;
+
+  size = G_STRUCT_OFFSET (BroadwayRequestSetTitle, title) + len;
+  /* Pad to 4 bytes (zero-filled) to keep the daemon's request stream aligned. */
+  size = (size + 3) & ~(gsize) 3;
+  /* Allocate at least the full struct so accessing msg->len stays in bounds
+   * (the title[1] member makes sizeof larger than size when len is small). */
+  msg = g_malloc0 (MAX (size, sizeof *msg));
+
+  msg->id = id;
+  msg->len = (guint32) len;
+  if (len > 0)
+    memcpy (msg->title, title, len);
+
+  gdk_broadway_server_send_message_with_size (server, (BroadwayRequestBase *) msg,
+                                              size, BROADWAY_REQUEST_SET_TITLE, -1);
+  g_free (msg);
+}
+
+void
+_gdk_broadway_server_surface_set_icon (GdkBroadwayServer *server,
+                                       int                id,
+                                       const guchar      *data,
+                                       gsize              len)
+{
+  gsize size;
+  BroadwayRequestSetIcon *msg;
+
+  if (len > BROADWAY_CLIPBOARD_MAX_SIZE)
+    len = BROADWAY_CLIPBOARD_MAX_SIZE;
+
+  size = G_STRUCT_OFFSET (BroadwayRequestSetIcon, data) + len;
+  /* Pad to 4 bytes (zero-filled) to keep the daemon's request stream aligned. */
+  size = (size + 3) & ~(gsize) 3;
+  /* Allocate at least the full struct so accessing msg->len stays in bounds
+   * (the data[1] member makes sizeof larger than size when len is small). */
+  msg = g_malloc0 (MAX (size, sizeof *msg));
+
+  msg->id = id;
+  msg->len = (guint32) len;
+  if (len > 0)
+    memcpy (msg->data, data, len);
+
+  gdk_broadway_server_send_message_with_size (server, (BroadwayRequestBase *) msg,
+                                              size, BROADWAY_REQUEST_SET_ICON, -1);
+  g_free (msg);
+}

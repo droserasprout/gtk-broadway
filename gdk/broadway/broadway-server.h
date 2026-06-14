@@ -101,6 +101,14 @@ void                broadway_server_surface_set_cursor        (BroadwayServer  *
                                                                int              id,
                                                                const char      *name,
                                                                gsize            len);
+void                broadway_server_surface_set_title         (BroadwayServer  *server,
+                                                               int              id,
+                                                               const char      *title,
+                                                               gsize            len);
+void                broadway_server_surface_set_icon          (BroadwayServer  *server,
+                                                               int              id,
+                                                               const guchar    *data,
+                                                               gsize            len);
 guint32             broadway_server_new_surface               (BroadwayServer  *server,
                                                                guint32          client,
                                                                int              x,

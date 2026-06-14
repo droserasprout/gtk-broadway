@@ -46,6 +46,8 @@ struct _GdkBroadwaySurface
 
   GdkCursor *cursor;
   char *cursor_name;  /* last CSS cursor name sent to the browser (dedup) */
+  char *title;        /* last window title sent to the browser (dedup) */
+  GBytes *icon_png;   /* last icon PNG sent to the browser (dedup) */
 
   int id;
 

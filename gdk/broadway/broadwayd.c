@@ -472,6 +472,30 @@ client_handle_request (BroadwayClient *client,
                                               request->set_cursor.name, len);
         }
       break;
+    case BROADWAY_REQUEST_SET_TITLE:
+      if (request->base.size >= G_STRUCT_OFFSET (BroadwayRequestSetTitle, title))
+        {
+          /* Clamp the wire len to the framed request, same as SET_CLIPBOARD. */
+          gsize max = request->base.size -
+                      G_STRUCT_OFFSET (BroadwayRequestSetTitle, title);
+          guint32 len = request->set_title.len > max
+                        ? (guint32) max : request->set_title.len;
+          broadway_server_surface_set_title (server, request->set_title.id,
+                                             request->set_title.title, len);
+        }
+      break;
+    case BROADWAY_REQUEST_SET_ICON:
+      if (request->base.size >= G_STRUCT_OFFSET (BroadwayRequestSetIcon, data))
+        {
+          /* Clamp the wire len to the framed request, same as SET_CLIPBOARD. */
+          gsize max = request->base.size -
+                      G_STRUCT_OFFSET (BroadwayRequestSetIcon, data);
+          guint32 len = request->set_icon.len > max
+                        ? (guint32) max : request->set_icon.len;
+          broadway_server_surface_set_icon (server, request->set_icon.id,
+                                            (const guchar *) request->set_icon.data, len);
+        }
+      break;
     case BROADWAY_REQUEST_REQUEST_CLIPBOARD:
       {
         PendingClipboardRequest *pending = g_new (PendingClipboardRequest, 1);

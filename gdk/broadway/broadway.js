@@ -48,6 +48,8 @@ const BROADWAY_OP_PONG = 23;
 const BROADWAY_OP_DEBUG_FLASH = 24;
 const BROADWAY_OP_DEBUG_SET_SCREEN = 25;
 const BROADWAY_OP_SET_CURSOR = 26;
+const BROADWAY_OP_SET_TITLE = 27;
+const BROADWAY_OP_SET_ICON = 28;
 
 /* CSS cursor keywords GTK can ask for via gdk_cursor_get_name. An unknown name
  * is dropped to "default" so the browser never silently keeps a stale cursor. */
@@ -582,6 +584,50 @@ function restackSurfaces() {
     for (var i = 0; i < stackingOrder.length; i++) {
         var surface = stackingOrder[i];
         surface.div.style.zIndex = i;
+    }
+}
+
+/* Tab title + favicon follow the topmost real toplevel (no transient parent),
+ * so dialogs/menus/popovers don't hijack the tab. */
+var tabFaviconLink = null;
+var tabTitleApplied = null;
+var tabIconApplied = null;
+
+function ensureFaviconLink() {
+    if (tabFaviconLink && tabFaviconLink.parentNode)
+        return tabFaviconLink;
+    var link = document.querySelector("link[rel~='icon']");
+    if (!link) {
+        link = document.createElement("link");
+        link.rel = "icon";
+        document.head.appendChild(link);
+    }
+    tabFaviconLink = link;
+    return link;
+}
+
+function pickPrimarySurface() {
+    for (var i = stackingOrder.length - 1; i >= 0; i--) {
+        var s = stackingOrder[i];
+        if (s.transientParent == 0 && s.visible)
+            return s;
+    }
+    return null;
+}
+
+function updateTabIdentity() {
+    var s = pickPrimarySurface();
+    if (!s)
+        return;
+
+    if (s.title != undefined && s.title !== tabTitleApplied) {
+        document.title = s.title;
+        tabTitleApplied = s.title;
+    }
+
+    if (s.iconUrl !== undefined && s.iconUrl !== tabIconApplied) {
+        ensureFaviconLink().href = s.iconUrl ? s.iconUrl : "";
+        tabIconApplied = s.iconUrl;
     }
 }
 
@@ -1361,6 +1407,8 @@ function handleDisplayCommands(display_commands)
 		firstTouchDownId = null;
 		firstTouchDownRawId = null;
 	    }
+           if (surfaces[id].iconUrl)
+               URL.revokeObjectURL(surfaces[id].iconUrl);
            delete surfaces[id];
             break;
         case DISPLAY_OP_CHANGE_TEXTURE:
@@ -1729,6 +1777,33 @@ function handleCommands(cmd, display_commands, new_textures, modified_trees)
             }
             break;
 
+        case BROADWAY_OP_SET_TITLE:
+            /* Window title -> document/tab title (the topmost toplevel wins). */
+            id = cmd.get_16();
+            var _title = new TextDecoder("utf-8").decode(cmd.get_data());
+            surface = surfaces[id];
+            if (surface)
+                surface.title = _title;
+            break;
+
+        case BROADWAY_OP_SET_ICON:
+            /* Window icon PNG bytes -> favicon. Empty payload clears it. */
+            id = cmd.get_16();
+            var _icondata = cmd.get_data();
+            surface = surfaces[id];
+            if (surface) {
+                if (surface.iconUrl)
+                    URL.revokeObjectURL(surface.iconUrl);
+                if (_icondata.length > 0) {
+                    /* Copy: get_data() returns a view into the reused ws buffer. */
+                    var _blob = new Blob([_icondata.slice()], { type: "image/png" });
+                    surface.iconUrl = URL.createObjectURL(_blob);
+                } else {
+                    surface.iconUrl = null;
+                }
+            }
+            break;
+
         case BROADWAY_OP_REQUEST_CLIPBOARD:
             /* IIFE so each request's id is captured by the async callbacks even
              * if several requests arrive in one command batch. */
@@ -1759,6 +1834,9 @@ function handleCommands(cmd, display_commands, new_textures, modified_trees)
 
     if (need_restack)
         display_commands.push([DISPLAY_OP_RESTACK_SURFACES]);
+
+    /* Topmost toplevel may have changed; refresh tab title + favicon. */
+    updateTabIdentity();
 
     return res;
 }

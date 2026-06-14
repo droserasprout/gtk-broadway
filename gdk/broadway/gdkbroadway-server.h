@@ -64,6 +64,13 @@ void               _gdk_broadway_server_open_uri                 (GdkBroadwaySer
 void               _gdk_broadway_server_surface_set_cursor        (GdkBroadwayServer  *server,
 								  int                 id,
 								  const char         *name);
+void               _gdk_broadway_server_surface_set_title         (GdkBroadwayServer  *server,
+								  int                 id,
+								  const char         *title);
+void               _gdk_broadway_server_surface_set_icon          (GdkBroadwayServer  *server,
+								  int                 id,
+								  const guchar       *data,
+								  gsize               len);
 gboolean           _gdk_broadway_server_surface_translate         (GdkBroadwayServer  *server,
 								  int                 id,
 								  cairo_region_t     *area,

@@ -105,4 +105,12 @@ void            broadway_output_set_cursor           (BroadwayOutput *output,
                                                      int             id,
                                                      const char     *name,
                                                      gsize           len);
+void            broadway_output_set_title            (BroadwayOutput *output,
+                                                     int             id,
+                                                     const char     *title,
+                                                     gsize           len);
+void            broadway_output_set_icon             (BroadwayOutput *output,
+                                                     int             id,
+                                                     const guchar   *data,
+                                                     gsize           len);
 

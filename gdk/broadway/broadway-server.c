@@ -169,6 +169,8 @@ struct BroadwaySurface {
   BroadwayNode *nodes;
   GHashTable *node_lookup;
   char *cursor_name;               /* last CSS cursor sent; replayed on resync */
+  char *title;                     /* last window title sent; replayed on resync */
+  GBytes *icon;                    /* last icon PNG sent; replayed on resync */
 };
 
 struct _BroadwayTexture {
@@ -387,6 +389,8 @@ broadway_surface_free (BroadwayServer *server,
     broadway_node_unref (server, surface->nodes);
   g_hash_table_unref (surface->node_lookup);
   g_free (surface->cursor_name);
+  g_free (surface->title);
+  g_clear_pointer (&surface->icon, g_bytes_unref);
   g_free (surface);
 }
 
@@ -2540,6 +2544,54 @@ broadway_server_surface_set_cursor (BroadwayServer *server,
 }
 
 void
+broadway_server_surface_set_title (BroadwayServer *server,
+                                   int             id,
+                                   const char     *title,
+                                   gsize           len)
+{
+  BroadwaySurface *surface;
+
+  /* Remember it for resync: the app side dedups (impl->title) and won't
+   * re-send after a browser reconnect. */
+  surface = broadway_server_lookup_surface (server, id);
+  if (surface)
+    {
+      g_free (surface->title);
+      surface->title = g_strndup (title, len);
+    }
+
+  if (server->output)
+    {
+      broadway_output_set_title (server->output, id, title, len);
+      broadway_server_flush (server);
+    }
+}
+
+void
+broadway_server_surface_set_icon (BroadwayServer *server,
+                                  int             id,
+                                  const guchar   *data,
+                                  gsize           len)
+{
+  BroadwaySurface *surface;
+
+  /* Remember it for resync, like the cursor/title. len 0 clears it. */
+  surface = broadway_server_lookup_surface (server, id);
+  if (surface)
+    {
+      g_clear_pointer (&surface->icon, g_bytes_unref);
+      if (len > 0)
+        surface->icon = g_bytes_new (data, len);
+    }
+
+  if (server->output)
+    {
+      broadway_output_set_icon (server->output, id, data, len);
+      broadway_server_flush (server);
+    }
+}
+
+void
 broadway_server_surface_lower (BroadwayServer *server,
                                int id)
 {
@@ -3105,6 +3157,18 @@ broadway_server_resync_surfaces (BroadwayServer *server)
         broadway_output_set_cursor (server->output, surface->id,
                                     surface->cursor_name,
                                     strlen (surface->cursor_name));
+
+      if (surface->title)
+        broadway_output_set_title (server->output, surface->id,
+                                   surface->title,
+                                   strlen (surface->title));
+
+      if (surface->icon)
+        {
+          gsize ilen;
+          const guchar *idata = g_bytes_get_data (surface->icon, &ilen);
+          broadway_output_set_icon (server->output, surface->id, idata, ilen);
+        }
 
       if (surface->visible)
         broadway_output_show_surface (server->output, surface->id);

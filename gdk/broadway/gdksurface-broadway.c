@@ -41,6 +41,7 @@
 #include "gdksurfaceprivate.h"
 #include "gdktextureprivate.h"
 #include "gdktoplevelprivate.h"
+#include "loaders/gdkpngprivate.h"
 
 #include <graphene.h>
 #include <stdlib.h>
@@ -317,6 +318,8 @@ gdk_broadway_surface_finalize (GObject *object)
     g_object_unref (impl->cursor);
 
   g_free (impl->cursor_name);
+  g_free (impl->title);
+  g_clear_pointer (&impl->icon_png, g_bytes_unref);
 
   broadway_display->toplevels = g_list_remove (broadway_display->toplevels, impl);
 
@@ -754,6 +757,79 @@ static void
 gdk_broadway_surface_set_title (GdkSurface  *surface,
                                 const char *title)
 {
+  GdkBroadwayDisplay *display;
+  GdkBroadwaySurface *impl = GDK_BROADWAY_SURFACE (surface);
+
+  if (title == NULL)
+    title = "";
+
+  /* -> browser document/tab title; dedup repeats. */
+  if (g_strcmp0 (impl->title, title) == 0)
+    return;
+
+  g_free (impl->title);
+  impl->title = g_strdup (title);
+
+  display = GDK_BROADWAY_DISPLAY (gdk_surface_get_display (surface));
+  _gdk_broadway_server_surface_set_title (display->server, impl->id, title);
+}
+
+/* Window icon -> favicon. GTK hands the themed icon-name to us as GdkTextures;
+ * pick a small one, PNG-encode it, ship the bytes. NULL list clears it. */
+static void
+gdk_broadway_surface_set_icon_list (GdkSurface *surface,
+                                    GList      *textures)
+{
+  GdkBroadwayDisplay *display;
+  GdkBroadwaySurface *impl = GDK_BROADWAY_SURFACE (surface);
+  GdkTexture *best = NULL;
+  int best_w = 0;
+  GBytes *png;
+  const guchar *data;
+  gsize len;
+  GList *l;
+
+  display = GDK_BROADWAY_DISPLAY (gdk_surface_get_display (surface));
+
+  if (textures == NULL)
+    {
+      if (impl->icon_png == NULL)
+        return;
+      g_clear_pointer (&impl->icon_png, g_bytes_unref);
+      _gdk_broadway_server_surface_set_icon (display->server, impl->id, NULL, 0);
+      return;
+    }
+
+  /* Largest texture <= 64px; if all are bigger, the smallest. */
+  for (l = textures; l != NULL; l = l->next)
+    {
+      GdkTexture *t = l->data;
+      int w = gdk_texture_get_width (t);
+
+      if (best == NULL ||
+          (w <= 64 && (best_w > 64 || w > best_w)) ||
+          (best_w > 64 && w < best_w))
+        {
+          best = t;
+          best_w = w;
+        }
+    }
+
+  png = gdk_save_png (best, NULL);
+  if (png == NULL)
+    return;
+
+  if (impl->icon_png && g_bytes_equal (impl->icon_png, png))
+    {
+      g_bytes_unref (png);
+      return;
+    }
+
+  g_clear_pointer (&impl->icon_png, g_bytes_unref);
+  impl->icon_png = png;
+
+  data = g_bytes_get_data (png, &len);
+  _gdk_broadway_server_surface_set_icon (display->server, impl->id, data, len);
 }
 
 static void
@@ -1638,6 +1714,8 @@ gdk_broadway_toplevel_set_property (GObject      *object,
       break;
 
     case LAST_PROP + GDK_TOPLEVEL_PROP_ICON_LIST:
+      gdk_broadway_surface_set_icon_list (surface, g_value_get_pointer (value));
+      g_object_notify_by_pspec (G_OBJECT (surface), pspec);
       break;
 
     case LAST_PROP + GDK_TOPLEVEL_PROP_DECORATED:
@@ -1673,7 +1751,7 @@ gdk_broadway_toplevel_get_property (GObject    *object,
       break;
 
     case LAST_PROP + GDK_TOPLEVEL_PROP_TITLE:
-      g_value_set_string (value, "");
+      g_value_set_string (value, GDK_BROADWAY_SURFACE (surface)->title);
       break;
 
     case LAST_PROP + GDK_TOPLEVEL_PROP_STARTUP_ID:
