@@ -1,12 +1,12 @@
 # Security model
 
-Broadway was built for a trusted local display, not the open network. The fork keeps that posture, so the model is short and worth stating before any deployment:
+Broadway was built for a trusted local display, not the open network. The fork keeps that posture:
 
 - **No authentication.** The daemon serves the app to anyone who can open `8080 + N`. There is no login, token, or per-user check anywhere in the stack.
 - **No transport encryption.** The daemon speaks plain HTTP and WebSocket; nothing is encrypted until you put TLS in front of it.
 - **Last connected browser wins.** The [single-display arbitration](../internals/connection.md#single-display-arbitration-newest-fresh-open-wins) hands the live session to the **newest** fresh page load. A stranger who reaches the port doesn't just view the app, they take it over from whoever is using it.
 
-Treat the daemon port as fully trusted and never expose it directly. The rest of this page is how to put a session on the network anyway: terminate TLS, add auth, and keep the port private.
+Treat the daemon port as fully trusted and never expose it directly. To put a session on the network anyway: terminate TLS, add auth, and keep the port private.
 
 ## Why TLS is not optional
 

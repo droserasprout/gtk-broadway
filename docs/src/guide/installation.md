@@ -37,7 +37,7 @@ apt-get install -y ./gtk.deb
 apt-mark hold libgtk-4-1 libgtk-4-bin   # keep a later apt upgrade from reverting the fork to stock
 ```
 
-Asset names are `gtk4-brotway_<gtk>-<rev>_<arch>.deb` (e.g. `gtk4-brotway_4.22.4-3.0.0_amd64.deb`). Skip the `hold` and a routine upgrade silently reverts the fork until you re-install.
+Asset names are `gtk4-brotway_<gtk>-<rev>_<arch>.deb` (e.g. `gtk4-brotway_4.22.4-3.0.0_amd64.deb`).
 
 > Latest tag without hardcoding: `rel="$(curl -fsSL https://api.github.com/repos/droserasprout/gtk-brotway/releases/latest | grep -oP '"tag_name":\s*"\K[^"]+')"`. Undo the overlay: `apt-mark unhold libgtk-4-1 libgtk-4-bin && apt-get install --reinstall libgtk-4-1 libgtk-4-bin`.
 

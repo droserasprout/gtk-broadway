@@ -24,9 +24,7 @@ The app process (not the daemon) reads these to target the daemon instead of X11
 
 ## PNG encoding
 
-The app re-encodes every changed texture to PNG per frame, so the libpng
-settings trade encode CPU (frame latency) against frame size. That one axis is a
-preset, not raw knobs:
+The app re-encodes every changed texture to PNG per frame, so the libpng settings trade encode CPU (frame latency) against frame size. That one axis is a preset, not raw knobs:
 
 | `BROADWAY_PNG` | libpng settings | Use |
 |----------------|-----------------|-----|

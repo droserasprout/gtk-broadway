@@ -6,7 +6,7 @@ The fork patches the **host** GTK and serves the app as HTML5 over Broadway, so 
 
 - **OS:** Linux only - Broadway serves over HTTP and the patched `libgtk-4` is a Linux `.so`.
 - **Distros:** Debian-based (`.deb`), Arch/CachyOS (PKGBUILD), or any host via the Docker base image - see [Installation](installation.md). The `.deb` is Broadway-only (no X11/Wayland backend), so it's for headless/container hosts, **not desktops**; on a desktop use the conflict-free private-prefix build.
-- **GTK:** the **4.22.x** series. The `.deb` overlays the SONAME-versioned `.so` in place (a lib built from 4.22.4), so the system GTK must be the same 4.22 series; the micro version may differ (ABI and schemas are stable within a bugfix series - the shipped image runs lib 4.22.4 on 4.22.2 common). Other versions are unsupported (older Broadway bases diverge too much to backport - last 4.14 build was v2.1).
+- **GTK:** the **4.22.x** series. The `.deb` overlays the SONAME-versioned `.so` in place (a lib built from 4.22.4), so the system GTK must be the same 4.22 series; the micro version may differ (ABI and schemas are stable within a bugfix series). Other versions are unsupported (last 4.14 build was v2.1).
 - **Architecture:** `amd64` and `arm64` - native per-arch `.deb`s, multi-arch Docker manifest.
 
 | GTK    | Ubuntu base    | SONAME                 | Fork branch | Patch |
