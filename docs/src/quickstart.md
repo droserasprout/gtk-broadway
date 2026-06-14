@@ -14,7 +14,7 @@ wget -O gtk.deb "https://github.com/droserasprout/gtk-brotway/releases/download/
 apt-get install -y ./gtk.deb
 ```
 
-The fork installs into a private prefix and never touches the system GTK, so this is safe on a desktop. See [Installation](guide/installation.md#ubuntu--debian).
+Installs into a private prefix; safe on a desktop. Other architectures and the Arch/Docker paths: [Installation](guide/installation.md).
 
 ## 2. Run an app against it
 
