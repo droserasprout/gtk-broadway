@@ -8,6 +8,7 @@ Versioning from v3: release tags are three-part `vX.Y.Z`; package versions are `
 
 ### Added
 
+- Sync the GTK window title to the browser tab title and the app icon to the favicon
 - `gtk4-brotway-run`: one-shot launcher (starts `broadwayd`, runs the app, tears it down on exit), shipped in both packages; `--auto` picks a free display/port, `--open` opens the browser, `--address` sets the broadwayd bind address
 
 ### Changed
