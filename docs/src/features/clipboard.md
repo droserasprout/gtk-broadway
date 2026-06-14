@@ -10,12 +10,12 @@
 </video>
 -->
 
-Stock Broadway has no clipboard. The fork bridges `GdkClipboard` <-> `gtk4-broadwayd` <-> the browser's `navigator.clipboard`, in both directions, with no permission prompt.
+Brotway bridges `GdkClipboard` <-> `gtk4-broadwayd` <-> the browser's `navigator.clipboard`, in both directions. No permission prompt shown in browser.
 
 ## What works
 
-- **Copy / cut from the app** to the browser clipboard - Ctrl+C/X, right-click Copy, and custom Copy actions; works in text views too.
-- **Paste into the app** from the browser - Ctrl+V, right-click Paste, and paste from the [on-screen keyboard](touch.md), with no browser permission prompt.
+- **Copy / cut from the app** to the browser - Ctrl+C/X, right-click Copy, and custom Copy actions.
+- **Paste into the app** from the browser - Ctrl+V, right-click Paste, and paste from the [on-screen keyboard](touch.md).
 - **Multi-client safe** - with several browsers connected, a paste reply reaches the tab that asked, and a paste never hangs if a tab closes mid-request.
 - Text up to 16 MiB.
 

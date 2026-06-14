@@ -1,23 +1,18 @@
 # Touch interface
 
-<video src="../images/touch.mp4" poster="../images/touch.png"
-  autoplay loop muted playsinline style="max-width:100%;border-radius:6px">
-  <img src="../images/touch.png" alt="Touch text editing, taps, and gestures on Broadway"
-    style="max-width:100%;border-radius:6px">
-</video>
+<img src="../images/touch-kb.png" alt="Touch text editing, taps, and gestures on Broadway"
+    style="max-width:300px;float:right;border-radius:6px">
 
 Stock Broadway treats a touchscreen as a mouse, so GTK's touch text-editing UI never appears and many taps get dropped. The fork sources real touchscreen events and makes touch first-class input.
 
 ## What works
 
-- **Touch text editing** - selection handles and the Cut/Copy/Paste bubble that GTK normally hides on Broadway.
-- **Reliable taps** - the browser no longer cancels jittery or quick taps.
-- **On-screen keyboard** shows and hides on Android, with no one-gesture lag.
-- **Text input from touch**, including non-Latin and IME (Cyrillic, CJK, gesture-typing, autocorrect replacements, dead keys).
-- **Tap outside** a popover, menu, or selection bubble to dismiss it.
-- **Gestures survive repaints** - a scroll or drag keeps working after the UI re-renders.
+- **Touch text editing** - selection handles and the Cut/Copy/Paste bubble.
+- **On-screen keyboard** shows and hides on Android.
+- **Touch text input** including non-Latin and IME.
+- **Tap to dissmiss** popover, menu, or selection bubble.
+- **Gestures survive repaints** - a scroll or drag keeps working after the UI re-renders
 - **No spurious hover** styling or tooltips on a tap.
-- Cursor and selection handles don't block taps behind them (see [Input region](../internals/input-region.md)).
 
 ## Touch bugfixes
 
@@ -35,6 +30,5 @@ Stock Broadway treats a touchscreen as a mouse, so GTK's touch text-editing UI n
 ## Limitations
 
 - The first tap can leak into a pinch or pan when a second finger lands; no fix yet without adding input latency. See [pinch zoom implementation](../internals/zoom.md#no-tap-leak-on-pinch) for the related zoom case.
-- The emoji widget is slow and ugly over Broadway.
 
 > Per-fix mechanics - device sourcing, passive-listener/`touchcancel` handling, OSK/IME plumbing, popover/menu/dropdown fixes: [Touch implementation](../internals/touch.md).

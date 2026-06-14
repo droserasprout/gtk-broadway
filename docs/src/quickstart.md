@@ -31,7 +31,7 @@ gtk4-broadwayd :5
 GDK_BACKEND=broadway BROADWAY_DISPLAY=:5 your-gtk4-app
 ```
 
-Open `http://localhost:8085` in a browser. Copy/paste, touch text editing, and pinch-zoom now work. The fork is app-agnostic - any GTK4 binary works. For a real (non-localhost) deployment, put it behind a TLS terminator; see [Security model](guide/security.md).
+Open `http://localhost:8085` in a browser. Copy/paste, touch text editing, and pinch-zoom now work - the fork is app-agnostic, any GTK4 binary does. For a non-localhost deployment, put it behind a TLS terminator; see [Security model](guide/security.md).
 
 See [Running broadwayd](guide/running.md) for how the pieces fit. A non-localhost deployment also needs a [secure context](features/clipboard.md#limitations) for the clipboard.
 

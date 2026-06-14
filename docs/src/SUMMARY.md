@@ -57,3 +57,4 @@
 
 [Glossary](glossary.md)
 [Changelog](changelog.md)
+[License](license.md)

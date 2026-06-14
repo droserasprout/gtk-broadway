@@ -134,3 +134,30 @@ blockquote {
     font-size: 1.08em;
     letter-spacing: 0.03em;
 }
+
+/* --- Tighter block rhythm ------------------------------------------------
+ * mdbook's defaults are airy (h2/h3 2.5em, h4/h5 2em, stacked 1em, blocks 1em).
+ * Pull them in ~0.6x, keeping the heading hierarchy proportional. */
+
+h2, h3 { margin-block-start: 1.5em; }
+h4, h5 { margin-block-start: 1.25em; }
+
+.header + .header h3,
+.header + .header h4,
+.header + .header h5 {
+    margin-block-start: 0.75em;
+}
+
+/* Smaller gaps between body blocks (paragraphs, lists, quotes). */
+.content p,
+.content ul,
+.content ol,
+.content blockquote {
+    margin-block: 0.75em;
+}
+
+/* Nested lists hug their parent item. */
+.content li > ul,
+.content li > ol {
+    margin-block: 0.25em;
+}

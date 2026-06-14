@@ -1,8 +1,8 @@
 # Backend comparison
 
-Where our Broadway fork sits next to the other GTK4 backends, feature by feature. The fork column is `4.22.4-brotway` (the fork commits on top of the stock `4.22.4` tag). "Broadway (stock)" is upstream unpatched Broadway, the baseline the fork improves on.
+Where the Broadway fork sits next to the other GTK4 backends, feature by feature. The Brotway column is `4.22.4-brotway` (fork commits on top of the stock `4.22.4` tag); "Broadway" is stock upstream.
 
-Rows are grouped by category. Most of the bottom half (windowing, platform integration) are platform / protocol capabilities the fork does **not** change, so the two Broadway columns match there: Broadway is a browser-tunneled backend with no window manager, no desktop session, and no GPU, so most of them never apply.
+The two Broadway columns match across most windowing and platform-integration rows: the fork doesn't touch them, and Broadway is a browser-tunneled backend with no window manager, no desktop session, and no GPU, so most never apply.
 
 Legend: **🟢** full support, **🟡** partial/workaround/caveats, **🔴** not supported, **⚪** not applicable.
 

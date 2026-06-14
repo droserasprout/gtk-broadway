@@ -21,7 +21,7 @@ Any WebSocket interruption drops the session in stock Broadway: screen-off, a Wi
 - A **heartbeat** catches half-open sockets that never fire the browser's `onclose`; a fresh socket gets a 60s first-message grace.
 - **Cursors survive the reconnect** - the daemon remembers each surface's cursor and replays it on resync.
 - **Single-display arbitration** - two browsers don't fight over the single Broadway display; the newest fresh page load wins.
-- Timers freeze on screen-off, so they burn no CPU while the device sleeps.
+- Timers freeze on screen-off, burning no CPU while the device sleeps.
 - **Rendering pauses on a hidden tab** - backgrounding or switching away from the tab streams zero frames; the socket stays open, so switching back repaints just the delta, with no reconnect or resync.
 
 > Session token, heartbeat, arbitration, and hidden-tab freeze: [Connection implementation](../internals/connection.md).
