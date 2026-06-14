@@ -941,8 +941,10 @@ TransformNodes.prototype.insertNode = function(parent, previousSibling, is_tople
             if (texture) {
                 texture.ref();
                 image.src = texture.url;
-                // Unref blob url when loaded
+                // Unref blob url when loaded (or if the decode fails, so the
+                // ref + blob url can't leak on a never-loading image).
                 image.onload = function() { texture.unref(); };
+                image.onerror = image.onload;
                 image.__content = true;  /* drawn pixels */
                 /* 3 = texture uploaded this batch (real traffic), 1 = node re-sent but
                  * the texture was cached (cheap). */
@@ -1439,8 +1441,10 @@ function handleDisplayCommands(display_commands)
                 var block = function(t) {
                     if (image.src !== t.url) {
                         image.src = t.url;
-                        // Unref blob url when loaded
+                        // Unref blob url when loaded (or on decode failure, so
+                        // the ref + blob url can't leak on a never-loading image).
                         image.onload = function() { t.unref(); };
+                        image.onerror = image.onload;
                     } else {
                         // Same url: skip the re-decode, still release the decode ref.
                         t.unref();

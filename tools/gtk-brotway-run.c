@@ -34,15 +34,26 @@
 
 static pid_t bwd_pid = 0;
 
-/* Tear down broadwayd; safe to call twice and from a signal handler. */
+/* Tear down broadwayd; safe to call twice and from a signal handler.
+ * Bounded reap so we never hang if broadwayd ignores SIGTERM. */
 static void cleanup(void)
 {
-  if (bwd_pid > 0)
+  if (bwd_pid <= 0)
+    return;
+
+  kill(bwd_pid, SIGTERM);
+  for (int i = 0; i < 20; i++)  /* up to ~1s of 50ms polls */
     {
-      kill(bwd_pid, SIGTERM);
-      waitpid(bwd_pid, NULL, 0);
-      bwd_pid = 0;
+      if (waitpid(bwd_pid, NULL, WNOHANG) != 0)  /* reaped, or already gone */
+        {
+          bwd_pid = 0;
+          return;
+        }
+      nanosleep(&(struct timespec){ .tv_nsec = 50 * 1000 * 1000 }, NULL);
     }
+  kill(bwd_pid, SIGKILL);          /* unignorable - it will die */
+  waitpid(bwd_pid, NULL, 0);
+  bwd_pid = 0;
 }
 
 static void on_signal(int sig)
@@ -279,18 +290,36 @@ int main(int argc, char **argv)
       const char *browser = getenv("BROWSER");
       char url[64];
       snprintf(url, sizeof url, "http://localhost:%d", port);
-      if (fork() == 0)
+      /* Double-fork so the opener reparents to init and never lingers as a
+       * zombie - we only ever wait on broadwayd and the app. */
+      pid_t opener = fork();
+      if (opener == 0)
         {
-          int devnull = open("/dev/null", O_WRONLY);
-          if (devnull >= 0)
+          if (fork() == 0)
             {
-              dup2(devnull, STDOUT_FILENO);
-              dup2(devnull, STDERR_FILENO);
+              int devnull = open("/dev/null", O_WRONLY);
+              if (devnull >= 0)
+                {
+                  dup2(devnull, STDOUT_FILENO);
+                  dup2(devnull, STDERR_FILENO);
+                }
+              if (browser)
+                {
+                  /* $BROWSER may carry args, so run it through the shell to
+                   * word-split. url is our own localhost string (no shell
+                   * metacharacters), so quoting it is safe. */
+                  char cmd[160];
+                  snprintf(cmd, sizeof cmd, "%s '%s'", browser, url);
+                  execl("/bin/sh", "sh", "-c", cmd, (char *) NULL);
+                }
+              else
+                execlp("xdg-open", "xdg-open", url, (char *) NULL);
+              _exit(127);
             }
-          execlp(browser ? browser : "xdg-open", browser ? browser : "xdg-open",
-                 url, (char *) NULL);
-          _exit(127);
+          _exit(0);  /* intermediate exits immediately; grandchild -> init */
         }
+      if (opener > 0)
+        waitpid(opener, NULL, 0);  /* reap the intermediate (instant) */
     }
 
   setenv("GDK_BACKEND", "broadway", 1);
