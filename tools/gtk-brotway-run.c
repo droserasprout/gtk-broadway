@@ -62,6 +62,7 @@ static void usage(FILE *out)
     "options:\n"
     "  --display :N   Broadway display number (default :5; env BROTWAY_DISPLAY)\n"
     "  --port P       WebUI port (default 8080+N; env BROTWAY_PORT)\n"
+    "  --address A    broadwayd bind address, e.g. 0.0.0.0 (env BROTWAY_ADDRESS)\n"
     "  --auto         pick the first free display/port pair from the default\n"
     "  --open         open the WebUI in a browser ($BROWSER, else xdg-open)\n"
     "  -h, --help     show this help\n",
@@ -140,6 +141,7 @@ int main(int argc, char **argv)
   int port = port_env ? atoi(port_env) : 0;
   int port_set = port_env != NULL;
   int opt_auto = 0, opt_open = 0;
+  const char *address = getenv("BROTWAY_ADDRESS");
   if (!disp_arg)
     disp_arg = ":5";
 
@@ -149,6 +151,7 @@ int main(int argc, char **argv)
     { "open",    no_argument,       0, 'o' },
     { "display", required_argument, 0, 'd' },
     { "port",    required_argument, 0, 'p' },
+    { "address", required_argument, 0, 'A' },
     { 0, 0, 0, 0 },
   };
 
@@ -163,6 +166,7 @@ int main(int argc, char **argv)
         case 'o': opt_open = 1; break;
         case 'd': disp_arg = optarg; disp_set = 1; break;
         case 'p': port = atoi(optarg); port_set = 1; break;
+        case 'A': address = optarg; break;
         default:  usage(stderr); return 2;
         }
     }
@@ -245,7 +249,19 @@ int main(int argc, char **argv)
     }
   if (bwd_pid == 0)
     {
-      execl(bwd, "gtk4-broadwayd", "-p", portstr, disp, (char *) NULL);
+      char *bargv[8];
+      int n = 0;
+      bargv[n++] = "gtk4-broadwayd";
+      bargv[n++] = "-p";
+      bargv[n++] = portstr;
+      if (address)
+        {
+          bargv[n++] = "-a";
+          bargv[n++] = (char *) address;
+        }
+      bargv[n++] = disp;
+      bargv[n] = NULL;
+      execv(bwd, bargv);
       perror("brotway-run: exec broadwayd");
       _exit(127);
     }
