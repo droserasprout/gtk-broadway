@@ -1,22 +1,22 @@
 # Quickstart
 
-From nothing to a GTK4 app in your browser. Two steps: install the `.deb`, then launch an app with `gtk4-brotway-run`.
+From nothing to a GTK4 app in your browser. Two steps: install the fork, then launch an app with `gtk4-brotway-run`.
 
-## 1. Install the patched GTK
+## Install the fork
 
-Grab the `.deb` matching your architecture (the [GTK base](guide/requirements.md) is 4.22.4 on `ubuntu:26.04`) and install it:
+On Debian/Ubuntu, grab the `.deb` for your architecture (the [GTK base](guide/requirements.md) is 4.22.4 on `ubuntu:26.04`) and install it:
 
 ```sh
-rel=v3.0.0       # the release to install - see the Releases page for the latest tag
+rel=v3.1.0       # the release to install - see the Releases page for the latest tag
 gtk_ver=4.22.4   # on an ubuntu:26.04 base
 arch="$(dpkg --print-architecture)"
 wget -O gtk.deb "https://github.com/droserasprout/gtk-brotway/releases/download/${rel}/gtk4-brotway_${gtk_ver}-${rel#v}_${arch}.deb"
 apt-get install -y ./gtk.deb
 ```
 
-Installs into a private prefix; safe on a desktop. Other architectures and the Arch/Docker paths: [Installation](guide/installation.md).
+It installs into a private prefix, safe on a desktop. On Arch build the PKGBUILD; for containers use the base image - see [Installation](guide/installation.md).
 
-## 2. Run an app against it
+## Run an app against it
 
 `gtk4-brotway-run` starts the daemon, runs the app, and tears the daemon down on exit:
 
@@ -26,7 +26,7 @@ gtk4-brotway-run your-gtk4-app
 
 Open `http://localhost:8085` in a browser. Copy/paste, touch text editing, and pinch-zoom now work - the fork is app-agnostic, any GTK4 binary does. For a non-localhost deployment, add `--address 0.0.0.0` and put it behind a TLS terminator; see [Security model](guide/security.md).
 
-See [Running broadwayd](guide/running.md) for how the pieces fit. A non-localhost deployment also needs a [secure context](features/clipboard.md#limitations) for the clipboard.
+See [Running](guide/running.md) for how the pieces fit. A non-localhost deployment also needs a [secure context](features/clipboard.md#limitations) for the clipboard.
 
 ## Next steps
 

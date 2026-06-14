@@ -1,34 +1,10 @@
-# Running broadwayd
+# Running
 
-Broadway serves a GTK app to the browser in two pieces. The `gtk4-broadwayd` daemon owns the display and the WebSocket. The app itself runs with the Broadway GDK backend, so it connects to that daemon instead of an X11/Wayland display. [`gtk4-brotway-run`](#one-command) automates both; the manual steps below show what it does (and how to run the daemon from a [source build](../build/from-source.md)).
+A GTK4 app reaches the browser in two pieces: the `gtk4-broadwayd` daemon owns the display and the WebSocket, and the app runs on the Broadway GDK backend, connecting to that daemon instead of an X11/Wayland display. `gtk4-brotway-run` ties both together - that's the normal way to run.
 
-## Start the daemon
+## The launcher
 
-```sh
-gtk4-broadwayd :5
-```
-
-> Packaged installs keep the daemon in the fork prefix (`/usr/lib/gtk4-brotway/gtk4-broadwayd`), not on `PATH` - use the [launcher](#one-command), which invokes it by full path.
-
-`:5` is the Broadway display number. The daemon listens for the browser on HTTP port `8080 + N` (so `:5` maps to `http://localhost:8085`) and for app clients on the matching local Broadway socket. Open the served page in a browser:
-
-```
-http://localhost:8085
-```
-
-## Start the app against it
-
-Point the app at the same display via the GDK backend:
-
-```sh
-GDK_BACKEND=broadway BROADWAY_DISPLAY=:5 your-gtk4-app
-```
-
-The app renders into the daemon, which streams render nodes to every connected browser tab. The browser sends input (pointer, touch, keyboard) back over the same socket.
-
-## One command
-
-`gtk4-brotway-run` does both steps in one shot: it starts `broadwayd`, runs the app against it, and tears the daemon down on exit. Both packages install the fork into the same private prefix (`/usr/lib/gtk4-brotway`); the launcher points `LD_LIBRARY_PATH` at it, so the app uses the fork without touching the system GTK.
+`gtk4-brotway-run` starts `broadwayd`, runs the app against it, and tears the daemon down on exit. It points `LD_LIBRARY_PATH` at the fork prefix, so the app uses the fork without touching the system GTK.
 
 ```sh
 gtk4-brotway-run gtk4-widget-factory
@@ -41,6 +17,22 @@ Useful flags:
 - `--open` - open the WebUI in a browser (`$BROWSER`, else `xdg-open`)
 - `--address A` - broadwayd bind address, e.g. `0.0.0.0` to serve a mapped container port (env `BROTWAY_ADDRESS`)
 - `--display :N` / `--port P` - pin them explicitly (env `BROTWAY_DISPLAY` / `BROTWAY_PORT`)
+
+## By hand
+
+What the launcher does, in two steps. The daemon lives in the fork prefix (not on `PATH`), and the app must load the fork lib via `LD_LIBRARY_PATH`:
+
+```sh
+export LD_LIBRARY_PATH=/usr/lib/gtk4-brotway   # so both load the fork lib
+
+# daemon: display :5 -> http://localhost:8085 (HTTP port is 8080 + N)
+/usr/lib/gtk4-brotway/gtk4-broadwayd :5 &
+
+# app: point it at that display
+GDK_BACKEND=broadway BROADWAY_DISPLAY=:5 your-gtk4-app
+```
+
+Open `http://localhost:8085`. The app renders into the daemon, which streams render nodes to every connected browser tab; the browser sends input (pointer, touch, keyboard) back over the same socket.
 
 ## The browser client
 

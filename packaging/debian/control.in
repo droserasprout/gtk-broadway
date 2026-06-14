@@ -6,9 +6,4 @@ Section: libs
 Priority: optional
 Homepage: https://github.com/droserasprout/gtk-brotway
 Depends: ${RUNTIME_PKGS}
-Description: GTK ${GTK_VERSION} Broadway backend (brotway fork)
- Patched broadway-only libgtk-4 plus the gtk4-broadwayd daemon, filling in
- the Broadway backend's missing pieces (clipboard, touch, zoom, cursors,
- HiDPI, reconnect, rendering fixes). Installed under a private prefix
- (/usr/lib/gtk4-brotway), so it never replaces the system GTK and won't
- break other GTK4 apps. Opt in per launch via gtk4-brotway-run.
+Description: GTK ${GTK_VERSION} Broadway backend fork

@@ -1,5 +1,5 @@
 [book]
-title = "Brotway"
+title = "GTK Brotway"
 description = "A GTK Broadway backend fork"
 authors = ["Lev Gorodetskii"]
 language = "en"

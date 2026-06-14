@@ -4,19 +4,19 @@ All notable changes to this project will be documented in this file. The format 
 
 Versioning from v3: release tags are three-part `vX.Y.Z`; package versions are `<gtk-base>-X.Y.Z`, e.g. `4.22.4-3.0.0`. Single base (GTK 4.22.x). See [Requirements](https://droserasprout.github.io/gtk-brotway/guide/requirements.html).
 
-## [Unreleased]
+## v3.1.0 - 2026-06-15
 
 ### Added
 
-- Sync the GTK window title to the browser tab title and the app icon to the favicon; both persist across a page reload, with a `brotway` default before any app connects
-- `gtk4-brotway-run`: one-shot launcher (starts `broadwayd`, runs the app, tears it down on exit), shipped in both packages; `--auto` picks a free display/port, `--open` opens the browser, `--address` sets the broadwayd bind address
+- `gtk4-brotway-run`: one-shot launcher (starts `broadwayd`, runs the app, tears it down on exit).
+- Sync the GTK window title to the browser tab title and the app icon to the favicon.
 
 ### Changed
 
-- The `.deb` now installs into a private prefix (`/usr/lib/gtk4-brotway`) instead of overlaying the system `libgtk-4`, so it no longer breaks other GTK4 apps and is safe on desktops; opt in per launch via `gtk4-brotway-run`. Dropped `Replaces`/`Conflicts`/`Provides` and the `apt-mark hold` requirement.
+- The `.deb` now installs into a private prefix (`/usr/lib/gtk4-brotway`) instead of overlaying the system `libgtk-4`; opt in per launch via `gtk4-brotway-run`. Dropped `Replaces`/`Conflicts`/`Provides` and the `apt-mark hold` requirement.
 - The base Docker image sets `LD_LIBRARY_PATH=/usr/lib/gtk4-brotway` so every containerized app uses the fork transparently.
 
-## [v3.0.0] - 2026-06-12
+## v3.0.0 - 2026-06-12
 
 Project renamed to Brotway, a GTK4 Broadway fork.
 
@@ -70,13 +70,13 @@ Release highlights: huge performance gains, the GTK cursor reaches the browser, 
 - Default to a fast PNG preset (low zlib level, adaptive filter) over libpng's defaults
 - Faster texture-dedup hash, keep redrawn textures hot in the cache, skip redundant browser image reloads
 
-## [v2.1] - 2026-06-09
+## v2.1 - 2026-06-09
 
 ### Fixed
 
 - Include `gtk4-broadway-debugmenu` in deb packages
 
-## [v2] - 2026-06-08
+## v2 - 2026-06-08
 
 ### Added
 
@@ -103,7 +103,7 @@ Release highlights: huge performance gains, the GTK cursor reaches the browser, 
 - Lower per-frame CPU: header and payload go out in a single socket write, and input events are packed without per-event allocation
 - Bound memory: the output buffer is released after an oversized frame, and the per-texture recolor cache is LRU-capped
 
-## [v1] - 2026-06-05
+## v1 - 2026-06-05
 
 ### Added
 
@@ -126,6 +126,3 @@ Release highlights: huge performance gains, the GTK cursor reaches the browser, 
 - Desktop: horizontal two-finger swipe scrolls instead of browser back/forward
 - Desktop: drags survive the cursor leaving the widget
 
-[v2.1]: https://github.com/droserasprout/gtk-brotway/releases/tag/v2.1
-[v2]: https://github.com/droserasprout/gtk-brotway/releases/tag/v2
-[v1]: https://github.com/droserasprout/gtk-brotway/releases/tag/v1
