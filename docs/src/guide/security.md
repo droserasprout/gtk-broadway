@@ -26,7 +26,7 @@ The reference deployment installs the arch-matching `.deb` inside a Docker image
 
 ```dockerfile
 ARG GTK_VER=4.22.4
-ARG REL=v3.0.0
+ARG REL=v3.1.0
 RUN arch="$(dpkg --print-architecture)" \
  && wget -O /tmp/gtk.deb "https://github.com/droserasprout/gtk-brotway/releases/download/${REL}/gtk4-brotway_${GTK_VER}-${REL#v}_${arch}.deb" \
  && apt-get install -y /tmp/gtk.deb \
@@ -38,9 +38,9 @@ The base image's GTK must match the `.deb` base ([4.22.4 on `ubuntu:26.04`](requ
 
 ## Process layout
 
-Inside the container two processes run, as in [Running broadwayd](running.md):
+Inside the container two processes run, as in [Running](running.md#by-hand). Both load the fork via `LD_LIBRARY_PATH=/usr/lib/gtk4-brotway` (the base image sets it):
 
-- `gtk4-broadwayd :N` owns the display and serves the browser page on `8080 + N`.
+- `/usr/lib/gtk4-brotway/gtk4-broadwayd :N` owns the display and serves the browser page on `8080 + N`.
 - the app, started with `GDK_BACKEND=broadway BROADWAY_DISPLAY=:N`, renders into it.
 
 The TLS terminator (Traefik, nginx, Caddy, ...) proxies `https://your-host/` to the daemon's `8080 + N`, and must **forward WebSocket upgrades** - all display ops and input run over the same socket.
@@ -84,7 +84,8 @@ Description=GTK Broadway display :5
 
 [Service]
 User=broadway
-ExecStart=/usr/bin/gtk4-broadwayd :5
+Environment=LD_LIBRARY_PATH=/usr/lib/gtk4-brotway
+ExecStart=/usr/lib/gtk4-brotway/gtk4-broadwayd :5
 Restart=on-failure
 
 [Install]
@@ -98,7 +99,7 @@ After=broadwayd.service
 
 [Service]
 User=broadway
-Environment=GDK_BACKEND=broadway BROADWAY_DISPLAY=:5
+Environment=LD_LIBRARY_PATH=/usr/lib/gtk4-brotway GDK_BACKEND=broadway BROADWAY_DISPLAY=:5
 ExecStart=/usr/bin/your-gtk4-app
 Restart=on-failure
 

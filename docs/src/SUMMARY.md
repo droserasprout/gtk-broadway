@@ -18,6 +18,7 @@
   - [Widgets](features/widgets.md)
   - [Opening links](features/open-uri.md)
   - [Dynamic cursor](features/cursor.md)
+  - [Tab title & favicon](features/tab-identity.md)
   - [Connection management](features/connection.md)
   - [Scaling & HiDPI](features/scaling.md)
   - [Desktop & rendering fixes](features/desktop-fixes.md)

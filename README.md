@@ -11,7 +11,7 @@ Everything lives at **<https://droserasprout.github.io/gtk-brotway/>**:
 - [Security model](https://droserasprout.github.io/gtk-brotway/guide/security.html) and [Configuration](https://droserasprout.github.io/gtk-brotway/guide/config.html) - deploying behind TLS
 - [Internals](https://droserasprout.github.io/gtk-brotway/internals/architecture.html) and [Contributing](https://droserasprout.github.io/gtk-brotway/build/contributing.html) - architecture, the wire protocol, building from source
 
-Prebuilt packages are on the [Releases](https://github.com/droserasprout/gtk-brotway/releases) page. Current base: GTK 4.22.4 on `ubuntu:26.04`, built for amd64 + arm64 - see [Supported versions](https://droserasprout.github.io/gtk-brotway/guide/versions.html).
+Prebuilt packages are on the [Releases](https://github.com/droserasprout/gtk-brotway/releases) page. Current base: GTK 4.22.4 on `ubuntu:26.04`, built for amd64 + arm64 - see [Requirements](https://droserasprout.github.io/gtk-brotway/guide/requirements.html).
 
 ## License
 

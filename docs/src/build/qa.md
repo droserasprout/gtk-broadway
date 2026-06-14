@@ -4,11 +4,14 @@ The manual verification pass for a release candidate, run before pushing the `vX
 
 ## Setup
 
-Install the candidate `.deb` ([Installation](../guide/installation.md)) or use a local build ([Building from source](from-source.md)). Start the stack ([Running broadwayd](../guide/running.md)):
+Install the candidate `.deb` ([Installation](../guide/installation.md)) or use a local build ([Building from source](from-source.md)). Start the stack ([Running](../guide/running.md#the-launcher)):
 
 ```sh
-gtk4-broadwayd :5
-GDK_BACKEND=broadway BROADWAY_DISPLAY=:5 your-gtk4-app
+gtk4-brotway-run your-gtk4-app
+# or by hand:
+#   export LD_LIBRARY_PATH=/usr/lib/gtk4-brotway
+#   /usr/lib/gtk4-brotway/gtk4-broadwayd :5 &
+#   GDK_BACKEND=broadway BROADWAY_DISPLAY=:5 your-gtk4-app
 ```
 
 Open `http://localhost:8085`, then Triple-Shift > **Test gallery** ([debug menu](../internals/debug-menu.md#widget-gallery)) for a clean, data-free surface - the gallery's table maps each section to the feature it exercises. Keep the stats overlay up too; the connection and performance checks read it.

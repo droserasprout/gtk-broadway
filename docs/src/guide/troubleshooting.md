@@ -8,7 +8,7 @@ Most "feature missing" reports are stock GTK running, not the fork. Confirm in o
 
 ```sh
 dpkg -l gtk4-brotway        # the package is installed
-apt-mark showhold | grep libgtk-4 # libgtk-4-1 and libgtk-4-bin are held
+ls /usr/lib/gtk4-brotway/   # the fork libgtk-4 + gtk4-broadwayd live in the prefix
 ```
 
 The functional test: touch text selection (handles + Cut/Copy/Paste bubble) and clipboard copy/paste only exist in the fork. If they are absent, stock GTK is loaded - see "features vanished" below.
@@ -17,9 +17,9 @@ The functional test: touch text selection (handles + Cut/Copy/Paste bubble) and 
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| Blank page, no connection | daemon not running, or browser hitting the wrong port | start `gtk4-broadwayd :N`; the page is on `8080 + N` ([Running](running.md)) |
+| Blank page, no connection | daemon not running, or browser hitting the wrong port | run `gtk4-brotway-run <app>` (it starts the daemon); the page is on `8080 + N` ([Running](running.md)) |
 | Blank page behind a proxy | proxy not forwarding the WebSocket upgrade | forward `Upgrade`/`Connection` headers; all ops run over the WS ([Security model](security.md)) |
-| Page loads, app never appears | app not started, or wrong target | run it with `GDK_BACKEND=broadway BROADWAY_DISPLAY=:N` ([Config](config.md)) |
+| Page loads, app never appears | app not started, or wrong target | run it via `gtk4-brotway-run` (or by hand with `LD_LIBRARY_PATH=/usr/lib/gtk4-brotway`; see [Running](running.md#by-hand)) |
 | Page loads, but shows "disconnected" | another fresh tab took the single display | newest fresh load wins; reload the tab you want to own it ([arbitration](../internals/connection.md#single-display-arbitration-newest-fresh-open-wins)) |
 | App fails to start / can't load `libgtk-4.so` | fork base doesn't match the system GTK (SONAME mismatch) | run the 4.22.4 deb on an `ubuntu:26.04` (GTK 4.22.x) base ([Requirements](requirements.md)); see below |
 | Touch UI / OSK / clipboard missing | app launched directly, so it loaded stock GTK | start it via `gtk4-brotway-run` (or export `LD_LIBRARY_PATH=/usr/lib/gtk4-brotway`) |

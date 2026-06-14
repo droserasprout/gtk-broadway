@@ -1,6 +1,6 @@
 # Contributing
 
-This page is for people hacking on the **fork itself** - the patched GTK library in [`droserasprout/gtk-brotway`](https://github.com/droserasprout/gtk-brotway). If you just want to run an app over Broadway, you don't need any of this; see [Installation](../guide/installation.md) and [Running broadwayd](../guide/running.md) instead.
+This page is for people hacking on the **fork itself** - the patched GTK library in [`droserasprout/gtk-brotway`](https://github.com/droserasprout/gtk-brotway). If you just want to run an app over Broadway, you don't need any of this; see [Installation](../guide/installation.md) and [Running](../guide/running.md) instead.
 
 The tree is large, but you only touch a small corner of it. This page covers that corner, the branch conventions, and how a change reaches a published `.deb`.
 

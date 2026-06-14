@@ -10,25 +10,25 @@ Label and milestone every merged PR going into the release: the change-type labe
 
 ## Tagging a release
 
-The build runs from a pinned per-version tag `4.22.4-<X.Y.Z>`. Create that first, then push the orchestrator `vX.Y.Z` tag to trigger the build. For `v3.0.0`:
+The build runs from a pinned per-version tag `4.22.4-<X.Y.Z>`. Create that first, then push the orchestrator `vX.Y.Z` tag to trigger the build. For `v3.1.0`:
 
 ```sh
-git tag 4.22.4-3.0.0 <commit-on-4.22.4-brotway> && git push origin 4.22.4-3.0.0
-git tag v3.0.0 ci                               && git push origin v3.0.0
+git tag 4.22.4-3.1.0 <commit-on-4.22.4-brotway> && git push origin 4.22.4-3.1.0
+git tag v3.1.0 ci                               && git push origin v3.1.0
 ```
 
 Pinning to a code tag means the release records exactly which fork commit each `.deb` was built from. A missing `4.22.4-<X.Y.Z>` tag fails checkout in `build.yml`, so the release won't publish a partial set.
 
 ## What `release.yml` does
 
-1. **setup**: derive `rev` (`3.0.0` from `v3.0.0`).
+1. **setup**: derive `rev` (`3.1.0` from `v3.1.0`).
 2. **build**: a matrix over the two arches (`4.22.4` on `ubuntu:26.04`) calls the reusable [`build.yml`](ci.md), building the pinned `4.22.4-<X.Y.Z>` tag for amd64 and arm64. That's 2 artifacts.
 3. **release**: download all `deb-*` artifacts, version-stamp each to `gtk4-brotway_<gtk>-<rev>_<arch>.deb`, create the `vX.Y.Z` release if needed, and upload both (`--clobber`).
 
-The result is what [Installation](../guide/installation.md) downloads, e.g. `gtk4-brotway_4.22.4-3.0.0_amd64.deb`.
+The result is what [Installation](../guide/installation.md) downloads, e.g. `gtk4-brotway_4.22.4-3.1.0_amd64.deb`.
 
 The same `vX.Y.Z` tag also triggers [`image.yml`](ci.md#base-docker-image), which waits for those `.deb`s and bakes them into the base image `ghcr.io/<owner>/gtk-brotway:<tag>` (+ `latest`).
 
 ## Version scheme
 
-Release tags use a three-part `vX.Y.Z` form: the semver *format* with no compatibility contract - on a solo fork the numbers are a rough changelog ordering, not an API promise. `v3.0.0` produces `gtk4-brotway_4.22.4-3.0.0` from the pinned `4.22.4-3.0.0` code tag.
+Release tags use a three-part `vX.Y.Z` form: the semver *format* with no compatibility contract - on a solo fork the numbers are a rough changelog ordering, not an API promise. `v3.1.0` produces `gtk4-brotway_4.22.4-3.1.0` from the pinned `4.22.4-3.1.0` code tag.

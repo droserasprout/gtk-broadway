@@ -15,6 +15,7 @@ Brotway is a fork of GTK that fills in the missing pieces of the Broadway backen
 - **[Notebook tabs](features/widgets.md#notebook-tabs):** drag/wheel scrolling of the tab strip on touch.
 - **[Opening links](features/open-uri.md):** clicked links open in the viewing browser.
 - **[Dynamic cursor](features/cursor.md):** the browser pointer follows GTK's cursor shape (resize edges, text, links).
+- **[Tab title & favicon](features/tab-identity.md):** the browser tab shows the app's window title and icon, kept across reloads.
 - **[Desktop & rendering fixes](features/desktop-fixes.md):** no white flash, centered windows, popups on their anchor, click-through shadows, seam-free borders.
 
 ## What is Broadway? {#broadway}
