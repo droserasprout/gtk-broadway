@@ -1225,6 +1225,40 @@ broadway_server_client_connected (BroadwayServer *server,
     server->last_gtk_client_id = client_id;
 }
 
+/* Minimum frame size (bytes) the fixed-width parser below reads for each event:
+ * the 3-word base header (type, serial, time) plus the type's own fields. The
+ * browser is untrusted, so a frame shorter than this would read past it - the
+ * caller drops it. Keep in sync with the switch in parse_input_message and with
+ * parse_pointer_data (7 words) / parse_touch_data (9 words). Variable-length
+ * types list their fixed header; the tail is clamped where it's read. */
+static gsize
+broadway_event_min_size (guint32 type)
+{
+  gsize words = 3; /* base: type, serial, time */
+
+  switch (type)
+    {
+    case BROADWAY_EVENT_ENTER:
+    case BROADWAY_EVENT_LEAVE:               words += 7 + 1; break; /* pointer + mode */
+    case BROADWAY_EVENT_POINTER_MOVE:        words += 7;     break; /* pointer */
+    case BROADWAY_EVENT_BUTTON_PRESS:
+    case BROADWAY_EVENT_BUTTON_RELEASE:      words += 7 + 1; break; /* pointer + button */
+    case BROADWAY_EVENT_SCROLL:              words += 7 + 1; break; /* pointer + dir */
+    case BROADWAY_EVENT_TOUCH:               words += 9;     break; /* touch */
+    case BROADWAY_EVENT_KEY_PRESS:
+    case BROADWAY_EVENT_KEY_RELEASE:         words += 2;     break; /* key, state */
+    case BROADWAY_EVENT_CONFIGURE_NOTIFY:    words += 5;     break; /* id, x, y, w, h */
+    case BROADWAY_EVENT_ROUNDTRIP_NOTIFY:    words += 2;     break; /* id, tag */
+    case BROADWAY_EVENT_SCREEN_SIZE_CHANGED: words += 3;     break; /* w, h, scale */
+    case BROADWAY_EVENT_CLIPBOARD_CONTENTS:  words += 2;     break; /* id, len (text follows) */
+    case BROADWAY_EVENT_PING:                words += 1;     break; /* latency */
+    /* GRAB/UNGRAB_NOTIFY, SUSPEND/RESUME, MENU and unknown types: base only. */
+    default: break;
+    }
+
+  return words * sizeof (guint32);
+}
+
 static void
 parse_input_message (BroadwayInput *input, const unsigned char *message, gsize payload_len)
 {
@@ -1265,6 +1299,10 @@ parse_input_message (BroadwayInput *input, const unsigned char *message, gsize p
 
   msg.base.time = time_;
 
+  /* Reject a frame too short for the fields this event's parser will read. */
+  if (payload_len < broadway_event_min_size (msg.base.type))
+    return;
+
   switch (msg.base.type) {
   case BROADWAY_EVENT_ENTER:
   case BROADWAY_EVENT_LEAVE:
@@ -1304,7 +1342,9 @@ parse_input_message (BroadwayInput *input, const unsigned char *message, gsize p
 
   case BROADWAY_EVENT_GRAB_NOTIFY:
   case BROADWAY_EVENT_UNGRAB_NOTIFY:
-    msg.grab_reply.res = ntohl (*p++);
+    /* No payload beyond the base header - the client sends no fields, and
+     * grab_reply.res is unused. (Previously read a 4th word the client never
+     * sent, over-reading the frame by 4 bytes.) */
     break;
 
   case BROADWAY_EVENT_CONFIGURE_NOTIFY:
