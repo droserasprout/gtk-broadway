@@ -588,10 +588,27 @@ function restackSurfaces() {
 }
 
 /* Tab title + favicon follow the topmost real toplevel (no transient parent),
- * so dialogs/menus/popovers don't hijack the tab. */
+ * so dialogs/menus/popovers don't hijack the tab. The last applied pair is kept
+ * in sessionStorage and restored synchronously by client.html on load, so a page
+ * reload doesn't blink the default title/icon before the session reconnects.
+ * Seed the "applied" markers from storage so the resync doesn't redundantly
+ * rewrite an unchanged title/icon. */
 var tabFaviconLink = null;
 var tabTitleApplied = null;
 var tabIconApplied = null;
+try {
+    tabTitleApplied = sessionStorage.getItem("brotwayTabTitle");
+    tabIconApplied = sessionStorage.getItem("brotwayTabIcon");
+} catch (e) {}
+
+/* PNG bytes -> data: URL. Used for the favicon (not blob:) so it can be stored
+ * and restored across a reload; blob: URLs are invalid after navigation. */
+function pngBytesToDataUrl(bytes) {
+    var s = "";
+    for (var i = 0; i < bytes.length; i++)
+        s += String.fromCharCode(bytes[i]);
+    return "data:image/png;base64," + btoa(s);
+}
 
 function ensureFaviconLink() {
     if (tabFaviconLink && tabFaviconLink.parentNode)
@@ -623,11 +640,16 @@ function updateTabIdentity() {
     if (s.title != undefined && s.title !== tabTitleApplied) {
         document.title = s.title;
         tabTitleApplied = s.title;
+        try { sessionStorage.setItem("brotwayTabTitle", s.title); } catch (e) {}
     }
 
     if (s.iconUrl !== undefined && s.iconUrl !== tabIconApplied) {
         ensureFaviconLink().href = s.iconUrl ? s.iconUrl : "";
         tabIconApplied = s.iconUrl;
+        try {
+            if (s.iconUrl) sessionStorage.setItem("brotwayTabIcon", s.iconUrl);
+            else sessionStorage.removeItem("brotwayTabIcon");
+        } catch (e) {}
     }
 }
 
@@ -1407,8 +1429,6 @@ function handleDisplayCommands(display_commands)
 		firstTouchDownId = null;
 		firstTouchDownRawId = null;
 	    }
-           if (surfaces[id].iconUrl)
-               URL.revokeObjectURL(surfaces[id].iconUrl);
            delete surfaces[id];
             break;
         case DISPLAY_OP_CHANGE_TEXTURE:
@@ -1787,21 +1807,13 @@ function handleCommands(cmd, display_commands, new_textures, modified_trees)
             break;
 
         case BROADWAY_OP_SET_ICON:
-            /* Window icon PNG bytes -> favicon. Empty payload clears it. */
+            /* Window icon PNG bytes -> favicon as a data: URL (survives a reload
+             * via sessionStorage). Empty payload clears it. */
             id = cmd.get_16();
             var _icondata = cmd.get_data();
             surface = surfaces[id];
-            if (surface) {
-                if (surface.iconUrl)
-                    URL.revokeObjectURL(surface.iconUrl);
-                if (_icondata.length > 0) {
-                    /* Copy: get_data() returns a view into the reused ws buffer. */
-                    var _blob = new Blob([_icondata.slice()], { type: "image/png" });
-                    surface.iconUrl = URL.createObjectURL(_blob);
-                } else {
-                    surface.iconUrl = null;
-                }
-            }
+            if (surface)
+                surface.iconUrl = _icondata.length > 0 ? pngBytesToDataUrl(_icondata) : null;
             break;
 
         case BROADWAY_OP_REQUEST_CLIPBOARD:

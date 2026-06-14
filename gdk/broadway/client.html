@@ -3,7 +3,26 @@
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=utf8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>broadway 2.0</title>
+<title>brotway</title>
+<script>
+/* Restore the last app tab title + favicon synchronously, so a page reload keeps
+ * them instead of blinking back to the default until the Broadway session
+ * reconnects. broadway.js keeps these in sessionStorage (favicon as a data: URL,
+ * since blob: URLs don't survive navigation). */
+(function () {
+    try {
+        var t = sessionStorage.getItem("brotwayTabTitle");
+        if (t) document.title = t;
+        var ic = sessionStorage.getItem("brotwayTabIcon");
+        if (ic) {
+            var l = document.createElement("link");
+            l.rel = "icon";
+            l.href = ic;
+            document.head.appendChild(l);
+        }
+    } catch (e) {}
+})();
+</script>
 <style type="text/css">
 /* touch-action: none stops the browser from claiming touch sequences for
  * scroll/zoom (GTK handles those) and firing touchcancel mid-gesture. It is NOT
