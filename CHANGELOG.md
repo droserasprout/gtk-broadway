@@ -16,6 +16,10 @@ Versioning from v3: release tags are three-part `vX.Y.Z`; package versions are `
 - The `.deb` now installs into a private prefix (`/usr/lib/gtk4-brotway`) instead of overlaying the system `libgtk-4`; opt in per launch via `gtk4-brotway-run`. Dropped `Replaces`/`Conflicts`/`Provides` and the `apt-mark hold` requirement.
 - The base Docker image sets `LD_LIBRARY_PATH=/usr/lib/gtk4-brotway` so every containerized app uses the fork transparently.
 
+### Security
+
+- Validate Broadway input-frame length per event type before parsing; reject short/malformed frames from the browser instead of reading past them.
+
 ## v3.0.0 - 2026-06-12
 
 Project renamed to Brotway, a GTK4 Broadway fork.
