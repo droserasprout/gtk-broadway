@@ -37,6 +37,8 @@ What the daemon tells the browser to do - create surfaces, push render nodes, mo
 | `BROADWAY_OP_DEBUG_FLASH`       | 24 | toggle the paint-flash profiler overlay ([Debug menu](debug-menu.md)) |
 | `BROADWAY_OP_DEBUG_SET_SCREEN`  | 25 | pin logical screen size + integer scale, `0,0,0` unpins ([Debug menu](debug-menu.md)) |
 | `BROADWAY_OP_SET_CURSOR`        | 26 | set a surface's CSS cursor by name ([Dynamic cursor](cursor.md)) |
+| `BROADWAY_OP_SET_TITLE`         | 27 | set a surface's window title (mirrored to the browser tab title) ([Tab identity](../features/tab-identity.md)) |
+| `BROADWAY_OP_SET_ICON`          | 28 | set a surface's icon, PNG bytes; len 0 unsets (mirrored to the favicon) ([Tab identity](../features/tab-identity.md)) |
 
 ## Input events
 
@@ -95,6 +97,8 @@ What the GDK backend asks the daemon to do over the local socket. These carry no
 | `BROADWAY_REQUEST_SET_INPUT_REGION`  | mark a surface click-through ([Input region](input-region.md)) |
 | `BROADWAY_REQUEST_OPEN_URI`          | open a URI in a new tab ([Opening links](../features/open-uri.md)) |
 | `BROADWAY_REQUEST_SET_CURSOR`        | set a surface's CSS cursor ([Dynamic cursor](cursor.md)) |
+| `BROADWAY_REQUEST_SET_TITLE`         | set a surface's window title ([Tab identity](../features/tab-identity.md)) |
+| `BROADWAY_REQUEST_SET_ICON`          | set a surface's icon ([Tab identity](../features/tab-identity.md)) |
 
 The fork's requests carry matching structs (`BroadwayRequestSetClipboard`, `BroadwayRequestOpenUri`, `BroadwayRequestSetInputRegion`, `BroadwayRequestSetCursor`).
 

@@ -64,18 +64,19 @@ jobs:
           pattern: deb-*
           merge-multiple: true
 
-      # Pull the `## [vN]` section out of CHANGELOG.md as the release body. Falls
+      # Pull the `## vN` section out of CHANGELOG.md as the release body. Falls
       # back to a generic line if the section is missing, so a release never fails
       # just because the changelog wasn't updated.
       - name: Build release notes from CHANGELOG
         run: |
           set -eu
           TAG="${GITHUB_REF_NAME}"; REV="${TAG#v}"
-          awk -v ver="## [${TAG}]" '
+          awk -v ver="## ${TAG}" '
             index($0, ver)==1 {flag=1; next}
-            flag && /^## \[/ {exit}
+            flag && /^## / {exit}
+            flag && /^\[release\]/ {next}
             flag {print}
-          ' CHANGELOG.md | sed -e '/./,$!d' > notes.md   # strip leading blank lines
+          ' CHANGELOG.md | sed -e '/./,$!d' > notes.md   # strip leading blanks + the docs link row
           # Fall back to a generic line if the section was missing/empty.
           if [ ! -s notes.md ]; then
             echo "Single-base (4.22.4) multi-arch (amd64, arm64) GTK Brotway, revision ${REV}." > notes.md
