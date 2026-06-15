@@ -107,8 +107,13 @@ gdk_broadway_clipboard_local_text_read (GObject      *source,
   char *text;
 
   text = gdk_clipboard_read_text_finish (clipboard, result, NULL);
-  _gdk_broadway_server_set_clipboard_text (get_server (clipboard), text ? text : "");
-  g_free (text);
+  /* On a serialization failure (text == NULL) leave the host clipboard alone
+   * instead of clobbering it with an empty string. */
+  if (text != NULL)
+    {
+      _gdk_broadway_server_set_clipboard_text (get_server (clipboard), text);
+      g_free (text);
+    }
 
   schedule_reclaim_remote (cb);
   g_object_unref (cb);

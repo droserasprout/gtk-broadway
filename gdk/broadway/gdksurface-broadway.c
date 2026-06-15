@@ -804,7 +804,11 @@ gdk_broadway_surface_set_icon_list (GdkSurface *surface,
   for (l = textures; l != NULL; l = l->next)
     {
       GdkTexture *t = l->data;
-      int w = gdk_texture_get_width (t);
+      int w;
+
+      if (!GDK_IS_TEXTURE (t))   /* defensive: the prop is typed GList of textures */
+        continue;
+      w = gdk_texture_get_width (t);
 
       if (best == NULL ||
           (w <= 64 && (best_w > 64 || w > best_w)) ||
@@ -814,6 +818,9 @@ gdk_broadway_surface_set_icon_list (GdkSurface *surface,
           best_w = w;
         }
     }
+
+  if (best == NULL)   /* no usable texture in the list */
+    return;
 
   png = gdk_save_png (best, NULL);
   if (png == NULL)

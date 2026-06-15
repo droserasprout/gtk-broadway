@@ -2234,6 +2234,10 @@ gtk_label_unroot (GtkWidget *widget)
 {
   GtkLabel *self = GTK_LABEL (widget);
 
+  /* The touch-selection dismiss controller is attached to the root; drop it
+   * before we leave so it can't leak or fire on a detached label. */
+  gtk_label_clear_dismiss_controller (self);
+
   gtk_label_setup_mnemonic (self);
 
   GTK_WIDGET_CLASS (gtk_label_parent_class)->unroot (widget);

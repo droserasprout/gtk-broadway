@@ -4883,7 +4883,6 @@ gtk_notebook_snapshot_tabs (GtkGizmo    *gizmo,
   if (!notebook->first_tab)
     notebook->first_tab = notebook->children;
 
-
   if (!NOTEBOOK_IS_TAB_LABEL_PARENT (notebook, notebook->cur_page) ||
       !gtk_widget_get_mapped (notebook->cur_page->tab_label))
     {
