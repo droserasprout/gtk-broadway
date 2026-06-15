@@ -16,9 +16,15 @@ Versioning from v3: release tags are three-part `vX.Y.Z`; package versions are `
 - The `.deb` now installs into a private prefix (`/usr/lib/gtk4-brotway`) instead of overlaying the system `libgtk-4`; opt in per launch via `gtk4-brotway-run`. Dropped `Replaces`/`Conflicts`/`Provides` and the `apt-mark hold` requirement.
 - The base Docker image sets `LD_LIBRARY_PATH=/usr/lib/gtk4-brotway` so every containerized app uses the fork transparently.
 
+### Fixed
+
+- A copy that can't be serialized to text no longer clears the host clipboard.
+- Reconnect no longer replays stale frames from the dropped session before resyncing.
+
 ### Security
 
 - Validate Broadway input-frame length per event type before parsing; reject short/malformed frames from the browser instead of reading past them.
+- Only open `http`/`https`/`mailto` links the app requests; other URI schemes are ignored.
 
 ## v3.0.0 - 2026-06-12
 
