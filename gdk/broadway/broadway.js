@@ -996,6 +996,7 @@ TransformNodes.prototype.insertNode = function(parent, previousSibling, is_tople
                 border_colors[1] === border_colors[2] &&
                 border_colors[2] === border_colors[3]) {
                 var bg = previousSibling;
+                var snapped = false;
                 /* Size must agree too - an unrelated sibling (parent background,
                  * separator) whose origin happens to fall within tolerance must
                  * not donate its geometry to the border. */
@@ -1012,10 +1013,23 @@ TransformNodes.prototype.insertNode = function(parent, previousSibling, is_tople
                     div.style["border-top-right-radius"] = bg.style.borderTopRightRadius;
                     div.style["border-bottom-right-radius"] = bg.style.borderBottomRightRadius;
                     div.style["border-bottom-left-radius"] = bg.style.borderBottomLeftRadius;
+                    snapped = true;
                 } else {
                     set_rrect_style(div, rrect);
                 }
-                div.style["box-shadow"] = "inset 0 0 0 " + px(border_widths[0]) + " " + border_colors[0];
+                /* Inset when the border box coincides with the bg (buttons). For a
+                 * menu the bg is the content-box, 1px inside the border-box, so an
+                 * inset paints the border into the body and leaves the border-box
+                 * ring transparent (the window shows through as a stray frame). When
+                 * the outline is larger than the snapped bg, spread the border
+                 * outward to fill that ring; corners match (bg radius + spread =
+                 * border-box radius). */
+                var outset = snapped &&
+                    (rrect.bounds.width > parseFloat(div.style.width) + 0.5 ||
+                     rrect.bounds.height > parseFloat(div.style.height) + 0.5);
+                div.style["box-shadow"] =
+                    (outset ? "" : "inset ") +
+                    "0 0 0 " + px(border_widths[0]) + " " + border_colors[0];
             } else {
                 /* Per-side border (an active button's darker top edge): one
                  * directional inset shadow per side, same single-element trick. */
