@@ -4985,7 +4985,12 @@ gtk_notebook_snapshot_tabs (GtkGizmo    *gizmo,
     {
       int w = gtk_widget_get_width (GTK_WIDGET (gizmo));
       int h = gtk_widget_get_height (GTK_WIDGET (gizmo));
-      const int fade = 48;
+      const int fade = 24;   /* subtle edge hint; matches Adwaita's restraint */
+      /* The Broadway renderer places these snapshot nodes ~4px inside the tabs
+       * gizmo, leaving an un-faded sliver at the very edge. Overshoot the boxes
+       * outward by that much so the grey reaches the true strip edge; the gizmo's
+       * overflow:hidden clips the excess. */
+      const int over = 4;
 
       if (w > 2 * fade)
         {
@@ -4995,14 +5000,14 @@ gtk_notebook_snapshot_tabs (GtkGizmo    *gizmo,
           if (notebook->touch_pan_px > 0)   /* more tabs off the left edge */
             {
               style = gtk_css_node_get_style (notebook->tab_fade_node[0]);
-              gtk_css_boxes_init_border_box (&boxes, style, 0, 0, fade, h);
+              gtk_css_boxes_init_border_box (&boxes, style, -over, 0, fade + over, h);
               gtk_css_style_snapshot_background (&boxes, snapshot);
               gtk_css_style_snapshot_border (&boxes, snapshot);
             }
           if (notebook->touch_pan_px < notebook->touch_pan_max)   /* ... off the right */
             {
               style = gtk_css_node_get_style (notebook->tab_fade_node[1]);
-              gtk_css_boxes_init_border_box (&boxes, style, w - fade, 0, fade, h);
+              gtk_css_boxes_init_border_box (&boxes, style, w - fade, 0, fade + over, h);
               gtk_css_style_snapshot_background (&boxes, snapshot);
               gtk_css_style_snapshot_border (&boxes, snapshot);
             }
