@@ -1785,7 +1785,11 @@ function handleCommands(cmd, display_commands, new_textures, modified_trees)
              * new tab from reaching back into this page. */
             var _uridata = cmd.get_data();
             var _uri = new TextDecoder("utf-8").decode(_uridata);
-            window.open(_uri, "_blank", "noopener");
+            /* Only open web/mail links; never javascript:/data:/blob: etc. */
+            if (/^(https?|mailto):/i.test(_uri))
+                window.open(_uri, "_blank", "noopener");
+            else
+                console.warn("broadway: refusing to open non-web URI:", _uri);
             break;
 
         case BROADWAY_OP_SET_CURSOR:
@@ -1862,6 +1866,10 @@ function handleOutstandingDisplayCommands()
     if (outstandingDisplayCommands) {
         window.requestAnimationFrame(
             function () {
+                /* A reconnect reset may have cleared the queue after this rAF
+                 * was scheduled; skip the stale frame. */
+                if (!outstandingDisplayCommands)
+                    return;
                 try {
                     handleDisplayCommands(outstandingDisplayCommands);
                 } catch (e) {
@@ -1968,12 +1976,18 @@ BinCommands.prototype.get_32 = function() {
 };
 BinCommands.prototype.get_nodes = function() {
     var len = this.get_32();
+    /* Clamp to what's left so a bad length can't throw RangeError and abort the
+     * whole batch (the daemon is trusted, so this is just belt-and-braces). */
+    var avail = (this.arraybuffer.byteLength - this.pos) >> 2;
+    if (len > avail) len = avail;
     var node_data = new DataView(this.arraybuffer, this.pos, len * 4);
     this.pos = this.pos + len * 4;
     return node_data;
 };
 BinCommands.prototype.get_data = function() {
     var size = this.get_32();
+    var avail = this.arraybuffer.byteLength - this.pos;
+    if (size > avail) size = avail;
     var data = new Uint8Array (this.arraybuffer, this.pos, size);
     this.pos = this.pos + size;
     return data;
@@ -4013,11 +4027,6 @@ function onKeyUp (ev) {
     return handleKeyUp(ev);
 }
 
-function onInput (ev) {
-    updateForEvent(ev);
-    return handleInput(ev);
-}
-
 function cancelEvent(ev)
 {
     ev = ev ? ev : window.event;
@@ -4584,6 +4593,10 @@ function hideOverlay()
  * cmdCreateSurface is not idempotent, so we must clear before NEW_SURFACE. */
 function resetClientState()
 {
+    /* Drop commands queued on the dead socket so they can't drain (against now
+     * stale surface ids) before the resync repopulates state. */
+    outstandingCommands.length = 0;
+    outstandingDisplayCommands = null;
     for (var id in surfaces) {
         var s = surfaces[id];
         if (s && s.div && s.div.parentNode)
@@ -4673,8 +4686,9 @@ function invalidateSession()
         } catch (e) { }
         ws = null;
     }
-    /* Drop queued messages; the pending rAF nulls outstandingDisplayCommands. */
+    /* Drop queued messages from the dead session. */
     outstandingCommands.length = 0;
+    outstandingDisplayCommands = null;
     showOverlay("disconnected");
 }
 
