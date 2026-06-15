@@ -6,6 +6,8 @@ Versioning from v3: release tags are three-part `vX.Y.Z`; package versions are `
 
 ## v3.1.0 - 2026-06-15
 
+[release](https://github.com/droserasprout/gtk-brotway/releases/tag/v3.1.0) | [diff](https://github.com/droserasprout/gtk-brotway/compare/v3.0.0...v3.1.0)
+
 ### Added
 
 - `gtk4-brotway-run`: one-shot launcher (starts `broadwayd`, runs the app, tears it down on exit).
@@ -13,7 +15,7 @@ Versioning from v3: release tags are three-part `vX.Y.Z`; package versions are `
 
 ### Changed
 
-- The `.deb` now installs into a private prefix (`/usr/lib/gtk4-brotway`) instead of overlaying the system `libgtk-4`; opt in per launch via `gtk4-brotway-run`. Dropped `Replaces`/`Conflicts`/`Provides` and the `apt-mark hold` requirement.
+- The `.deb` now installs into a private prefix (`/usr/lib/gtk4-brotway`) instead of overlaying the system `libgtk-4`.
 - The base Docker image sets `LD_LIBRARY_PATH=/usr/lib/gtk4-brotway` so every containerized app uses the fork transparently.
 
 ### Fixed
@@ -26,7 +28,7 @@ Versioning from v3: release tags are three-part `vX.Y.Z`; package versions are `
 
 ### Security
 
-- Validate Broadway input-frame length per event type before parsing; reject short/malformed frames from the browser instead of reading past them.
+- Validate Broadway input-frame length per event type before parsing; reject short/malformed frames.
 - Only open `http`/`https`/`mailto` links the app requests; other URI schemes are ignored.
 
 ## v3.0.0 - 2026-06-12
