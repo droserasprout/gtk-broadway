@@ -1637,7 +1637,16 @@ function handleCommands(cmd, display_commands, new_textures, modified_trees)
              * needs to actually move pointer focus, unsticking touch input.
              * The ENTER rebuilds the (stale) pointer focus; the immediately
              * following LEAVE clears the mouse-hover state it would otherwise
-             * leave behind (spurious :hover styling / tooltips on touch). */
+             * leave behind (spurious :hover styling / tooltips on touch).
+             *
+             * Touch only: with a real mouse the ungrab crossing already restored
+             * focus to the hovered surface, and this LEAVE would wrongly drop that
+             * hover while the cursor sits still -- stranding e.g. a menu button
+             * (can't reopen until the pointer moves). Skip when a mouse is over a
+             * surface; touch leaves realSurfaceWithMouse at 0 (taps preventDefault
+             * the emulated mouse crossings). */
+            if (realSurfaceWithMouse != 0)
+                break;
             sendInput(BROADWAY_EVENT_ENTER, [id, id, rx, ry, rx, ry, lastState, GDK_CROSSING_NORMAL]);
             sendInput(BROADWAY_EVENT_LEAVE, [id, id, rx, ry, rx, ry, lastState, GDK_CROSSING_NORMAL]);
             break;
