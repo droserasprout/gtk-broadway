@@ -22,6 +22,7 @@ Versioning from v3: release tags are three-part `vX.Y.Z`; package versions are `
 - Reconnect no longer replays stale frames from the dropped session before resyncing.
 - Adwaita popup menus no longer render a stray 1px frame around the body.
 - Notebook tab-strip overflow fade is subtler and sits flush to the edge (no un-faded sliver).
+- Clicking a menu button to close its menu no longer leaves the button unclickable until the mouse moves.
 
 ### Security
 
