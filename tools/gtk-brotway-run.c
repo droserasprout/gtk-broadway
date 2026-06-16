@@ -140,12 +140,26 @@ static int port_busy(int port)
   return busy;
 }
 
+/* Parse a base-10 int in [lo, hi]; exit(2) on junk or out-of-range. */
+static int parse_num(const char *s, const char *what, int lo, int hi)
+{
+  char *end;
+  errno = 0;
+  long v = strtol(s, &end, 10);
+  if (errno != 0 || end == s || *end != '\0' || v < lo || v > hi)
+    {
+      fprintf(stderr, "brotway-run: invalid %s '%s' (want %d-%d)\n", what, s, lo, hi);
+      exit(2);
+    }
+  return (int) v;
+}
+
 int main(int argc, char **argv)
 {
   const char *disp_arg = getenv("BROTWAY_DISPLAY");
   const char *port_env = getenv("BROTWAY_PORT");
   int disp_set = disp_arg != NULL;
-  int port = port_env ? atoi(port_env) : 0;
+  int port = port_env ? parse_num(port_env, "port", 1, 65535) : 0;
   int port_set = port_env != NULL;
   int opt_auto = 0, opt_open = 0;
   const char *address = getenv("BROTWAY_ADDRESS");
@@ -172,7 +186,7 @@ int main(int argc, char **argv)
         case 'a': opt_auto = 1; break;
         case 'o': opt_open = 1; break;
         case 'd': disp_arg = optarg; disp_set = 1; break;
-        case 'p': port = atoi(optarg); port_set = 1; break;
+        case 'p': port = parse_num(optarg, "port", 1, 65535); port_set = 1; break;
         case 'A': address = optarg; break;
         default:  usage(stderr); return 2;
         }
@@ -228,15 +242,19 @@ int main(int argc, char **argv)
     }
 
   /* Pick display/port. Port stays coupled to the display (8080+N) unless pinned. */
-  int disp_num = atoi(disp_arg[0] == ':' ? disp_arg + 1 : disp_arg);
+  int disp_num = parse_num(disp_arg[0] == ':' ? disp_arg + 1 : disp_arg, "display", 0, 99);
+  /* --auto steps the display until free; a pinned port stays put (only its
+   * socket is stepped, else a busy pinned port would loop forever). */
   if (opt_auto)
-    while (socket_exists(disp_num) || port_busy(8080 + disp_num))
+    while (socket_exists(disp_num) || (!port_set && port_busy(8080 + disp_num)))
       disp_num++;
   if (!port_set)
     port = 8080 + disp_num;
 
   if (!opt_auto && disp_set && socket_exists(disp_num))
     fprintf(stderr, "brotway-run: warning: display :%d already has a Broadway socket\n", disp_num);
+  if (port_busy(port))
+    fprintf(stderr, "brotway-run: warning: port %d already in use\n", port);
 
   char disp[32], portstr[16];
   snprintf(disp, sizeof disp, ":%d", disp_num);
@@ -271,7 +289,28 @@ int main(int argc, char **argv)
   signal(SIGINT, on_signal);
   signal(SIGTERM, on_signal);
 
-  nanosleep(&(struct timespec){ .tv_sec = 1 }, NULL);
+  /* Wait for broadwayd to be ready (its display socket appears), bailing if it
+   * died early (port busy, exec failure). Polls up to ~5s, returns as soon as
+   * ready - better than a blind sleep on slow hosts / arm64 emulation. */
+  int ready = 0;
+  for (int i = 0; i < 250; i++)
+    {
+      if (waitpid(bwd_pid, NULL, WNOHANG) == bwd_pid)
+        {
+          bwd_pid = 0;
+          fputs("brotway-run: broadwayd exited before it was ready\n", stderr);
+          return 1;
+        }
+      if (socket_exists(disp_num))
+        {
+          ready = 1;
+          break;
+        }
+      nanosleep(&(struct timespec){ .tv_nsec = 20 * 1000 * 1000 }, NULL);
+    }
+  if (!ready)
+    fputs("brotway-run: warning: broadwayd not ready after 5s; continuing\n", stderr);
+
   printf("brotway Broadway WebUI: http://localhost:%d  (triple-Shift = debug menu)\n", port);
   fflush(stdout);
 
