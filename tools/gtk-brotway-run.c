@@ -15,7 +15,9 @@
  *   brotway-run --open                       # empty display, Ctrl+C to stop
  */
 
+#ifndef _GNU_SOURCE
 #define _GNU_SOURCE
+#endif
 #include <errno.h>
 #include <fcntl.h>
 #include <getopt.h>
@@ -270,12 +272,12 @@ int main(int argc, char **argv)
     {
       char *bargv[8];
       int n = 0;
-      bargv[n++] = "gtk4-broadwayd";
-      bargv[n++] = "-p";
+      bargv[n++] = (char *) "gtk4-broadwayd";
+      bargv[n++] = (char *) "-p";
       bargv[n++] = portstr;
       if (address)
         {
-          bargv[n++] = "-a";
+          bargv[n++] = (char *) "-a";
           bargv[n++] = (char *) address;
         }
       bargv[n++] = disp;
@@ -337,9 +339,9 @@ int main(int argc, char **argv)
                   /* $BROWSER may carry args, so run it through the shell to
                    * word-split. url is our own localhost string (no shell
                    * metacharacters), so quoting it is safe. */
-                  char cmd[160];
-                  snprintf(cmd, sizeof cmd, "%s '%s'", browser, url);
-                  execl("/bin/sh", "sh", "-c", cmd, (char *) NULL);
+                  char cmdbuf[160];
+                  snprintf(cmdbuf, sizeof cmdbuf, "%s '%s'", browser, url);
+                  execl("/bin/sh", "sh", "-c", cmdbuf, (char *) NULL);
                 }
               else
                 execlp("xdg-open", "xdg-open", url, (char *) NULL);

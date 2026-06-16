@@ -1877,18 +1877,18 @@ start_input (HttpRequest *request, const char *query)
    * Match at a param boundary so "mycid=" doesn't. */
   if (query)
     {
-      const char *p = query;
-      while (*p)
+      const char *qp = query;
+      while (*qp)
         {
-          if (strncmp (p, "cid=", 4) == 0)
+          if (strncmp (qp, "cid=", 4) == 0)
             {
-              input->client_id = (guint32) strtoul (p + 4, NULL, 10);
+              input->client_id = (guint32) strtoul (qp + 4, NULL, 10);
               break;
             }
-          p = strchr (p, '&');
-          if (!p)
+          qp = strchr (qp, '&');
+          if (!qp)
             break;
-          p++;
+          qp++;
         }
     }
 

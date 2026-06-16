@@ -3975,7 +3975,7 @@ function handleKeyPress(e) {
     // Send the translated keysym
     if (keysym > 0) {
         lastKeyPressTime = Date.now();
-        /* ev.key is the character this keyPress produced ("a", "я", …); used to
+        /* ev.key is the character this keyPress produced (e.g. "a"); used to
          * match (not just time) the echoing 'beforeinput' on the touch OSK. */
         lastKeyPressText = (typeof ev.key === "string") ? ev.key : "";
         sendInput (BROADWAY_EVENT_KEY_PRESS, [keysym, lastState]);
@@ -5023,7 +5023,7 @@ function connect()
             }
         });
         /* IME composition (CJK, gesture typing): commit the final string once,
-         * on compositionend — Broadway has no preedit, so intermediate updates
+         * on compositionend - Broadway has no preedit, so intermediate updates
          * are not forwarded. */
         fakeInput.addEventListener("compositionstart", function () {
             imeComposing = true;
