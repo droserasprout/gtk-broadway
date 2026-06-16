@@ -1,19 +1,7 @@
-# Manual Arch/CachyOS package for the brotway GTK fork (broadway-only).
-# NOT wired into CI - build it by hand: `makepkg -si`.
-#
-# Conflict-free overlay: the patched libgtk-4 + gtk4-broadwayd land in a private
-# prefix (/usr/lib/gtk4-brotway), NOT over the stock gtk4 files, so install and
-# removal stay clean and `pacman -Syu` never fights it. Opt into the fork per
-# launch via gtk4-brotway-run (LD_LIBRARY_PATH). The rest of gtk4 (gir, wayland,
-# x11, schemas) stays stock.
-#
-# ABI note: the fork .so only overrides libgtk-4.so.1, so the system gtk4 must be
-# the same upstream series (4.22.x <-> 4.22.4-brotway).
-
-# pkgver is the brotway release (3.0.0); the gtk base (4.22.4) is implied by the
-# depends=gtk4 ABI and the source tag. Bump pkgver to track a new release.
+# Conflict-free overlay: lives in a private prefix (/usr/lib/gtk4-brotway),
+# opt into the fork per launch via `gtk4-brotway-run`.
 pkgname=gtk4-brotway
-pkgver=3.1.0
+pkgver=3.1.1
 pkgrel=1
 _gtkbase=4.22.4
 pkgdesc="GTK 4.22 Broadway backend fork"

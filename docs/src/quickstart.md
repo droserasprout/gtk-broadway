@@ -7,7 +7,7 @@ From nothing to a GTK4 app in your browser. Two steps: install the fork, then la
 On Debian/Ubuntu, grab the `.deb` for your architecture (the [GTK base](guide/requirements.md) is 4.22.4 on `ubuntu:26.04`) and install it:
 
 ```sh
-rel=v3.1.0       # the release to install - see the Releases page for the latest tag
+rel=v3.1.1       # the release to install - see the Releases page for the latest tag
 gtk_ver=4.22.4   # on an ubuntu:26.04 base
 arch="$(dpkg --print-architecture)"
 wget -O gtk.deb "https://github.com/droserasprout/gtk-brotway/releases/download/${rel}/gtk4-brotway_${gtk_ver}-${rel#v}_${arch}.deb"

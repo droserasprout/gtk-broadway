@@ -26,7 +26,7 @@ The reference deployment installs the arch-matching `.deb` inside a Docker image
 
 ```dockerfile
 ARG GTK_VER=4.22.4
-ARG REL=v3.1.0
+ARG REL=v3.1.1
 RUN arch="$(dpkg --print-architecture)" \
  && wget -O /tmp/gtk.deb "https://github.com/droserasprout/gtk-brotway/releases/download/${REL}/gtk4-brotway_${GTK_VER}-${REL#v}_${arch}.deb" \
  && apt-get install -y /tmp/gtk.deb \

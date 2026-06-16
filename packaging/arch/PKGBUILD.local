@@ -1,16 +1,12 @@
-# Quick LOCAL build of the brotway GTK fork from a working tree - no git clone,
-# so it packages uncommitted changes. Use it to test a branch/worktree before
-# tagging a release.
+# Quick local build of the brotway GTK fork from a working tree.
+# Use it to test a branch/worktree before tagging a release.
 #
-#   makepkg -p PKGBUILD.local -si                       # build the monorepo gtk/
-#   _gtksrc=../../../gtk-worktrees/foo makepkg -p PKGBUILD.local -si   # a worktree
+#   _gtksrc=../../../gtk-worktrees/foo makepkg -p PKGBUILD.local -sif
 #
 # Same broadway-only recipe and private-prefix layout as PKGBUILD; only the
-# source (a local tree, built out-of-tree in src/_build and reused between runs
-# for a quick incremental rebuild) and the pkgver differ.
-
+# source and the pkgver differ.
 pkgname=gtk4-brotway
-pkgver=3.1.0.local
+pkgver=3.1.1.local
 pkgrel=1
 _gtkbase=4.22.4
 pkgdesc="GTK 4.22 Broadway backend fork (local working-tree build)"

@@ -4,13 +4,16 @@ All notable changes to this project will be documented in this file. The format 
 
 Versioning from v3: release tags are three-part `vX.Y.Z`; package versions are `<gtk-base>-X.Y.Z`, e.g. `4.22.4-3.0.0`. Single base (GTK 4.22.x). See [Requirements](https://droserasprout.github.io/gtk-brotway/guide/requirements.html).
 
-## Unreleased
+## v3.1.1 - 2026-06-16
+
+[release](https://github.com/droserasprout/gtk-brotway/releases/tag/v3.1.1) | [diff](https://github.com/droserasprout/gtk-brotway/compare/v3.1.0...v3.1.1)
 
 ### Fixed
 
-- The fork's `libgtk-4` carries no-op stubs of the full gdk-x11/gdk-wayland ABI, so any GTK4 app or module built against a full GTK loads against it instead of failing with `undefined symbol: gdk_x11_*`/`gdk_wayland_*`.
+- The fork's `libgtk-4` carries no-op stubs of the full gdk-x11/gdk-wayland ABI, so any app built against a full GTK loads against it.
 - The disconnected overlay shows a severed-link glyph instead of a "prohibited" circle-slash.
 - Overlay scrollbars no longer reappear on every content refresh while the pointer is stationary.
+- `gtk4-brotway-run` validates arguments, waits for `broadwayd` socket readiness, and no longer mishandles `--auto` with a pinned port.
 
 ## v3.1.0 - 2026-06-15
 
