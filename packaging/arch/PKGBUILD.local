@@ -1,0 +1,65 @@
+# Quick LOCAL build of the brotway GTK fork from a working tree - no git clone,
+# so it packages uncommitted changes. Use it to test a branch/worktree before
+# tagging a release.
+#
+#   makepkg -p PKGBUILD.local -si                       # build the monorepo gtk/
+#   _gtksrc=../../../gtk-worktrees/foo makepkg -p PKGBUILD.local -si   # a worktree
+#
+# Same broadway-only recipe and private-prefix layout as PKGBUILD; only the
+# source (a local tree, built out-of-tree in src/_build and reused between runs
+# for a quick incremental rebuild) and the pkgver differ.
+
+pkgname=gtk4-brotway
+pkgver=3.1.0.local
+pkgrel=1
+_gtkbase=4.22.4
+pkgdesc="GTK 4.22 Broadway backend fork (local working-tree build)"
+arch=('x86_64' 'aarch64')
+url="https://github.com/droserasprout/gtk-brotway"
+license=('LGPL-2.1-or-later')
+depends=('gtk4')
+makedepends=('meson' 'ninja' 'pkgconf' 'gettext' 'sassc' 'python'
+             'glib2' 'cairo' 'pango' 'gdk-pixbuf2' 'graphene' 'libepoxy'
+             'fribidi' 'harfbuzz' 'libxkbcommon' 'libjpeg-turbo' 'libpng'
+             'libtiff' 'libdrm')
+# Quick build: skip strip / debug-package split / lto.
+options=('!strip' '!debug' '!lto')
+
+# Local GTK source tree. Override via env: _gtksrc=/path makepkg -p PKGBUILD.local
+_gtksrc="${_gtksrc:-$startdir/../../../gtk}"
+
+build() {
+    local src; src="$(realpath "$_gtksrc")"
+    cd "$src"
+    # Broadway-only, matching PKGBUILD. Out-of-tree build in $srcdir/_build, kept
+    # between runs so a re-run is an incremental ninja, not a fresh configure.
+    [ -f "$srcdir/_build/build.ninja" ] || arch-meson "$srcdir/_build" \
+        -Dbroadway-backend=true \
+        -Dx11-backend=false -Dwayland-backend=false -Dwin32-backend=false -Dmacos-backend=false \
+        -Dvulkan=disabled -Dintrospection=disabled -Ddocumentation=false -Dman-pages=false \
+        -Dbuild-testsuite=false -Dbuild-tests=false -Dbuild-examples=false -Dbuild-demos=false \
+        -Dmedia-gstreamer=disabled -Dprint-cups=disabled
+    meson compile -C "$srcdir/_build"
+}
+
+package() {
+    cd "$srcdir/_build"
+    local prefix="$pkgdir/usr/lib/gtk4-brotway"
+    local so
+    so="$(basename "$(readlink -f gtk/libgtk-4.so.1)")"
+    [ -n "$so" ]
+
+    install -Dm755 "gtk/$so" "$prefix/$so"
+    ln -s "$so" "$prefix/libgtk-4.so.1"
+    ln -s libgtk-4.so.1 "$prefix/libgtk-4.so"
+
+    install -Dm755 gdk/broadway/gtk4-broadwayd "$prefix/gtk4-broadwayd"
+
+    # Backend stubs preloaded by gtk4-brotway-run (tools/stub-backends.c).
+    # Guarded so a tree without the stub still packages.
+    [ -f tools/libgdk-backend-stubs.so ] &&
+        install -Dm755 tools/libgdk-backend-stubs.so "$prefix/libgdk-backend-stubs.so"
+
+    install -Dm755 tools/gtk4-brotway-debugmenu "$pkgdir/usr/bin/gtk4-brotway-debugmenu"
+    install -Dm755 tools/gtk4-brotway-run "$pkgdir/usr/bin/gtk4-brotway-run"
+}

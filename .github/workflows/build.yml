@@ -130,6 +130,10 @@ jobs:
           ln -sf libgtk-4.so.1 "pkgroot/${PREFIX}/libgtk-4.so"
           # broadwayd lives in the prefix; the launcher invokes it by full path.
           install -m755 _build/gdk/broadway/gtk4-broadwayd "pkgroot/${PREFIX}/gtk4-broadwayd"
+          # Backend stubs preloaded by gtk4-brotway-run (tools/stub-backends.c).
+          # Guarded: ships once the ref includes the stub.
+          [ -f _build/tools/libgdk-backend-stubs.so ] &&
+            install -m755 _build/tools/libgdk-backend-stubs.so "pkgroot/${PREFIX}/libgdk-backend-stubs.so"
           # Net-new /usr/bin names (no clash with stock gtk4). broadwayd spawns the
           # debug menu by name via PATH; without it the menu silently fails to spawn.
           test -f _build/tools/gtk4-brotway-debugmenu

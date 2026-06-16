@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file. The format 
 
 Versioning from v3: release tags are three-part `vX.Y.Z`; package versions are `<gtk-base>-X.Y.Z`, e.g. `4.22.4-3.0.0`. Single base (GTK 4.22.x). See [Requirements](https://droserasprout.github.io/gtk-brotway/guide/requirements.html).
 
+## Unreleased
+
+### Fixed
+
+- `gtk4-brotway-run` no longer fails with `undefined symbol: gdk_x11_*`/`gdk_wayland_*` on apps (or GTK modules) built against a full GTK; it preloads no-op stubs of those symbols, so any GTK4 app runs.
+
 ## v3.1.0 - 2026-06-15
 
 [release](https://github.com/droserasprout/gtk-brotway/releases/tag/v3.1.0) | [diff](https://github.com/droserasprout/gtk-brotway/compare/v3.0.0...v3.1.0)

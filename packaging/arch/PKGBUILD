@@ -13,7 +13,7 @@
 # pkgver is the brotway release (3.0.0); the gtk base (4.22.4) is implied by the
 # depends=gtk4 ABI and the source tag. Bump pkgver to track a new release.
 pkgname=gtk4-brotway
-pkgver=3.0.0
+pkgver=3.1.0
 pkgrel=1
 _gtkbase=4.22.4
 pkgdesc="GTK 4.22 Broadway backend fork"
@@ -56,9 +56,14 @@ package() {
     # broadwayd lives in the private prefix; the wrapper invokes it by full path.
     install -Dm755 _build/gdk/broadway/gtk4-broadwayd "$prefix/gtk4-broadwayd"
 
+    # Backend stubs preloaded by gtk4-brotway-run (tools/stub-backends.c).
+    # Guarded: ships once the tag includes the stub.
+    [ -f _build/tools/libgdk-backend-stubs.so ] &&
+        install -Dm755 _build/tools/libgdk-backend-stubs.so "$prefix/libgdk-backend-stubs.so"
+
     # Net-new names - no clash with stock gtk4. broadwayd spawns the debug menu
     # by this name via PATH (BROADWAY_DEBUGMENU default).
     install -Dm755 _build/tools/gtk4-brotway-debugmenu "$pkgdir/usr/bin/gtk4-brotway-debugmenu"
-    # One-shot launcher (meson tool); auto-detects the private prefix at runtime.
+    # One-shot launcher (meson tool); runs apps against the fork in this prefix.
     install -Dm755 _build/tools/gtk4-brotway-run "$pkgdir/usr/bin/gtk4-brotway-run"
 }
