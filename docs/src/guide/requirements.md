@@ -1,6 +1,6 @@
 # Requirements
 
-The fork patches the **host** GTK and serves the app as HTML5 over Broadway, so requirements split between the host (where GTK runs) and the client (the browser).
+The fork patches the **host** GTK and serves the app over Broadway, so requirements split between the host (where GTK runs) and the client (the browser).
 
 ## Host
 
@@ -19,7 +19,7 @@ Current fork base:
 
 ## Client
 
-Any device with a modern browser, no install - the UI is HTML5 over Broadway, so client OS and architecture don't matter (desktop and mobile, touch included).
+Any device with a modern browser, no install - desktop or mobile, touch included. Client OS and architecture don't matter.
 
 ### Tested browsers
 

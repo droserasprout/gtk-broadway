@@ -1,10 +1,10 @@
 # Quickstart
 
-From nothing to a GTK4 app in your browser. Two steps: install the fork, then launch an app with `gtk4-brotway-run`.
+Install the fork, then launch an app with `gtk4-brotway-run`.
 
 ## Install the fork
 
-On Debian/Ubuntu, grab the `.deb` for your architecture (the [GTK base](guide/requirements.md) is 4.22.4 on `ubuntu:26.04`) and install it:
+On Debian/Ubuntu, grab the `.deb` for your architecture and install it:
 
 ```sh
 rel=v3.1.1       # the release to install - see the Releases page for the latest tag
@@ -24,13 +24,11 @@ It installs into a private prefix, safe on a desktop. On Arch build the PKGBUILD
 gtk4-brotway-run your-gtk4-app
 ```
 
-Open `http://localhost:8085` in a browser. Copy/paste, touch text editing, and pinch-zoom now work - the fork is app-agnostic, any GTK4 binary does. For a non-localhost deployment, add `--address 0.0.0.0` and put it behind a TLS terminator; see [Security model](guide/security.md).
-
-See [Running](guide/running.md) for how the pieces fit. A non-localhost deployment also needs a [secure context](features/clipboard.md#limitations) for the clipboard.
+Open `http://localhost:8085` in a browser. Copy/paste, touch text editing, and pinch-zoom now work, for any GTK4 binary. For a non-localhost deployment, add `--address 0.0.0.0`, put it behind a TLS terminator, and serve it over a [secure context](features/input.md#clipboard-limitations) so the clipboard works; see [Security model](guide/security.md).
 
 ## Next steps
 
-- [Features](features/comparison.md) - what the fork adds over stock Broadway, feature by feature.
+- [Features](features/comparison.md) - what the fork adds over stock Broadway.
 - [Configuration reference](guide/config.md) - every env var, port, and client-side setting.
 - [Requirements](guide/requirements.md) - host/client support and tested browser/OS combinations.
 - [Known issues](guide/known-issues.md) - what doesn't work.

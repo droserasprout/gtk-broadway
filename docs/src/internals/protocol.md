@@ -1,8 +1,8 @@
 # Wire protocol
 
-All wire constants live in `gdk/broadway/broadway-protocol.h`, shared verbatim by the daemon (C), the GDK backend (C), and `broadway.js` (mirrored in the JS header comment). The fork **appends** every new enum value at the end, so existing wire numbers never shift.
+All wire constants live in `gdk/broadway/broadway-protocol.h`, shared by the daemon (C), the GDK backend (C), and `broadway.js`. The fork **appends** every new enum value at the end, so existing wire numbers never shift.
 
-Three enums describe the wire. Each table below lists the full enum in wire order; the fork's additions are the entries appended past the stock range (the ones that link to a feature page).
+Each table below lists the full enum in wire order; the fork's additions are the entries appended past the stock range (the ones linking to a feature page).
 
 ## Display ops
 
@@ -27,22 +27,22 @@ What the daemon tells the browser to do - create surfaces, push render nodes, mo
 | `BROADWAY_OP_RELEASE_TEXTURE`   | 14 | drop a previously uploaded texture |
 | `BROADWAY_OP_SET_NODES`         | 15 | send the render-node tree to paint |
 | `BROADWAY_OP_ROUNDTRIP`         | 16 | roundtrip marker; browser echoes `ROUNDTRIP_NOTIFY` |
-| `BROADWAY_OP_SET_CLIPBOARD`     | 17 | push app-copied text to the browser clipboard ([Clipboard](../features/clipboard.md)) |
+| `BROADWAY_OP_SET_CLIPBOARD`     | 17 | push app-copied text to the browser clipboard ([Clipboard](../features/input.md#clipboard)) |
 | `BROADWAY_OP_REQUEST_CLIPBOARD` | 18 | ask the browser for its clipboard (reply comes back as the `CLIPBOARD_CONTENTS` event) |
 | `BROADWAY_OP_SET_INPUT_REGION`  | 19 | mark a surface's input region empty (click-through) ([Input region](input-region.md)) |
 | `BROADWAY_OP_REASSERT_POINTER`  | 20 | tell the browser to re-send pointer-focus crossings ([Input region](input-region.md)) |
-| `BROADWAY_OP_OPEN_URI`          | 21 | open a URI in a new browser tab ([Opening links](../features/open-uri.md)) |
+| `BROADWAY_OP_OPEN_URI`          | 21 | open a URI in a new browser tab ([Opening links](../features/input.md#opening-links)) |
 | `BROADWAY_OP_SESSION`           | 22 | per-daemon session token for reconnect ([Connection management](../features/connection.md)) |
 | `BROADWAY_OP_PONG`              | 23 | heartbeat reply ([Connection management](../features/connection.md)) |
 | `BROADWAY_OP_DEBUG_FLASH`       | 24 | toggle the paint-flash profiler overlay ([Debug menu](debug-menu.md)) |
 | `BROADWAY_OP_DEBUG_SET_SCREEN`  | 25 | pin logical screen size + integer scale, `0,0,0` unpins ([Debug menu](debug-menu.md)) |
 | `BROADWAY_OP_SET_CURSOR`        | 26 | set a surface's CSS cursor by name ([Dynamic cursor](cursor.md)) |
-| `BROADWAY_OP_SET_TITLE`         | 27 | set a surface's window title (mirrored to the browser tab title) ([Tab identity](../features/tab-identity.md)) |
-| `BROADWAY_OP_SET_ICON`          | 28 | set a surface's icon, PNG bytes; len 0 unsets (mirrored to the favicon) ([Tab identity](../features/tab-identity.md)) |
+| `BROADWAY_OP_SET_TITLE`         | 27 | set a surface's window title (mirrored to the browser tab title) ([Tab identity](../features/display.md#tab-title-and-favicon)) |
+| `BROADWAY_OP_SET_ICON`          | 28 | set a surface's icon, PNG bytes; len 0 unsets (mirrored to the favicon) ([Tab identity](../features/display.md#tab-title-and-favicon)) |
 
 ## Input events
 
-What the browser sends back - input and surface notifications. `TOUCH` (5) already existed but was [never sourced as a touchscreen](../features/touch.md) until the fork.
+What the browser sends back - input and surface notifications. `TOUCH` (5) already existed but was [never sourced as a touchscreen](../features/input.md) until the fork.
 
 | Event | # | Purpose |
 |-------|---|---------|
@@ -51,7 +51,7 @@ What the browser sends back - input and surface notifications. `TOUCH` (5) alrea
 | `BROADWAY_EVENT_POINTER_MOVE`       | 2  | pointer motion |
 | `BROADWAY_EVENT_BUTTON_PRESS`       | 3  | mouse button pressed |
 | `BROADWAY_EVENT_BUTTON_RELEASE`     | 4  | mouse button released |
-| `BROADWAY_EVENT_TOUCH`              | 5  | touch down/move/up ([Touch interface](../features/touch.md)) |
+| `BROADWAY_EVENT_TOUCH`              | 5  | touch down/move/up ([Touch interface](../features/input.md)) |
 | `BROADWAY_EVENT_SCROLL`             | 6  | scroll / wheel |
 | `BROADWAY_EVENT_KEY_PRESS`          | 7  | key pressed |
 | `BROADWAY_EVENT_KEY_RELEASE`        | 8  | key released |
@@ -61,7 +61,7 @@ What the browser sends back - input and surface notifications. `TOUCH` (5) alrea
 | `BROADWAY_EVENT_SCREEN_SIZE_CHANGED`| 12 | the browser viewport resized |
 | `BROADWAY_EVENT_FOCUS`              | 13 | keyboard focus moved |
 | `BROADWAY_EVENT_ROUNDTRIP_NOTIFY`   | 14 | reply to a `ROUNDTRIP` op |
-| `BROADWAY_EVENT_CLIPBOARD_CONTENTS` | 15 | browser's reply to `REQUEST_CLIPBOARD`, routed to the one client that asked ([Clipboard](../features/clipboard.md)) |
+| `BROADWAY_EVENT_CLIPBOARD_CONTENTS` | 15 | browser's reply to `REQUEST_CLIPBOARD`, routed to the one client that asked ([Clipboard](../features/input.md#clipboard)) |
 | `BROADWAY_EVENT_PING`               | 16 | heartbeat from the browser; the app answers with `PONG` ([Connection management](../features/connection.md)) |
 | `BROADWAY_EVENT_MENU`               | 17 | Triple-Shift; the daemon intercepts it to spawn the debug menu, so it never reaches the app ([Debug menu](debug-menu.md)) |
 | `BROADWAY_EVENT_SUSPEND`            | 18 | tab hidden; forwarded to GTK to freeze rendering ([Connection management](../features/connection.md)) |
@@ -92,17 +92,17 @@ What the GDK backend asks the daemon to do over the local socket. These carry no
 | `BROADWAY_REQUEST_SET_NODES`         | send the render-node tree |
 | `BROADWAY_REQUEST_ROUNDTRIP`         | request a roundtrip |
 | `BROADWAY_REQUEST_SET_MODAL_HINT`    | mark a surface modal |
-| `BROADWAY_REQUEST_SET_CLIPBOARD`     | push text to the browser clipboard ([Clipboard](../features/clipboard.md)) |
-| `BROADWAY_REQUEST_REQUEST_CLIPBOARD` | ask the browser for its clipboard ([Clipboard](../features/clipboard.md)) |
+| `BROADWAY_REQUEST_SET_CLIPBOARD`     | push text to the browser clipboard ([Clipboard](../features/input.md#clipboard)) |
+| `BROADWAY_REQUEST_REQUEST_CLIPBOARD` | ask the browser for its clipboard ([Clipboard](../features/input.md#clipboard)) |
 | `BROADWAY_REQUEST_SET_INPUT_REGION`  | mark a surface click-through ([Input region](input-region.md)) |
-| `BROADWAY_REQUEST_OPEN_URI`          | open a URI in a new tab ([Opening links](../features/open-uri.md)) |
+| `BROADWAY_REQUEST_OPEN_URI`          | open a URI in a new tab ([Opening links](../features/input.md#opening-links)) |
 | `BROADWAY_REQUEST_SET_CURSOR`        | set a surface's CSS cursor ([Dynamic cursor](cursor.md)) |
-| `BROADWAY_REQUEST_SET_TITLE`         | set a surface's window title ([Tab identity](../features/tab-identity.md)) |
-| `BROADWAY_REQUEST_SET_ICON`          | set a surface's icon ([Tab identity](../features/tab-identity.md)) |
+| `BROADWAY_REQUEST_SET_TITLE`         | set a surface's window title ([Tab identity](../features/display.md#tab-title-and-favicon)) |
+| `BROADWAY_REQUEST_SET_ICON`          | set a surface's icon ([Tab identity](../features/display.md#tab-title-and-favicon)) |
 
 The fork's requests carry matching structs (`BroadwayRequestSetClipboard`, `BroadwayRequestOpenUri`, `BroadwayRequestSetInputRegion`, `BroadwayRequestSetCursor`).
 
-Variable-length requests use `len + bytes` framing (`guint32 len; char text[1];`), the same shape as `SET_NODES`. The sender pads the request size to 4 bytes so the daemon's framing loop reads aligned structs in place; the daemon rejects a request framed smaller than its fixed header (the subtraction would wrap the clamp), then clamps `len` to the framed request size before reading.
+Variable-length requests use `len + bytes` framing (`guint32 len; char text[1];`), the same shape as `SET_NODES`. The sender pads the request size to 4 bytes so the daemon reads aligned structs in place; the daemon rejects a request framed smaller than its fixed header, then clamps `len` to the framed size before reading.
 
 ## Changed stock struct: `is_popup` on `NEW_SURFACE`
 
@@ -117,7 +117,7 @@ typedef struct {
 } BroadwayRequestNewSurface;
 ```
 
-The GDK client sets `is_popup` from `surface->parent != NULL`, and the daemon stores it on its `BroadwaySurface`. It replaced an earlier `transient_for`-based heuristic that misclassified transient dialogs as popups. Two touch behaviours key off it: which surfaces get raised and focused on a tap, and which count for pointer-recovery (`any_popup_visible`). See [Touch interface](../features/touch.md).
+The GDK client sets `is_popup` from `surface->parent != NULL`, and the daemon stores it on its `BroadwaySurface`. Two touch behaviours key off it: which surfaces get raised and focused on a tap, and which count for pointer-recovery. See [Touch interface](../features/input.md).
 
 ## Size limits
 
@@ -125,4 +125,4 @@ The GDK client sets `is_popup` from `surface->parent != NULL`, and the daemon st
 #define BROADWAY_CLIPBOARD_MAX_SIZE (16 * 1024 * 1024)
 ```
 
-This caps the allocation a browser-supplied length (malicious or buggy) can drive on the daemon, and the resulting reply size on the client. The clipboard and open-URI paths clamp against the framed message size first, then this ceiling. Browser event frames are length-checked the same way: the base event header (type, serial, time) and the `PING` payload are bounds-checked against the frame before any field read.
+This caps the allocation a browser-supplied length can drive on the daemon, and the reply size on the client. The clipboard and open-URI paths clamp against the framed message size first, then this ceiling. Browser event frames are bounds-checked the same way before any field read.

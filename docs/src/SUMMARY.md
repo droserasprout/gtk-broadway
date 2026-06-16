@@ -12,16 +12,9 @@
 # User Guide
 
 - [Features](features/comparison.md)
-  - [Clipboard](features/clipboard.md)
-  - [Touch interface](features/touch.md)
-  - [Pinch to zoom](features/zoom.md)
-  - [Widgets](features/widgets.md)
-  - [Opening links](features/open-uri.md)
-  - [Dynamic cursor](features/cursor.md)
-  - [Tab title & favicon](features/tab-identity.md)
-  - [Connection management](features/connection.md)
-  - [Scaling & HiDPI](features/scaling.md)
-  - [Desktop & rendering fixes](features/desktop-fixes.md)
+  - [Input & interaction](features/input.md)
+  - [Display & rendering](features/display.md)
+  - [Connection & sessions](features/connection.md)
 - [Security model](guide/security.md)
 - [Configuration reference](guide/config.md)
 - [Troubleshooting](guide/troubleshooting.md)
@@ -32,11 +25,6 @@
 - [Contributing](build/contributing.md)
 - [Building from source](build/from-source.md)
 - [Adding a wire op](build/wire-op.md)
-- [Maintainer Guide]()
-  - [Re-forking a new GTK release](build/reforking.md)
-  - [CI & packaging](build/ci.md)
-  - [Release QA](build/qa.md)
-  - [Release process](build/release.md)
 
 # Internals
 

@@ -1,4 +1,4 @@
-# Connection management
+# Connection & sessions
 
 <!-- SCREENCAST (pending) - uncomment after recording. See devnotes/2026-06-10-docs-screencasts.md
   Record: make record SCENARIO=tools/local/scenarios/connection.json OUT=docs/src/images/connection.mp4
@@ -12,16 +12,16 @@
 
 *New in v2*
 
-Any WebSocket interruption drops the session in stock Broadway: screen-off, a Wi-Fi toggle, a 4G<->Wi-Fi handover. The only recovery is a full page reload, which loses UI state. The fork reconnects the browser client in place.
+Any WebSocket interruption drops the session in stock Broadway - screen-off, a Wi-Fi toggle, a 4G<->Wi-Fi handover - and the only recovery is a full reload, which loses UI state. The fork reconnects the browser client in place.
 
 ## What works
 
-- **In-place reconnect** after screen-off or a network change - the session resumes without a reload.
-- The last frame stays dimmed under a spinner until the daemon's resync repaints; resync textures stream as separate frames, so a slow link keeps progressing.
-- A **heartbeat** catches half-open sockets that never fire the browser's `onclose`; a fresh socket gets a 60s first-message grace.
-- **Cursors survive the reconnect** - the daemon remembers each surface's cursor and replays it on resync.
-- **Single-display arbitration** - two browsers don't fight over the single Broadway display; the newest fresh page load wins.
+- **In-place reconnect** after screen-off or a network change, without a reload.
+- The last frame stays dimmed under a spinner until the resync repaints; resync textures stream as separate frames, so a slow link keeps progressing.
+- A **heartbeat** catches half-open sockets that never fire the browser's `onclose`.
+- **Cursors survive the reconnect** - the daemon remembers each surface's cursor and replays it.
+- **Single-display arbitration** - two browsers don't fight over the single display; the newest fresh page load wins.
 - Timers freeze on screen-off, burning no CPU while the device sleeps.
-- **Rendering pauses on a hidden tab** - backgrounding or switching away from the tab streams zero frames; the socket stays open, so switching back repaints just the delta, with no reconnect or resync.
+- **Rendering pauses on a hidden tab** - backgrounding streams zero frames; the socket stays open, so switching back repaints just the delta.
 
 > Session token, heartbeat, arbitration, and hidden-tab freeze: [Connection implementation](../internals/connection.md).

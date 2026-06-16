@@ -1,6 +1,6 @@
 # Running
 
-A GTK4 app reaches the browser in two pieces: the `gtk4-broadwayd` daemon owns the display and the WebSocket, and the app runs on the Broadway GDK backend, connecting to that daemon instead of an X11/Wayland display. `gtk4-brotway-run` ties both together - that's the normal way to run.
+A GTK4 app reaches the browser in two pieces: the `gtk4-broadwayd` daemon owns the display and the WebSocket, and the app runs on the Broadway GDK backend, connecting to that daemon instead of an X11/Wayland display. `gtk4-brotway-run` ties both together.
 
 ## The launcher
 
@@ -11,7 +11,7 @@ gtk4-brotway-run gtk4-widget-factory
 # -> http://localhost:8085  (triple-Shift = debug menu)
 ```
 
-It runs any GTK4 binary out of the box, even ones built against a full GTK. Those reference X11/Wayland symbols (`gdk_x11_*`, `gdk_wayland_*`) a broadway-only build omits; the fork's `libgtk-4` carries no-op stubs of the whole gdk-x11/gdk-wayland ABI, so they resolve at load - no preload, no rebuild. The stubs never run on a Broadway display: they sit behind the backend's `GDK_IS_X11/WAYLAND_*()` guards as dead code.
+It runs any GTK4 binary out of the box, even ones built against a full GTK: those reference `gdk_x11_*` / `gdk_wayland_*` symbols a broadway-only build omits, and the fork's `libgtk-4` carries no-op stubs of that whole ABI so they resolve at load - no preload, no rebuild.
 
 Useful flags:
 
@@ -34,13 +34,11 @@ export LD_LIBRARY_PATH=/usr/lib/gtk4-brotway   # so both load the fork lib
 GDK_BACKEND=broadway BROADWAY_DISPLAY=:5 your-gtk4-app
 ```
 
-Apps built against a full GTK work unchanged here too: the fork's `libgtk-4` carries no-op `gdk_x11_*`/`gdk_wayland_*` stubs, so nothing extra is needed.
-
 Open `http://localhost:8085`. The app renders into the daemon, which streams render nodes to every connected browser tab; the browser sends input (pointer, touch, keyboard) back over the same socket.
 
 ## The browser client
 
-The page the daemon serves is `client.html` + `broadway.js`, both embedded in the daemon binary. All the fork's browser-side logic lives in `broadway.js`: touch delivery, the clipboard bridge, pinch-zoom, reconnect, the [debug menu](../internals/debug-menu.md), and the paint-flash overlay. Both assets are served `Cache-Control: no-store`, so a plain reload always picks up a rebuilt and restarted `gtk4-broadwayd`. No hard-refresh needed.
+The page is `client.html` + `broadway.js`, both embedded in the daemon binary. All the fork's browser-side logic lives in `broadway.js`: touch delivery, the clipboard bridge, pinch-zoom, reconnect, the [debug menu](../internals/debug-menu.md), and the paint-flash overlay. Both assets are served `Cache-Control: no-store`, so a plain reload always picks up a rebuilt, restarted `gtk4-broadwayd`.
 
 > Which changes need only a broadwayd restart and which need the library rebuilt and the app restarted: [broadwayd vs libgtk](../build/from-source.md#iterating-broadwayd-vs-libgtk).
 

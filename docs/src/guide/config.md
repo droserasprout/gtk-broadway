@@ -1,10 +1,10 @@
 # Configuration reference
 
-Every knob the fork reads, in one place. Most are stock Broadway; the fork adds the debug-menu FD and the client-side `localStorage` / URL settings.
+Every knob the fork reads. Most are stock Broadway; the fork adds the debug-menu FD and the client-side `localStorage` / URL settings.
 
 ## Daemon
 
-`gtk4-broadwayd :N` takes a display number `N`. From it:
+`gtk4-broadwayd :N` takes a display number `N`:
 
 | What | Value |
 |------|-------|
@@ -24,16 +24,14 @@ The app process (not the daemon) reads these to target the daemon instead of X11
 
 ## PNG encoding
 
-The app re-encodes every changed texture to PNG per frame, so the libpng settings trade encode CPU (frame latency) against frame size. That one axis is a preset, not raw knobs:
+Every changed texture is re-encoded to PNG per frame, so the preset trades encode CPU (frame latency) against frame size:
 
 | `BROADWAY_PNG` | libpng settings | Use |
 |----------------|-----------------|-----|
-| `fast` (default) | filter `sub`, strategy `rle`, level 3 | localhost / LAN - bandwidth is free, CPU/latency is the cost |
-| `compact` | adaptive filter, default strategy, level 7 | remote / metered links - frame size dominates |
+| `fast` (default) | adaptive filter, level 3 | localhost / LAN - bandwidth is free, CPU/latency is the cost |
+| `compact` | adaptive filter, level 7 | remote / metered links - frame size dominates |
 
-The [debug menu](../internals/debug-menu.md) (Triple-Shift) has a **PNG encoding**
-selector that switches the preset live, overriding the env seed - use it with the
-Traffic / Pushes stats to compare on real content.
+The [debug menu](../internals/debug-menu.md) (Triple-Shift) has a **PNG encoding** selector that switches the preset live, overriding the env seed.
 
 ## Debug menu
 
@@ -49,7 +47,7 @@ Set per origin by `broadway.js`:
 
 | Key | Purpose |
 |-----|---------|
-| `broadwayZoom` | the committed [pinch-zoom](../features/zoom.md) factor, restored before the first frame on reload |
+| `broadwayZoom` | the committed [pinch-zoom](../features/input.md#pinch-to-zoom) factor, restored before the first frame on reload |
 
 ## URL parameters
 

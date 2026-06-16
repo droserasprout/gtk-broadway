@@ -41,7 +41,7 @@ Asset names are `gtk4-brotway_<gtk>-<rev>_<arch>.deb` (e.g. `gtk4-brotway_4.22.4
 
 ## Arch / CachyOS
 
-No prebuilt package - build it with the PKGBUILD on the `ci` branch (your system `gtk4` must be the same 4.22.x series). Read the `PKGBUILD` before building: it compiles GTK from the fork tag and installs into the private prefix.
+No prebuilt package - build it with the PKGBUILD on the `ci` branch (your system `gtk4` must be the same 4.22.x series):
 
 ```sh
 git clone -b ci https://github.com/droserasprout/gtk-brotway
