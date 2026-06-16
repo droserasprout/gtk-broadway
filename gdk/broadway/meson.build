@@ -15,6 +15,7 @@ gdk_broadway_sources = files([
   'gdkkeys-broadway.c',
   'gdkmonitor-broadway.c',
   'gdksurface-broadway.c',
+  'backend-stubs.c',
 ])
 
 gdk_broadway_public_headers = [

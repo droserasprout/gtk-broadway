@@ -1,17 +1,18 @@
 /* brotway-run: launch a host GTK4 app over the brotway Broadway backend.
  *
- * Works for both install layouts, auto-detected at runtime:
- *   - private prefix (Arch): fork lives in /usr/lib/gtk4-brotway, used via
- *     LD_LIBRARY_PATH, leaving the system gtk4 untouched.
- *   - system overlay (deb): the fork *is* libgtk-4 and gtk4-broadwayd is on
- *     PATH, so no LD_LIBRARY_PATH is needed.
+ * The fork installs into a private prefix (/usr/lib/gtk4-brotway) - both the deb
+ * and the Arch package - so we point LD_LIBRARY_PATH there to load it without
+ * touching the system gtk4.
  * Starts the fork's broadwayd, runs the app, tears the daemon down on exit.
- * Mirrors the repo's `make run-host`. No deps beyond libc - ships in the bare
- * base image, which carries no shell-friendly Python.
+ * With no app, just serves an empty Broadway display until Ctrl+C - handy for
+ * poking at the backend or attaching apps by hand. Mirrors the repo's
+ * `make run-host`. No deps beyond libc - ships in the bare base image, which
+ * carries no shell-friendly Python.
  *
  *   brotway-run gtk4-widget-factory
  *   brotway-run --auto --open gnome-calculator
  *   brotway-run --display :7 --port 9000 nicotine --isolated
+ *   brotway-run --open                       # empty display, Ctrl+C to stop
  */
 
 #define _GNU_SOURCE
@@ -65,10 +66,11 @@ static void on_signal(int sig)
 static void usage(FILE *out)
 {
   fputs(
-    "usage: brotway-run [options] <gtk4-app> [app-args...]\n"
+    "usage: brotway-run [options] [gtk4-app] [app-args...]\n"
     "\n"
     "Run a GTK4 app over the brotway Broadway backend (browser-rendered UI).\n"
     "The app runs with GDK_BACKEND=broadway; triple-Shift opens the debug menu.\n"
+    "With no app, just serves an empty Broadway display until Ctrl+C.\n"
     "\n"
     "options:\n"
     "  --display :N   Broadway display number (default :5; env BROTWAY_DISPLAY)\n"
@@ -78,12 +80,6 @@ static void usage(FILE *out)
     "  --open         open the WebUI in a browser ($BROWSER, else xdg-open)\n"
     "  -h, --help     show this help\n",
     out);
-}
-
-static int is_dir(const char *path)
-{
-  struct stat st;
-  return stat(path, &st) == 0 && S_ISDIR(st.st_mode);
 }
 
 /* Resolve a program to an executable path (PATH search), or NULL. */
@@ -182,60 +178,54 @@ int main(int argc, char **argv)
         }
     }
 
-  if (optind >= argc)
-    {
-      usage(stderr);
-      return 2;
-    }
-  char **cmd = &argv[optind];
+  /* No app is allowed: serve an empty Broadway display until Ctrl+C. */
+  int no_app = optind >= argc;
+  char **cmd = no_app ? NULL : &argv[optind];
 
-  /* Resolve the fork's broadwayd and, on Arch, point LD_LIBRARY_PATH at it. */
-  char bwd_path[PATH_MAX];
-  char *bwd;
-  if (is_dir(PREFIX))
+  /* Point LD_LIBRARY_PATH at the fork prefix so the app and broadwayd load the
+   * fork lib, leaving the system gtk4 untouched. */
+  const char *ldcur = getenv("LD_LIBRARY_PATH");
+  char *ldp;
+  if (ldcur && *ldcur)
     {
-      const char *cur = getenv("LD_LIBRARY_PATH");
-      char *ldp;
-      if (cur && *cur)
-        {
-          if (asprintf(&ldp, "%s:%s", PREFIX, cur) < 0)
-            return 1;
-        }
-      else
-        ldp = strdup(PREFIX);
-      setenv("LD_LIBRARY_PATH", ldp, 1);
-      free(ldp);
-
-      snprintf(bwd_path, sizeof bwd_path, "%s/gtk4-broadwayd", PREFIX);
-      bwd = access(bwd_path, X_OK) == 0 ? bwd_path : NULL;
+      if (asprintf(&ldp, "%s:%s", PREFIX, ldcur) < 0)
+        return 1;
     }
   else
-    bwd = which("gtk4-broadwayd");
+    ldp = strdup(PREFIX);
+  setenv("LD_LIBRARY_PATH", ldp, 1);
+  free(ldp);
 
-  if (!bwd)
+  char bwd_path[PATH_MAX];
+  snprintf(bwd_path, sizeof bwd_path, "%s/gtk4-broadwayd", PREFIX);
+  if (access(bwd_path, X_OK) != 0)
     {
       fputs("brotway-run: gtk4-broadwayd not found (is gtk4-brotway installed?)\n", stderr);
       return 1;
     }
+  char *bwd = bwd_path;
 
-  /* Verify the app exists up front for a clean error. */
-  char *app = which(cmd[0]);
-  if (!app)
+  if (!no_app)
     {
-      fprintf(stderr, "brotway-run: '%s' not found on PATH\n", cmd[0]);
-      return 127;
+      /* Verify the app exists up front for a clean error. */
+      char *app = which(cmd[0]);
+      if (!app)
+        {
+          fprintf(stderr, "brotway-run: '%s' not found on PATH\n", cmd[0]);
+          return 127;
+        }
+      free(app);
+
+      const char *gdk = getenv("GDK_BACKEND");
+      if (gdk && strcmp(gdk, "broadway") != 0)
+        fprintf(stderr, "brotway-run: warning: overriding GDK_BACKEND=%s with broadway\n", gdk);
+
+      /* Broadway clients are remote browsers - the client does IME/composition
+       * before events reach us. Server-side ibus is the wrong layer (and wants X11
+       * symbols this broadway-only lib lacks). Override if needed. */
+      if (!getenv("GTK_IM_MODULE"))
+        setenv("GTK_IM_MODULE", "simple", 1);
     }
-  free(app);
-
-  const char *gdk = getenv("GDK_BACKEND");
-  if (gdk && strcmp(gdk, "broadway") != 0)
-    fprintf(stderr, "brotway-run: warning: overriding GDK_BACKEND=%s with broadway\n", gdk);
-
-  /* Broadway clients are remote browsers - the client does IME/composition
-   * before events reach us. Server-side ibus is the wrong layer (and wants X11
-   * symbols this broadway-only lib lacks). Override if needed. */
-  if (!getenv("GTK_IM_MODULE"))
-    setenv("GTK_IM_MODULE", "simple", 1);
 
   /* Pick display/port. Port stays coupled to the display (8080+N) unless pinned. */
   int disp_num = atoi(disp_arg[0] == ':' ? disp_arg + 1 : disp_arg);
@@ -320,6 +310,14 @@ int main(int argc, char **argv)
         }
       if (opener > 0)
         waitpid(opener, NULL, 0);  /* reap the intermediate (instant) */
+    }
+
+  if (no_app)
+    {
+      printf("brotway-run: no app given - serving an empty Broadway display. Ctrl+C to stop.\n");
+      fflush(stdout);
+      for (;;)
+        pause();  /* SIGINT/SIGTERM -> on_signal -> cleanup -> _exit */
     }
 
   setenv("GDK_BACKEND", "broadway", 1);
