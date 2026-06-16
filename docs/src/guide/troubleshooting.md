@@ -22,7 +22,7 @@ The functional test: touch text selection (handles + Cut/Copy/Paste bubble) and 
 | Page loads, app never appears | app not started, or wrong target | run it via `gtk4-brotway-run` (or by hand with `LD_LIBRARY_PATH=/usr/lib/gtk4-brotway`; see [Running](running.md#by-hand)) |
 | Page loads, but shows "disconnected" | another fresh tab took the single display | newest fresh load wins; reload the tab you want to own it ([arbitration](../internals/connection.md#single-display-arbitration-newest-fresh-open-wins)) |
 | App fails to start / can't load `libgtk-4.so` | fork base doesn't match the system GTK (SONAME mismatch) | run the 4.22.4 deb on an `ubuntu:26.04` (GTK 4.22.x) base ([Requirements](requirements.md)); see below |
-| `undefined symbol: gdk_x11_*` / `gdk_wayland_*` | app or GTK module built against a full GTK; the broadway-only build omits those backends | launch via `gtk4-brotway-run`, which preloads the backend stubs (or by hand, export `LD_PRELOAD=/usr/lib/gtk4-brotway/libgdk-backend-stubs.so`; see [Running](running.md#by-hand)) |
+| `undefined symbol: gdk_x11_*` / `gdk_wayland_*` | running against an old fork `libgtk-4` (pre-stub); newer ones carry no-op stubs of the whole gdk-x11/gdk-wayland ABI | update to a current fork build ([Running](running.md#the-launcher)) |
 | Touch UI / OSK / clipboard missing | app launched directly, so it loaded stock GTK | start it via `gtk4-brotway-run` (or export `LD_LIBRARY_PATH=/usr/lib/gtk4-brotway`) |
 | Copy/paste silently does nothing | insecure context over remote `http://` | serve `https://` or `http://localhost` ([secure context](running.md#secure-context-note)) |
 | Middle-click paste doesn't work | PRIMARY selection is unsupported | by design - no JS API for it ([Known issues](known-issues.md)) |

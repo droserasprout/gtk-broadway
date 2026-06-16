@@ -11,7 +11,7 @@ gtk4-brotway-run gtk4-widget-factory
 # -> http://localhost:8085  (triple-Shift = debug menu)
 ```
 
-It runs any GTK4 binary out of the box, including apps built against a full GTK. Such apps (and GTK modules like input methods) reference X11/Wayland symbols - `gdk_x11_*`, `gdk_wayland_*` - that a broadway-only build omits, so loading them directly fails with `undefined symbol`. The launcher preloads a small no-op stub (`libgdk-backend-stubs.so`) of those symbols into the app it starts, so nothing has to be rebuilt. The stubs are never reached on a Broadway display: they sit behind the backend's `GDK_IS_X11/WAYLAND_*()` guards as dead code. The preload is scoped to that one app - the daemon, the `--open` browser, and the rest of the system never see it.
+It runs any GTK4 binary out of the box, even ones built against a full GTK. Those reference X11/Wayland symbols (`gdk_x11_*`, `gdk_wayland_*`) a broadway-only build omits; the fork's `libgtk-4` carries no-op stubs of the whole gdk-x11/gdk-wayland ABI, so they resolve at load - no preload, no rebuild. The stubs never run on a Broadway display: they sit behind the backend's `GDK_IS_X11/WAYLAND_*()` guards as dead code.
 
 Useful flags:
 
@@ -34,11 +34,7 @@ export LD_LIBRARY_PATH=/usr/lib/gtk4-brotway   # so both load the fork lib
 GDK_BACKEND=broadway BROADWAY_DISPLAY=:5 your-gtk4-app
 ```
 
-For an app built against a full GTK (X11/Wayland), also preload the backend stubs the launcher uses, or it fails with `undefined symbol: gdk_x11_*`/`gdk_wayland_*`:
-
-```sh
-export LD_PRELOAD=/usr/lib/gtk4-brotway/libgdk-backend-stubs.so
-```
+Apps built against a full GTK work unchanged here too: the fork's `libgtk-4` carries no-op `gdk_x11_*`/`gdk_wayland_*` stubs, so nothing extra is needed.
 
 Open `http://localhost:8085`. The app renders into the daemon, which streams render nodes to every connected browser tab; the browser sends input (pointer, touch, keyboard) back over the same socket.
 

@@ -55,11 +55,6 @@ package() {
 
     install -Dm755 gdk/broadway/gtk4-broadwayd "$prefix/gtk4-broadwayd"
 
-    # Backend stubs preloaded by gtk4-brotway-run (tools/stub-backends.c).
-    # Guarded so a tree without the stub still packages.
-    [ -f tools/libgdk-backend-stubs.so ] &&
-        install -Dm755 tools/libgdk-backend-stubs.so "$prefix/libgdk-backend-stubs.so"
-
     install -Dm755 tools/gtk4-brotway-debugmenu "$pkgdir/usr/bin/gtk4-brotway-debugmenu"
     install -Dm755 tools/gtk4-brotway-run "$pkgdir/usr/bin/gtk4-brotway-run"
 }

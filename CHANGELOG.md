@@ -8,7 +8,7 @@ Versioning from v3: release tags are three-part `vX.Y.Z`; package versions are `
 
 ### Fixed
 
-- `gtk4-brotway-run` no longer fails with `undefined symbol: gdk_x11_*`/`gdk_wayland_*` on apps (or GTK modules) built against a full GTK; it preloads no-op stubs of those symbols, so any GTK4 app runs.
+- The fork's `libgtk-4` carries no-op stubs of the full gdk-x11/gdk-wayland ABI, so any GTK4 app or module built against a full GTK loads against it instead of failing with `undefined symbol: gdk_x11_*`/`gdk_wayland_*`.
 
 ## v3.1.0 - 2026-06-15
 

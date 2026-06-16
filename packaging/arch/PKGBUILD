@@ -56,11 +56,6 @@ package() {
     # broadwayd lives in the private prefix; the wrapper invokes it by full path.
     install -Dm755 _build/gdk/broadway/gtk4-broadwayd "$prefix/gtk4-broadwayd"
 
-    # Backend stubs preloaded by gtk4-brotway-run (tools/stub-backends.c).
-    # Guarded: ships once the tag includes the stub.
-    [ -f _build/tools/libgdk-backend-stubs.so ] &&
-        install -Dm755 _build/tools/libgdk-backend-stubs.so "$prefix/libgdk-backend-stubs.so"
-
     # Net-new names - no clash with stock gtk4. broadwayd spawns the debug menu
     # by this name via PATH (BROADWAY_DEBUGMENU default).
     install -Dm755 _build/tools/gtk4-brotway-debugmenu "$pkgdir/usr/bin/gtk4-brotway-debugmenu"
