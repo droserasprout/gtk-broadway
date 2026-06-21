@@ -28,6 +28,7 @@
 #include "gtkicontheme.h"
 #include "gtkimage.h"
 #include <glib/gi18n-lib.h>
+#include "gtknative.h"
 #include "gtkprivate.h"
 #include "gtktypebuiltins.h"
 #include "gtkwindowprivate.h"
@@ -257,6 +258,7 @@ update_window_buttons (GtkWindowControls *self)
   gboolean maximized;
   gboolean resizable;
   gboolean deletable;
+  gboolean can_minimize;
   gboolean empty = TRUE;
   GtkRoot *root;
   GtkWindow *window = NULL;
@@ -308,6 +310,18 @@ update_window_buttons (GtkWindowControls *self)
   resizable = gtk_window_get_resizable (window);
   deletable = gtk_window_get_deletable (window);
 
+  /* Skip Minimize where the windowing system can't iconify (e.g. Broadway),
+   * matching the window menu (gtkwindowhandle.c) - the button would be a no-op.
+   * Capabilities only exist once realized, so default to allowing it until then
+   * (gtk_window_controls_root rebuilds on realize). */
+  {
+    GdkSurface *surface = gtk_native_get_surface (GTK_NATIVE (window));
+
+    can_minimize = !GDK_IS_TOPLEVEL (surface) ||
+                   (gdk_toplevel_get_capabilities (GDK_TOPLEVEL (surface)) &
+                    GDK_TOPLEVEL_CAPABILITIES_MINIMIZE) != 0;
+  }
+
   layout = get_layout (self);
 
   if (!layout)
@@ -342,7 +356,7 @@ update_window_buttons (GtkWindowControls *self)
             }
         }
       else if (strcmp (tokens[i], "minimize") == 0 &&
-               is_sovereign_window)
+               is_sovereign_window && can_minimize)
         {
           button = gtk_button_new ();
           gtk_widget_add_css_class (button, "minimize");
@@ -456,8 +470,16 @@ gtk_window_controls_root (GtkWidget *widget)
   root = GTK_WIDGET (gtk_widget_get_root (widget));
 
   if (GTK_IS_WINDOW (root))
-    g_signal_connect_swapped (root, "notify",
-                              G_CALLBACK (window_notify_cb), widget);
+    {
+      g_signal_connect_swapped (root, "notify",
+                                G_CALLBACK (window_notify_cb), widget);
+      /* A toplevel's capabilities (e.g. MINIMIZE) only exist once its surface is
+       * realized. The default titlebar is built mid-realize before the surface
+       * exists (and a handler connected during that emission won't fire for it),
+       * so rebuild on map - by then the surface and its capabilities are set. */
+      g_signal_connect_swapped (root, "map",
+                                G_CALLBACK (update_window_buttons), widget);
+    }
 
   update_window_buttons (GTK_WINDOW_CONTROLS (widget));
 }
@@ -471,6 +493,7 @@ gtk_window_controls_unroot (GtkWidget *widget)
 
   g_signal_handlers_disconnect_by_func (settings, update_window_buttons, widget);
   g_signal_handlers_disconnect_by_func (gtk_widget_get_root (widget), window_notify_cb, widget);
+  g_signal_handlers_disconnect_by_func (gtk_widget_get_root (widget), update_window_buttons, widget);
 
   GTK_WIDGET_CLASS (gtk_window_controls_parent_class)->unroot (widget);
 }

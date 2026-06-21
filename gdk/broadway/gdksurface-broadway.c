@@ -1788,9 +1788,11 @@ gdk_broadway_toplevel_get_property (GObject    *object,
       break;
 
     case LAST_PROP + GDK_TOPLEVEL_PROP_CAPABILITIES:
+      /* Broadway can't iconify - don't advertise MINIMIZE so the minimize
+       * action is disabled (the button is dropped from the layout too).
+       * The minimize code path stays for a future WM. */
       g_value_set_flags (value, GDK_TOPLEVEL_CAPABILITIES_MAXIMIZE |
-                                GDK_TOPLEVEL_CAPABILITIES_FULLSCREEN |
-                                GDK_TOPLEVEL_CAPABILITIES_MINIMIZE);
+                                GDK_TOPLEVEL_CAPABILITIES_FULLSCREEN);
       break;
 
     case LAST_PROP + GDK_TOPLEVEL_PROP_GRAVITY:

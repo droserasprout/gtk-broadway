@@ -166,7 +166,7 @@ do_popup_fallback (GtkWindowHandle *self,
   GdkSeat *seat;
   GtkWidget *box, *menuitem;
   GtkWindow *window;
-  gboolean maximized, resizable, deletable;
+  gboolean maximized, resizable, deletable, can_minimize;
 
   g_clear_pointer (&self->fallback_menu, gtk_widget_unparent);
 
@@ -174,15 +174,23 @@ do_popup_fallback (GtkWindowHandle *self,
 
   if (window)
     {
+      GdkSurface *surface = gtk_native_get_surface (GTK_NATIVE (window));
+
       maximized = gtk_window_is_maximized (window);
       resizable = gtk_window_get_resizable (window);
       deletable = gtk_window_get_deletable (window);
+      /* Skip Minimize where the windowing system can't iconify (e.g. Broadway),
+       * matching the titlebar buttons - it would be a no-op. */
+      can_minimize = !GDK_IS_TOPLEVEL (surface) ||
+                     (gdk_toplevel_get_capabilities (GDK_TOPLEVEL (surface)) &
+                      GDK_TOPLEVEL_CAPABILITIES_MINIMIZE) != 0;
     }
   else
     {
       maximized = FALSE;
       resizable = FALSE;
       deletable = FALSE;
+      can_minimize = FALSE;
     }
 
   self->fallback_menu = gtk_popover_menu_new ();
@@ -233,11 +241,14 @@ do_popup_fallback (GtkWindowHandle *self,
                     G_CALLBACK (restore_window_clicked), self);
   gtk_box_append (GTK_BOX (box), menuitem);
 
-  menuitem = gtk_model_button_new ();
-  g_object_set (menuitem, "text", _("Minimize"), NULL);
-  g_signal_connect (G_OBJECT (menuitem), "clicked",
-                    G_CALLBACK (minimize_window_clicked), self);
-  gtk_box_append (GTK_BOX (box), menuitem);
+  if (can_minimize)
+    {
+      menuitem = gtk_model_button_new ();
+      g_object_set (menuitem, "text", _("Minimize"), NULL);
+      g_signal_connect (G_OBJECT (menuitem), "clicked",
+                        G_CALLBACK (minimize_window_clicked), self);
+      gtk_box_append (GTK_BOX (box), menuitem);
+    }
 
   menuitem = gtk_model_button_new ();
   g_object_set (menuitem, "text", _("Maximize"), NULL);
