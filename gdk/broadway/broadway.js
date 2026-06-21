@@ -4480,10 +4480,52 @@ function setupDocument(document)
             /* Cache only; never insert into the hidden textarea. */
             ev.preventDefault();
         });
+        /* Compose key / dead key / desktop IME: e.g. Compose+a+' -> á. The
+         * sequence produces no usable keyPress (the keydowns are keyCode-229);
+         * the browser commits the result via composition into this focused
+         * textarea. Forward that committed text to GTK. Normal keys stay on the
+         * keyPress path (which preventDefaults its own beforeinput echo) and
+         * paste stays on the pasteCache path above. */
+        clipboardArea.addEventListener("compositionstart", function () {
+            imeComposing = true;
+        });
+        clipboardArea.addEventListener("compositionend", function (ev) {
+            imeComposing = false;
+            lastCompositionEndTime = Date.now();
+            lastCompositionText = ev.data || "";
+            if (ev.data)
+                commitTextToGtk(ev.data);
+            clipboardArea.value = "";
+        });
+        clipboardArea.addEventListener("beforeinput", function (ev) {
+            /* Composition commits on compositionend; paste is cached for GTK's
+             * own request; backspace/delete go via the keyPress path. Ignore
+             * those echoes here so nothing double-inserts. */
+            if (imeComposing ||
+                ev.inputType === "insertFromPaste" ||
+                ev.inputType === "deleteContentBackward" ||
+                ev.inputType === "deleteContentForward")
+                return;
+            if (ev.inputType === "insertText" ||
+                ev.inputType === "insertReplacementText") {
+                /* Don't re-send a char the keyPress or compositionend already
+                 * forwarded (matched by value, so a different char survives). */
+                if (ev.data === lastKeyPressText &&
+                    Date.now() - lastKeyPressTime < INPUT_ECHO_WINDOW_MS)
+                    return;
+                if (ev.data === lastCompositionText &&
+                    Date.now() - lastCompositionEndTime < INPUT_ECHO_WINDOW_MS)
+                    return;
+                if (ev.data) {
+                    commitTextToGtk(ev.data);
+                    clipboardArea.value = "";
+                }
+                ev.preventDefault();
+            }
+        });
         /* Refocus the capture textarea when the user interacts with the app or
          * returns to the tab, so the next paste is captured here - without
-         * holding focus hostage from other elements via a tight blur loop.
-         * (Desktop IME composition could still land here; rare for canvas apps.) */
+         * holding focus hostage from other elements via a tight blur loop. */
         document.addEventListener("mousedown", function () {
             if (clipboardArea) clipboardArea.focus();
         });
