@@ -116,6 +116,10 @@ Pointer fixes that aren't touch-specific:
 - **No crash when starting a drag from a text selection.**
 - **Clicking empty space in a list clears the selection.**
 
+## Desktop text input {#desktop-text-input}
+
+Compose-key sequences (`Compose a '` -> á) reach the app. Dead keys and desktop IME (ibus/fcitx) take the same path but are untested - [reports welcome](https://github.com/droserasprout/gtk-brotway/issues).
+
 ## Clipboard {#clipboard}
 
 Brotway bridges `GdkClipboard` <-> `gtk4-broadwayd` <-> the browser's `navigator.clipboard`, in both directions. No permission prompt shown in browser.
