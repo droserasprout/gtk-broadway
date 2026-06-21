@@ -6,6 +6,11 @@ Versioning from v3: release tags are three-part `vX.Y.Z`; package versions are `
 
 ## v3.1.2 - Unreleased
 
+### Fixed
+
+- Don't show no-op Minimize button in window menu and CSD.
+- Compose key, dead key, and desktop IME sequences (e.g. Compose+a+' for á) now reach the app.
+
 ### Changed
 
 - Mouse wheel and touchpad scrolling is smooth (precise pixel deltas) instead of a fixed step per wheel event.
