@@ -144,9 +144,16 @@ typedef struct {
   guint32 button;
 } BroadwayInputButtonMsg;
 
+/* Scroll deltas cross the wire as fixed-point ints (delta * scale); keep in
+ * sync with broadway.js. */
+#define BROADWAY_SCROLL_FIXED_SCALE 1000
+
 typedef struct {
   BroadwayInputPointerMsg pointer;
-  gint32 dir;
+  gint32 dx;       /* delta_x * BROADWAY_SCROLL_FIXED_SCALE */
+  gint32 dy;       /* delta_y * BROADWAY_SCROLL_FIXED_SCALE */
+  guint32 unit;    /* GdkScrollUnit: 0 = wheel clicks, 1 = surface pixels */
+  guint32 is_stop; /* 1 = scroll-stop marker (kinetic trigger); dx/dy are 0 */
 } BroadwayInputScrollMsg;
 
 typedef struct {

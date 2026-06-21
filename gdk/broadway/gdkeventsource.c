@@ -207,23 +207,23 @@ _gdk_broadway_events_got_input (GdkDisplay *display,
     surface = g_hash_table_lookup (display_broadway->id_ht, GINT_TO_POINTER (message->pointer.event_surface_id));
     if (surface)
       {
-        GdkScrollDirection scroll_dir;
+        /* Smooth scroll: precise deltas + is_stop end marker. WHEEL unit for
+         * notched wheels, SURFACE for the touchpad/precise stream. (No kinetic
+         * fling - see gtkscrolledwindow.) */
+        double dx = message->scroll.dx / (double) BROADWAY_SCROLL_FIXED_SCALE;
+        double dy = message->scroll.dy / (double) BROADWAY_SCROLL_FIXED_SCALE;
+        GdkScrollUnit unit = message->scroll.unit ? GDK_SCROLL_UNIT_SURFACE
+                                                  : GDK_SCROLL_UNIT_WHEEL;
 
-        switch (message->scroll.dir)
-          {
-          case 1:  scroll_dir = GDK_SCROLL_DOWN;  break;
-          case 2:  scroll_dir = GDK_SCROLL_LEFT;  break;
-          case 3:  scroll_dir = GDK_SCROLL_RIGHT; break;
-          default: scroll_dir = GDK_SCROLL_UP;    break;
-          }
-
-        event = gdk_scroll_event_new_discrete (surface,
-                                               display_broadway->core_pointer,
-                                               NULL,
-                                               message->base.time,
-                                               message->pointer.state,
-                                               scroll_dir,
-                                               GDK_SCROLL_RELATIVE_DIRECTION_UNKNOWN);
+        event = gdk_scroll_event_new (surface,
+                                      display_broadway->core_pointer,
+                                      NULL,
+                                      message->base.time,
+                                      message->pointer.state,
+                                      dx, dy,
+                                      message->scroll.is_stop != 0,
+                                      unit,
+                                      GDK_SCROLL_RELATIVE_DIRECTION_UNKNOWN);
 
         node = _gdk_event_queue_append (display, event);
         _gdk_windowing_got_event (display, node, event, message->base.serial);

@@ -4063,6 +4063,16 @@ function cancelEvent(ev)
     return false;
 }
 
+/* Smooth scroll: forward precise pixel deltas (fixed-point) instead of one step
+ * per wheel event, plus an idle 'stop' to end the sequence cleanly. No kinetic
+ * fling (disabled in gtkscrolledwindow). SCROLL_FIXED_SCALE matches
+ * BROADWAY_SCROLL_FIXED_SCALE (broadway-protocol.h). */
+const SCROLL_FIXED_SCALE = 1000;
+const SCROLL_LINE_HEIGHT = 16;   /* px per line for DOM_DELTA_PAGE fallback */
+const SCROLL_STOP_MS = 80;       /* idle after the last wheel before the stop */
+var scrollStopTimer = null;
+var scrollStopArgs = null;
+
 function onMouseWheel(ev)
 {
     updateForEvent(ev);
@@ -4085,22 +4095,53 @@ function onMouseWheel(ev)
         dy = ev.detail ? ev.detail : -ev.wheelDelta;
         dx = 0;
     }
+    dx = dx || 0;
+    dy = dy || 0;
 
-    /* Pick the dominant axis and forward one discrete GTK scroll in it. A
-     * horizontal touchpad swipe goes through as left/right scroll (dir 2/3)
-     * rather than letting Firefox turn it into a back/forward navigation
-     * gesture - which the preventDefault in cancelEvent suppresses. */
-    var dir;
-    if (Math.abs(dx) > Math.abs(dy))
-        dir = dx > 0 ? 3 : 2;        /* right : left */
-    else if (dy != 0)
-        dir = dy > 0 ? 1 : 0;        /* down : up */
-    else
+    /* DOM_DELTA_LINE (notched wheel) -> wheel-click unit, deltas are clicks;
+     * DOM_DELTA_PIXEL (touchpad / precise wheel) -> surface pixels; PAGE is
+     * rare, approximate it in pixels. The horizontal axis still goes through
+     * (Firefox would otherwise turn it into a back/forward gesture, which the
+     * preventDefault in cancelEvent suppresses). */
+    var unit;
+    if (ev.deltaMode === 1) {        /* DOM_DELTA_LINE */
+        unit = 0;                     /* GDK_SCROLL_UNIT_WHEEL */
+    } else {
+        unit = 1;                     /* GDK_SCROLL_UNIT_SURFACE */
+        if (ev.deltaMode === 2) {     /* DOM_DELTA_PAGE */
+            dx *= SCROLL_LINE_HEIGHT * 40;
+            dy *= SCROLL_LINE_HEIGHT * 40;
+        }
+    }
+
+    if (dx == 0 && dy == 0)
         return cancelEvent(ev);
 
-    sendInput (BROADWAY_EVENT_SCROLL, [realSurfaceWithMouse, id, pos.rootX, pos.rootY, pos.winX, pos.winY, lastState, dir]);
+    var fdx = Math.round(dx * SCROLL_FIXED_SCALE);
+    var fdy = Math.round(dy * SCROLL_FIXED_SCALE);
+
+    if (scrollStopTimer != null) {
+        window.clearTimeout(scrollStopTimer);
+        scrollStopTimer = null;
+    }
+
+    sendInput (BROADWAY_EVENT_SCROLL, [realSurfaceWithMouse, id, pos.rootX, pos.rootY, pos.winX, pos.winY, lastState, fdx, fdy, unit, 0]);
+
+    /* Arm the stop marker (is_stop=1) that ends the sequence, same target. */
+    scrollStopArgs = [realSurfaceWithMouse, id, pos.rootX, pos.rootY, pos.winX, pos.winY, lastState, 0, 0, unit, 1];
+    scrollStopTimer = window.setTimeout(sendScrollStop, SCROLL_STOP_MS);
 
     return cancelEvent(ev);
+}
+
+/* rawSendInput keeps the last scroll's timestamp, ending the sequence in order. */
+function sendScrollStop()
+{
+    scrollStopTimer = null;
+    if (scrollStopArgs == null)
+        return;
+    rawSendInput (BROADWAY_EVENT_SCROLL, scrollStopArgs);
+    scrollStopArgs = null;
 }
 
 /* Cancel the in-flight single-finger GTK touch (if any) when a pinch starts, so

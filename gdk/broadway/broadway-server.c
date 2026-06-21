@@ -1243,7 +1243,7 @@ broadway_event_min_size (guint32 type)
     case BROADWAY_EVENT_POINTER_MOVE:        words += 7;     break; /* pointer */
     case BROADWAY_EVENT_BUTTON_PRESS:
     case BROADWAY_EVENT_BUTTON_RELEASE:      words += 7 + 1; break; /* pointer + button */
-    case BROADWAY_EVENT_SCROLL:              words += 7 + 1; break; /* pointer + dir */
+    case BROADWAY_EVENT_SCROLL:              words += 7 + 4; break; /* pointer + dx,dy,unit,is_stop */
     case BROADWAY_EVENT_TOUCH:               words += 9;     break; /* touch */
     case BROADWAY_EVENT_KEY_PRESS:
     case BROADWAY_EVENT_KEY_RELEASE:         words += 2;     break; /* key, state */
@@ -1326,7 +1326,10 @@ parse_input_message (BroadwayInput *input, const unsigned char *message, gsize p
   case BROADWAY_EVENT_SCROLL:
     p = parse_pointer_data (p, &msg.pointer);
     update_future_pointer_info (server, &msg.pointer);
-    msg.scroll.dir = ntohl (*p++);
+    msg.scroll.dx = ntohl (*p++);
+    msg.scroll.dy = ntohl (*p++);
+    msg.scroll.unit = ntohl (*p++);
+    msg.scroll.is_stop = ntohl (*p++);
     break;
 
   case BROADWAY_EVENT_TOUCH:

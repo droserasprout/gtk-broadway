@@ -2233,8 +2233,10 @@ gtk_scrolled_window_init (GtkScrolledWindow *scrolled_window)
   gtk_css_node_set_state (priv->junction_node, gtk_css_node_get_state (widget_node));
   g_object_unref (priv->junction_node);
 
-  controller = gtk_event_controller_scroll_new (GTK_EVENT_CONTROLLER_SCROLL_BOTH_AXES |
-                                                GTK_EVENT_CONTROLLER_SCROLL_KINETIC);
+  /* Broadway fork: no kinetic fling from scroll events - it animates many frames
+   * a remote framebuffer renders choppily, and the browser already drives the
+   * deltas. Touch fling (swipe_gesture) is a separate path, unaffected. */
+  controller = gtk_event_controller_scroll_new (GTK_EVENT_CONTROLLER_SCROLL_BOTH_AXES);
   g_signal_connect (controller, "scroll-begin",
                     G_CALLBACK (scroll_controller_scroll_begin), scrolled_window);
   g_signal_connect (controller, "scroll",
@@ -2243,8 +2245,7 @@ gtk_scrolled_window_init (GtkScrolledWindow *scrolled_window)
                     G_CALLBACK (scroll_controller_scroll_end), scrolled_window);
   gtk_widget_add_controller (widget, controller);
 
-  controller = gtk_event_controller_scroll_new (GTK_EVENT_CONTROLLER_SCROLL_BOTH_AXES |
-                                                GTK_EVENT_CONTROLLER_SCROLL_KINETIC);
+  controller = gtk_event_controller_scroll_new (GTK_EVENT_CONTROLLER_SCROLL_BOTH_AXES);
   gtk_event_controller_set_propagation_phase (controller, GTK_PHASE_CAPTURE);
   g_signal_connect (controller, "scroll-begin",
                     G_CALLBACK (stop_kinetic_scrolling_cb), scrolled_window);
