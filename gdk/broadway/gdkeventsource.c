@@ -318,6 +318,27 @@ _gdk_broadway_events_got_input (GdkDisplay *display,
     surface = g_hash_table_lookup (display_broadway->id_ht, GINT_TO_POINTER (message->configure_notify.id));
     if (surface)
       {
+        /* The client (browser) is authoritative for surface position; adopt its
+         * root x/y so GDK's surface->x/y + impl->root_x stay in sync. The
+         * Broadway compositor can place/move a surface where GDK didn't (e.g. a
+         * browser-side move), and gdk_broadway_toplevel_begin_resize anchors the
+         * moveresize off surface->x - a stale value made the window snap to
+         * (0,0) and grow (issue #61). configure_notify carries the absolute
+         * root; keep surface->x parent-relative like move_resize_internal does. */
+        GdkBroadwaySurface *impl = GDK_BROADWAY_SURFACE (surface);
+        int prx = 0, pry = 0;
+
+        if (surface->parent)
+          {
+            prx = GDK_BROADWAY_SURFACE (surface->parent)->root_x;
+            pry = GDK_BROADWAY_SURFACE (surface->parent)->root_y;
+          }
+
+        impl->root_x = message->configure_notify.x;
+        impl->root_y = message->configure_notify.y;
+        surface->x = message->configure_notify.x - prx;
+        surface->y = message->configure_notify.y - pry;
+
         gdk_surface_request_layout (surface);
 
         if (surface->resize_count >= 1)

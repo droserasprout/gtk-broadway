@@ -1055,6 +1055,7 @@ struct _MoveResizeData
   gboolean is_resize;
   GdkSurfaceEdge resize_edge;
   int moveresize_button;
+  gboolean moveresize_first; /* anchor moveresize_x/y from the first event's root */
   int moveresize_x;
   int moveresize_y;
   int moveresize_orig_x;
@@ -1095,6 +1096,20 @@ update_pos (MoveResizeData *mv_resize,
             int             new_root_y)
 {
   int dx, dy;
+
+  /* #61: anchor the drag to the first event's root position rather than the
+   * value reconstructed in begin_resize (in + surface->x). The reconstruction
+   * breaks whenever the press coords arrive in a different frame than the
+   * resize target (e.g. a click framed in the main window), yielding
+   * dx == -surface->x and snapping the window to (0,0). Anchoring off the live
+   * event stream keeps the delta in one consistent frame, so the first delta
+   * is 0 by construction. */
+  if (mv_resize->moveresize_first)
+    {
+      mv_resize->moveresize_x = new_root_x;
+      mv_resize->moveresize_y = new_root_y;
+      mv_resize->moveresize_first = FALSE;
+    }
 
   dx = new_root_x - mv_resize->moveresize_x;
   dy = new_root_y - mv_resize->moveresize_y;
@@ -1388,6 +1403,7 @@ gdk_broadway_toplevel_begin_resize (GdkToplevel    *toplevel,
   mv_resize->is_resize = TRUE;
   mv_resize->moveresize_button = button;
   mv_resize->resize_edge = edge;
+  mv_resize->moveresize_first = TRUE;
   mv_resize->moveresize_x = x + surface->x;
   mv_resize->moveresize_y = y + surface->y;
   mv_resize->moveresize_surface = g_object_ref (surface);
@@ -1428,6 +1444,7 @@ gdk_broadway_toplevel_begin_move (GdkToplevel *toplevel,
 
   mv_resize->is_resize = FALSE;
   mv_resize->moveresize_button = button;
+  mv_resize->moveresize_first = TRUE;
   mv_resize->moveresize_x = x + surface->x;
   mv_resize->moveresize_y = y + surface->y;
   mv_resize->moveresize_surface = g_object_ref (surface);
