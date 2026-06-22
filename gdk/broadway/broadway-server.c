@@ -2681,6 +2681,12 @@ broadway_server_surface_set_modal_hint (BroadwayServer *server,
     return;
 
   surface->modal_hint = modal_hint;
+
+  if (server->output)
+    {
+      broadway_output_set_modal (server->output, id, modal_hint);
+      broadway_server_flush (server);
+    }
 }
 
 void
@@ -3212,6 +3218,9 @@ broadway_server_resync_surfaces (BroadwayServer *server)
           const guchar *idata = g_bytes_get_data (surface->icon, &ilen);
           broadway_output_set_icon (server->output, surface->id, idata, ilen);
         }
+
+      if (surface->modal_hint)
+        broadway_output_set_modal (server->output, surface->id, TRUE);
 
       if (surface->visible)
         broadway_output_show_surface (server->output, surface->id);

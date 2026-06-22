@@ -113,4 +113,7 @@ void            broadway_output_set_icon             (BroadwayOutput *output,
                                                      int             id,
                                                      const guchar   *data,
                                                      gsize           len);
+void            broadway_output_set_modal            (BroadwayOutput *output,
+                                                     int             id,
+                                                     gboolean        modal);
 

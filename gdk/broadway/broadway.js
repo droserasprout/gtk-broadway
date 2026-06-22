@@ -50,6 +50,7 @@ const BROADWAY_OP_DEBUG_SET_SCREEN = 25;
 const BROADWAY_OP_SET_CURSOR = 26;
 const BROADWAY_OP_SET_TITLE = 27;
 const BROADWAY_OP_SET_ICON = 28;
+const BROADWAY_OP_SET_MODAL = 29;
 
 /* CSS cursor keywords GTK can ask for via gdk_cursor_get_name. An unknown name
  * is dropped to "default" so the browser never silently keeps a stale cursor. */
@@ -587,6 +588,7 @@ function cmdCreateSurface(id, x, y, width, height)
 {
     var surface = { id: id, x: x, y:y, width: width, height: height };
     surface.transientParent = 0;
+    surface.modal = false;
     surface.visible = false;
     surface.imageData = null;
     surface.nodes = {};
@@ -611,11 +613,72 @@ function cmdCreateSurface(id, x, y, width, height)
     return div;
 }
 
+var modalScrim = null;
+
+/* A full-screen dim + input-blocking layer placed just below the topmost
+ * visible modal surface. broadwayd tracks modal_hint but doesn't enforce
+ * modality (the GTK app blocks button events, but motion/hover still leaks to
+ * the parent and there's no dim). The scrim dims the blocked surfaces and
+ * swallows all pointer/touch input so it never reaches them - the same backdrop
+ * a real compositor draws for a modal. It lives in the surfaces' stacking
+ * context (the zoom wrapper) so z-index interleaves with them. */
+function ensureModalScrim() {
+    if (modalScrim)
+        return modalScrim;
+    var d = document.createElement("div");
+    /* Oversized so it covers every blocked surface wherever it sits; the
+     * viewport clips the overdraw. Colour matches libadwaita's dark dialog/sheet
+     * backdrop (shade-color rgb(0 0 6 / 25%) doubled). Light mode would be
+     * rgb(0 0 6 / 14%), but the client has no theme signal; the WebUI defaults
+     * to dark. */
+    d.style.cssText = "position:absolute;left:-10000px;top:-10000px;width:30000px;height:30000px;background:rgba(0,0,6,0.5);display:none;";
+    /* The broadway input handlers live on document; stop events here so a click
+     * on the dim can't reach (or refocus away from the modal to) a blocked
+     * surface. Exception: while a pointer/touch gesture is mid-flight (dragging
+     * the modal's titlebar past its own edge lands the cursor on the scrim),
+     * let the events bubble to the document handlers - they route to the grabbed
+     * surface, so the drag keeps tracking and its release still ends the grab.
+     * Swallowing them would freeze the drag and, eating the button-up/touch-end,
+     * strand GTK's move grab. A fresh press/tap on the dim (no gesture active) is
+     * still swallowed, so blocked surfaces stay inert. */
+    var swallow = function (ev) {
+        if (grab.surface != null || firstTouchDownId != null)
+            return;
+        ev.preventDefault();
+        ev.stopPropagation();
+    };
+    ["mousedown", "mouseup", "mousemove", "mouseover", "mouseout", "click",
+     "dblclick", "contextmenu", "wheel", "touchstart", "touchmove", "touchend",
+     "touchcancel"].forEach(function (t) {
+        d.addEventListener(t, swallow, { passive: false });
+    });
+    (zoomRoot || document.body).appendChild(d);
+    modalScrim = d;
+    return d;
+}
+
 function restackSurfaces() {
-    for (var i = 0; i < stackingOrder.length; i++) {
-        var surface = stackingOrder[i];
-        surface.div.style.zIndex = i;
+    /* Topmost visible modal blocks everything stacked below it. */
+    var modalIdx = -1;
+    for (var i = stackingOrder.length - 1; i >= 0; i--) {
+        if (stackingOrder[i].modal && stackingOrder[i].visible) {
+            modalIdx = i;
+            break;
+        }
     }
+
+    var z = 0;
+    for (var i = 0; i < stackingOrder.length; i++) {
+        if (i == modalIdx) {
+            var scrim = ensureModalScrim();
+            scrim.style.zIndex = z++;
+            scrim.style.display = "block";
+        }
+        stackingOrder[i].div.style.zIndex = z++;
+    }
+
+    if (modalIdx == -1 && modalScrim)
+        modalScrim.style.display = "none";
 }
 
 /* Tab title + favicon follow the topmost real toplevel (no transient parent),
@@ -1709,6 +1772,7 @@ function handleCommands(cmd, display_commands, new_textures, modified_trees)
             var i = stackingOrder.indexOf(surface);
             if (i >= 0)
                 stackingOrder.splice(i, 1);
+            need_restack = true; /* a destroyed modal must drop the scrim */
             var div = surface.div;
 
             display_commands.push([DISPLAY_OP_DELETE_NODE, div]);
@@ -1876,6 +1940,16 @@ function handleCommands(cmd, display_commands, new_textures, modified_trees)
             surface = surfaces[id];
             if (surface)
                 surface.iconUrl = _icondata.length > 0 ? pngBytesToDataUrl(_icondata) : null;
+            break;
+
+        case BROADWAY_OP_SET_MODAL:
+            id = cmd.get_16();
+            var _modal = cmd.get_bool();
+            surface = surfaces[id];
+            if (surface && surface.modal != _modal) {
+                surface.modal = _modal;
+                need_restack = true;
+            }
             break;
 
         case BROADWAY_OP_REQUEST_CLIPBOARD:
@@ -4795,6 +4869,8 @@ function resetClientState()
     }
     surfaces = {};
     stackingOrder = [];
+    if (modalScrim)
+        modalScrim.style.display = "none";
     for (var tid in textures) {
         var t = textures[tid];
         if (t && t.url && t.url.indexOf("blob") == 0)

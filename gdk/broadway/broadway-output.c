@@ -443,6 +443,16 @@ broadway_output_set_input_region (BroadwayOutput *output,
 }
 
 void
+broadway_output_set_modal (BroadwayOutput *output,
+                           int             id,
+                           gboolean        modal)
+{
+  write_header (output, BROADWAY_OP_SET_MODAL);
+  append_uint16 (output, id);
+  append_bool (output, modal);
+}
+
+void
 broadway_output_reassert_pointer (BroadwayOutput *output,
                                   int id, int x, int y)
 {

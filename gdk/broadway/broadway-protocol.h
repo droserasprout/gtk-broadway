@@ -115,6 +115,7 @@ typedef enum {
   BROADWAY_OP_SET_CURSOR = 26,   /* daemon->client: set a surface's CSS cursor by name */
   BROADWAY_OP_SET_TITLE = 27,    /* daemon->client: set a surface's window title */
   BROADWAY_OP_SET_ICON = 28,     /* daemon->client: set a surface's icon (PNG bytes, len 0 = unset) */
+  BROADWAY_OP_SET_MODAL = 29,    /* daemon->client: mark a surface modal (1) or not (0) */
 } BroadwayOpType;
 
 typedef struct {
