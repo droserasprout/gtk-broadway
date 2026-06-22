@@ -19,7 +19,8 @@ Legend: **🟢** full support, **🟡** partial/workaround/caveats, **🔴** not
 | Tablet / stylus input (pressure, tilt, tool) | 🔴 | 🔴 [^stylus] | 🟢 |
 | On-screen keyboard sync | 🔴 | 🟡 [^osk] | 🟢 |
 | IME / non-Latin / preedit | 🔴 | 🟡 [^ime] | 🟢 |
-| Smooth / touchpad scroll-source detection | 🟡 | 🟡 [^scroll] | 🟢 |
+| Smooth (pixel-precise) scrolling | 🔴 | 🟢 [^smooth] | 🟢 |
+| Touchpad / scroll-source detection | 🔴 | 🟡 [^scroll] | 🟢 |
 | Keyboard layout groups | 🔴 | 🔴 | 🟢 |
 | Inhibit system shortcuts (grab all keys) | 🔴 | 🔴 | 🟢 |
 | Named mouse cursors (resize / text / pointer) | 🔴 | 🟢 [^cursor] | 🟢 |
@@ -74,9 +75,11 @@ Legend: **🟢** full support, **🟡** partial/workaround/caveats, **🔴** not
 
 [^cursor]: Stock Broadway always shows the default arrow. The fork forwards GTK's per-surface cursor to the browser's CSS `cursor` (resize edges, text, links, ...). See [Dynamic cursor](input.md#dynamic-cursor).
 
-[^ime]: Non-Latin / CJK / gesture-typed text is committed via composition events. Autocorrect deletions are not bridged.
+[^ime]: Non-Latin / CJK / gesture-typed text commits via composition events; single backspace/delete is bridged. Word-level autocorrect/replacement isn't - with no mirror of GTK's buffer/caret, the old word can't be removed, so a correction appends instead of replacing.
 
-[^scroll]: Stock forwards only discrete wheel steps. The fork sends pixel-precise deltas with a wheel/surface unit (smooth scroll), minus kinetic fling and true device-source detection - it follows the browser's `deltaMode`. macOS reports everything as surface (smooth) scroll.
+[^smooth]: Stock forwards only discrete wheel steps. The fork sends pixel-precise deltas, so scrolling is smooth - minus kinetic fling, which is dropped (it animates many frames the remote framebuffer renders choppily; the browser already drives the deltas).
+
+[^scroll]: The wheel-vs-surface unit is inferred from the browser's `deltaMode`, not the real device - browser-dependent (Chromium blurs wheel vs touchpad) - and every scroll rides the core pointer, so there's no `GDK_SOURCE_TOUCHPAD` for an app to branch on.
 
 [^render]: Broadway has no GPU context; it renders through `gskbroadwayrenderer` with a Cairo fallback. The fork doesn't change this. The other backends reach GL/Vulkan/Metal natively.
 
