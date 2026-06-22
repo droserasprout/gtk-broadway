@@ -19,7 +19,12 @@ The fork routes scale/rotate transforms through the cairo fallback at display re
 
 ## Window placement
 
-**New windows open centered** instead of top-left, and re-center on zoom so they can't be stranded off-screen. The maximized main window keeps its position.
+**New windows open centered** instead of top-left, and re-center on zoom so they can't be stranded off-screen.
+
+- **Auto-maximize (opt-in).** With `BROADWAY_MAXIMIZE` set, the app's main (first) toplevel opens maximized (and keeps its position on re-center); dialogs still float.
+- **Modal dialogs dim and block** the window behind them - the backdrop a compositor would draw.
+- **No Minimize button** - Broadway has no window manager to iconify, so it's dropped from titlebars and the window menu.
+- **Dialogs no longer snap** to the top-left (and grow) when you drag or resize them while another window is clicked.
 
 ## Tab title and favicon {#tab-title-and-favicon}
 

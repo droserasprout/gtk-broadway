@@ -22,14 +22,28 @@ Brotway is a fork of GTK that fills in the missing pieces of the Broadway backen
 
 Broadway is GTK's HTML5 backend: instead of drawing to a local display (Wayland, X11, Win32, macOS), it renders the app into a web browser over a WebSocket. A `gtk4-broadwayd` daemon owns a virtual display and serves a page; any browser that connects sees and drives the running GTK app. No app code changes - the same binary picks Broadway through `GDK_BACKEND=broadway`. So a native GTK app can run on a screen it was never built for: a phone browser, a remote machine, a kiosk.
 
-It started as Alexander Larsson's frame-streaming prototype ([2010](https://blogs.gnome.org/alexl/2010/11/26/gtk-3-0-html5-backend/), merged for GTK 3.2) and was [reworked around GTK4's render-node pipeline](https://blogs.gnome.org/alexl/2019/03/29/broadway-adventures-in-gtk4/): the GSK Broadway renderer turns render nodes into a compact stream the browser reconstructs in the DOM, rasterizing with cairo only what Broadway can't express. That node-stream design is what the fork builds on ([Architecture](internals/architecture.md)).
+It started as Alexander Larsson's frame-streaming prototype[^1] (merged for GTK 3.2) and was reworked around GTK4's render-node pipeline[^2]: the GSK Broadway renderer turns render nodes into a compact stream the browser reconstructs in the DOM, rasterizing with cairo only what Broadway can't express. That node-stream design is what the fork builds on ([Architecture](internals/architecture.md)).
 
-Broadway stayed an experimental, lightly-maintained corner of GTK, and in February 2025 was [deprecated alongside X11](https://www.phoronix.com/news/GTK-X11-Now-Deprecated) (stable 4.18), to be removed entirely in GTK5. There is no GTK5 Broadway to move to, so the fork is anchored to the GTK 4.x lifetime.
+Broadway stayed an experimental, lightly-maintained corner of GTK, and in February 2025 was deprecated[^3] alongside X11 (stable 4.18), to be removed entirely in GTK5.
 
 ## Project goals
 
-- **Thin layer on GTK4.** Patches touch only the Broadway backend, never app-facing API, so each point release re-forks with a minimal diff. The fork lives only as long as GTK4.
+- **Thin layer on GTK4.** Patches touch only the Broadway backend, never app-facing API, so each point release re-forks with a minimal diff.
 - **Accurate rendering.** The browser matches what the app draws: correct scaling, no white flash, no stretched bitmaps, crisp HiDPI and zoom.
 - **Any browser, any device.** Touch and mobile are primary targets; touch text editing, the OSK, IME, and pinch-zoom work as well as mouse and keyboard.
 - **Match the GNOME/Mutter experience.** A Broadway session behaves like a real compositor, not a degraded remote view.
 - **Stable.** No crashes, wedged input, or dropped sessions; reconnect in place.
+
+## Links
+
+Original docs, blog posts, discussions, everything Broadway related.
+
+- [Gtk: The Broadway windowing system](https://docs.gtk.org/gtk4/broadway.html)
+- [Gtk: Preparing for GTK5](https://docs.gtk.org/gtk4/migrating-4to5.html)
+- [Phoronix: GTK4's Broadway HTML5 Backend Coming Back To Ubuntu, Debian (2022)](https://www.phoronix.com/news/GTK4-Broadway-Being-Used)
+- [HackerNews: The Broadway Windowing System (2024)](https://news.ycombinator.com/item?id=39175112)
+- [HackerNews: New Renderers for GTK (2024)](https://news.ycombinator.com/item?id=39172377)
+
+[^1]: [Larsson: Gtk+ 3.0 html5 backend (2010)](https://blogs.gnome.org/alexl/2010/11/26/gtk-3-0-html5-backend/)
+[^2]: [Larsson: Broadway adventures in Gtk4 (2019)](https://blogs.gnome.org/alexl/2019/03/29/broadway-adventures-in-gtk4/)
+[^3]: [Phoronix: GTK's X11 Backend Now Deprecated, Planned For Removal In GTK 5 (2025)](https://www.phoronix.com/news/GTK-X11-Now-Deprecated)

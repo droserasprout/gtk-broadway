@@ -56,10 +56,6 @@ Legend: **🟢** full support, **🟡** partial/workaround/caveats, **🔴** not
 | Accessibility bridge | 🔴 | 🔴 | 🟢 [^a11y] |
 | Desktop settings (dark mode / accent / fonts) | 🔴 | 🔴 | 🟢 [^settings] |
 
-## What the fork adds over stock Broadway
-
-Text clipboard, real touch (events, text-selection UI, pinch-zoom), OSK and IME bridging, named mouse cursors, HiDPI reflow, opening external links, and session management (in-place reconnect, hidden-tab pause). Plus rendering-correctness fixes around client-side decorations: popups land on their anchor, a popover's shadow passes clicks through (via the [input region](../internals/input-region.md)), and uniform borders render without the 1px seam. Cross-process DnD, rich/image clipboard, PRIMARY selection, and GPU rendering stay unsupported, same as stock.
-
 [^clip]: Stock upstream Broadway ships no `GdkClipboard`. The fork adds one, bridging the browser clipboard in both directions. See [Clipboard](input.md#clipboard).
 
 [^rich]: Text-only by design; the read path rejects non-text. No image clipboard support.
@@ -80,7 +76,7 @@ Text clipboard, real touch (events, text-selection UI, pinch-zoom), OSK and IME 
 
 [^ime]: Non-Latin / CJK / gesture-typed text is committed via composition events. Autocorrect deletions are not bridged.
 
-[^scroll]: Broadway forwards wheel scroll, but has no touchpad/source distinction or true smooth scroll; macOS reports everything as surface (smooth) scroll.
+[^scroll]: Stock forwards only discrete wheel steps. The fork sends pixel-precise deltas with a wheel/surface unit (smooth scroll), minus kinetic fling and true device-source detection - it follows the browser's `deltaMode`. macOS reports everything as surface (smooth) scroll.
 
 [^render]: Broadway has no GPU context; it renders through `gskbroadwayrenderer` with a Cairo fallback. The fork doesn't change this. The other backends reach GL/Vulkan/Metal natively.
 
