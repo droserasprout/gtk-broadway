@@ -131,11 +131,20 @@ var useDataUrls = window.location.search.includes("datauri");
 
 /* check if we are on Android and using Chrome */
 var isAndroidChrome = false;
+/* Gecko (Firefox) does native Ctrl+wheel page-zoom (innerWidth/dpr change ->
+ * resize -> GTK reflows); Blink/WebKit only visual-viewport pinch, which never
+ * reflows, so we drive zoom ourselves there (#55). Detect the engine by a
+ * feature (mozInnerScreenX, -moz-appearance), not the UA string - a UA override
+ * could otherwise misroute Firefox onto the manual path. */
+var isGecko = false;
 {
     var ua = navigator.userAgent.toLowerCase();
     if (ua.indexOf("android") > -1 && ua.indexOf("chrom") > -1) {
 	isAndroidChrome = true;
     }
+    isGecko = ("mozInnerScreenX" in window) ||
+              (!!window.CSS && !!window.CSS.supports && window.CSS.supports("-moz-appearance", "none")) ||
+              (ua.indexOf("firefox") > -1);
 }
 /* check for the passive option for Event listener */
 let passiveSupported = false;
@@ -400,6 +409,17 @@ var touchSurfaceIds = {};
  * (getPositionsFromEvent), since the wrapper's transform-origin is 0 0. */
 var ZOOM_MIN = 0.25;
 var ZOOM_MAX = 5.0;
+/* Ctrl+wheel zoom step: zoomFactor *= exp(-deltaY * this) - a wheel notch and a
+ * trackpad pinch both scale proportionally. */
+var ZOOM_WHEEL_SENS = 0.001;
+/* A wheel-zoom "burst" mirrors a touch pinch: a cursor-anchored CSS preview
+ * while notches arrive, then the crisp reflow on settle. wheelFocus is the
+ * pivot; wheelStartZoom is the committed zoom (plain scale) at burst start. */
+var wheelBurstActive = false;
+var wheelStartZoom = 1.0;
+var wheelFocusX = 0;
+var wheelFocusY = 0;
+var wheelSettleTimer = null;
 var zoomFactor = 1.0;       /* committed zoom; drives reported size + remap */
 var zoomRoot = null;        /* the #zoomRoot wrapper element (or document.body) */
 /* Live pinch state. activeTouches tracks every finger by identifier so we can
@@ -476,6 +496,17 @@ function applyPinchPreview() {
     var mid = activeTouchMidpoint();
     var tx = mid.x - zoomFactor * (pinchStartMid.x / pinchStartZoom);
     var ty = mid.y - zoomFactor * (pinchStartMid.y / pinchStartZoom);
+    zoomRoot.style.transform = "translate(" + tx + "px," + ty + "px) scale(" + zoomFactor + ")";
+}
+
+/* Live wheel preview: applyPinchPreview's focal-anchor math, pivoting on the
+ * fixed cursor (wheelFocus). Keeps the point under the cursor put as zoom grows,
+ * so the view grows from the cursor, not the top-left corner. */
+function applyWheelPreview() {
+    if (zoomRoot == null)
+        return;
+    var tx = wheelFocusX - zoomFactor * (wheelFocusX / wheelStartZoom);
+    var ty = wheelFocusY - zoomFactor * (wheelFocusY / wheelStartZoom);
     zoomRoot.style.transform = "translate(" + tx + "px," + ty + "px) scale(" + zoomFactor + ")";
 }
 
@@ -4073,16 +4104,61 @@ const SCROLL_STOP_MS = 80;       /* idle after the last wheel before the stop */
 var scrollStopTimer = null;
 var scrollStopArgs = null;
 
+/* Ctrl+wheel zoom for engines that pinch instead of reflowing (Blink/WebKit).
+ * Like a touch pinch: cursor-anchored preview during the burst, one crisp reflow
+ * on settle - GTK isn't reflowed per notch and the view grows from the cursor. */
+function wheelZoom(ev) {
+    if (pinnedScreen)          /* screen pinned: zoom is fixed */
+        return;
+    var dy = ev.deltaY;
+    if (!dy)
+        return;
+    if (!wheelBurstActive) {
+        wheelBurstActive = true;
+        wheelStartZoom = zoomFactor;   /* committed zoom: transform is a plain scale */
+        wheelFocusX = ev.clientX;
+        wheelFocusY = ev.clientY;
+    }
+    /* Exponential step: scroll up (dy < 0) zooms in, down zooms out. */
+    var z = clampZoom(zoomFactor * Math.exp(-dy * ZOOM_WHEEL_SENS));
+    if (z != zoomFactor) {
+        zoomFactor = z;
+        applyWheelPreview();
+    }
+    /* Restart the settle timer; commit once the notches stop. */
+    if (wheelSettleTimer != null)
+        clearTimeout(wheelSettleTimer);
+    wheelSettleTimer = setTimeout(commitWheelZoom, 200);
+}
+
+/* Burst over: report the new size so GTK relays out crisp, then drop the preview
+ * translate back to a plain scale (which the reflow fills). Mirrors endPinch. */
+function commitWheelZoom() {
+    wheelSettleTimer = null;
+    wheelBurstActive = false;
+    if (pinnedScreen) {
+        applyZoomTransform(1.0);
+        return;
+    }
+    saveZoom();
+    sendScreenSizeChanged();
+    applyZoomTransform(zoomFactor);
+}
+
 function onMouseWheel(ev)
 {
     updateForEvent(ev);
     ev = ev ? ev : window.event;
 
-    /* Ctrl+wheel (and trackpad pinch, which the browser reports as ctrlKey) is
-     * the browser's native page-zoom on desktop - leave it entirely alone (no
-     * preventDefault, no forward) so zooming keeps working. */
-    if (ev.ctrlKey)
-        return;
+    /* Ctrl+wheel (and trackpad pinch, reported as ctrlKey) is a zoom gesture.
+     * Gecko page-zooms natively and reflows GTK - leave it; Blink/WebKit only
+     * visual-viewport pinch (no reflow), so drive zoom ourselves (#55). */
+    if (ev.ctrlKey) {
+        if (isGecko)
+            return;
+        wheelZoom(ev);
+        return cancelEvent(ev);
+    }
 
     var id = getSurfaceId(ev);
     var pos = getPositionsFromEvent(ev, id);
@@ -4167,6 +4243,13 @@ function endInFlightGtkTouch() {
 }
 
 function beginPinch() {
+    /* A touch pinch cancels any in-flight wheel-zoom burst so its settle can't
+     * fire mid-pinch and stomp the transform. */
+    if (wheelSettleTimer != null) {
+        clearTimeout(wheelSettleTimer);
+        wheelSettleTimer = null;
+    }
+    wheelBurstActive = false;
     pinchActive = true;
     suppressTouchForward = true;
     pinchStartZoom = zoomFactor;
