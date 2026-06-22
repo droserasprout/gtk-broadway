@@ -6,11 +6,18 @@ Versioning from v3: release tags are three-part `vX.Y.Z`; package versions are `
 
 ## v3.1.2 - Unreleased
 
+### Added
+
+- Opt-in `BROADWAY_MAXIMIZE` maximizes the app's main (first) toplevel; off by default, dialogs still float.
+
 ### Fixed
 
 - Don't show no-op Minimize button in window menu and CSD.
 - Dialog windows no longer snap top-left and grow when clicking the window below.
+- Modal dialogs now dim the window behind them and block its hover/clicks.
 - Desktop: compose key, dead key, and IME sequences now reach the app.
+- Desktop: smooth mouse-wheel and touchpad scrolling; use precise deltas instead of a fixed step per event.
+- Blink/WebKit: Ctrl+scroll now zooms the app, cursor-anchored with a crisp reflow instead of pinch-zoom of the visual viewport.
 
 ## v3.1.1 - 2026-06-16
 
