@@ -4,7 +4,9 @@ All notable changes to this project will be documented in this file. The format 
 
 Versioning from v3: release tags are three-part `vX.Y.Z`; package versions are `<gtk-base>-X.Y.Z`, e.g. `4.22.4-3.0.0`. Single base (GTK 4.22.x). See [Requirements](https://droserasprout.github.io/gtk-brotway/guide/requirements.html).
 
-## v3.1.2 - Unreleased
+## v3.1.2 - 2026-06-22
+
+[release](https://github.com/droserasprout/gtk-brotway/releases/tag/v3.1.2) | [diff](https://github.com/droserasprout/gtk-brotway/compare/v3.1.1...v3.1.2)
 
 ### Added
 
