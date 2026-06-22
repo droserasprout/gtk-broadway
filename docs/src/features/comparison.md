@@ -17,7 +17,7 @@ Legend: **🟢** full support, **🟡** partial/workaround/caveats, **🔴** not
 | Touch text-selection UI (handles + bubble) | 🔴 | 🟢 | 🟢 |
 | Multi-touch gesture (pinch-zoom UI) | 🔴 | 🟢 [^zoom] | 🟢 |
 | Tablet / stylus input (pressure, tilt, tool) | 🔴 | 🔴 [^stylus] | 🟢 |
-| On-screen keyboard sync | 🔴 | 🟡 [^osk] | 🟢 |
+| On-screen keyboard sync | 🔴 | 🟢 [^osk] | 🟢 |
 | IME / non-Latin / preedit | 🔴 | 🟡 [^ime] | 🟢 |
 | Smooth (pixel-precise) scrolling | 🔴 | 🟢 [^smooth] | 🟢 |
 | Touchpad / scroll-source detection | 🔴 | 🟡 [^scroll] | 🟢 |
@@ -71,7 +71,7 @@ Legend: **🟢** full support, **🟡** partial/workaround/caveats, **🔴** not
 
 [^stylus]: A stylus works as plain pointer/touch input; pressure, tilt, and tool identity are not bridged.
 
-[^osk]: Show/hide mostly synced; residual flicker on mixed selection-bubble focus state.
+[^osk]: Summoned by focusing a hidden input on GTK's keyboard hint (`SET_SHOW_KEYBOARD`); an 80-space buffer keeps GBoard emitting backspace.
 
 [^cursor]: Stock Broadway always shows the default arrow. The fork forwards GTK's per-surface cursor to the browser's CSS `cursor` (resize edges, text, links, ...). See [Dynamic cursor](input.md#dynamic-cursor).
 
