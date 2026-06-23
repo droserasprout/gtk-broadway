@@ -39,6 +39,7 @@ What the daemon tells the browser to do - create surfaces, push render nodes, mo
 | `BROADWAY_OP_SET_CURSOR`        | 26 | set a surface's CSS cursor by name ([Dynamic cursor](cursor.md)) |
 | `BROADWAY_OP_SET_TITLE`         | 27 | set a surface's window title (mirrored to the browser tab title) ([Tab identity](../features/display.md#tab-title-and-favicon)) |
 | `BROADWAY_OP_SET_ICON`          | 28 | set a surface's icon, PNG bytes; len 0 unsets (mirrored to the favicon) ([Tab identity](../features/display.md#tab-title-and-favicon)) |
+| `BROADWAY_OP_SET_MODAL`         | 29 | mark a surface modal (1) or not (0); client dims and input-blocks behind the topmost modal ([Window placement](../features/display.md#window-placement)) |
 
 ## Input events
 
