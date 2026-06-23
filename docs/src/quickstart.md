@@ -14,14 +14,21 @@ wget -O gtk.deb "https://github.com/droserasprout/gtk-brotway/releases/download/
 apt-get install -y ./gtk.deb
 ```
 
-It installs into a private prefix, safe on a desktop. On Arch build the PKGBUILD; for containers use the base image - see [Installation](guide/installation.md).
+On Arch, build and install from the PKGBUILD (your `gtk4` must be the same 4.22.x series):
+
+```sh
+git clone -b ci https://github.com/droserasprout/gtk-brotway
+cd gtk-brotway/packaging/arch && makepkg -si
+```
+
+It installs into a private prefix, safe on a desktop. For containers use the base image - see [Installation](guide/installation.md).
 
 ## Run an app against it
 
 `gtk4-brotway-run` starts the daemon, runs the app, and tears the daemon down on exit:
 
 ```sh
-gtk4-brotway-run your-gtk4-app
+gtk4-brotway-run gtk4-demo   # changeme
 ```
 
 Open `http://localhost:8085` in a browser. Copy/paste, touch text editing, and pinch-zoom now work, for any GTK4 binary. For a non-localhost deployment, add `--address 0.0.0.0`, put it behind a TLS terminator, and serve it over a [secure context](features/input.md#clipboard-limitations) so the clipboard works; see [Security model](guide/security.md).

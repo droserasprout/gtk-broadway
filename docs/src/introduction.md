@@ -28,7 +28,7 @@ Broadway stayed an experimental, lightly-maintained corner of GTK, and in Februa
 
 ## Project goals
 
-- **Thin layer on GTK4.** Patches touch only the Broadway backend, never app-facing API, so each point release re-forks with a minimal diff.
+- **Thin layer on GTK4.** Patches stay inside the Broadway backend, so each point release re-forks with a minimal diff.
 - **Accurate rendering.** The browser matches what the app draws: correct scaling, no white flash, no stretched bitmaps, crisp HiDPI and zoom.
 - **Any browser, any device.** Touch and mobile are primary targets; touch text editing, the OSK, IME, and pinch-zoom work as well as mouse and keyboard.
 - **Match the GNOME/Mutter experience.** A Broadway session behaves like a real compositor, not a degraded remote view.

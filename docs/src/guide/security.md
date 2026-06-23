@@ -17,7 +17,7 @@ The [clipboard bridge](../features/input.md#clipboard) needs a [secure context](
 Broadway has none of its own, so put it at the TLS terminator:
 
 - **HTTP basic auth** (Traefik `basicauth`, nginx `auth_basic`, Caddy `basicauth`), or forward-auth / SSO for multi-user.
-- **Network isolation** - bind the daemon to loopback or an internal Docker network so only the proxy reaches it; never publish `8080 + N` publicly.
+- **Network isolation** - bind the daemon to loopback or an internal Docker network so only the proxy reaches it, keeping `8080 + N` off public interfaces.
 - Auth gates *reaching* the app, not *who controls it*: there are no per-client sessions, so two authenticated users still contend for the one display.
 
 ## In a container
@@ -54,7 +54,7 @@ The app container joins Traefik's network and publishes no ports, so the daemon 
 ```yaml
 services:
   app:
-    image: your-gtk4-app-image    # runs the two processes from Process layout
+    image: your-gtk4-app-image    # changeme; runs the two processes from Process layout
     networks: [proxy]
     # no ports: - the daemon stays internal
     labels:                       # Swarm: put these under deploy.labels
@@ -100,7 +100,8 @@ After=broadwayd.service
 [Service]
 User=broadway
 Environment=LD_LIBRARY_PATH=/usr/lib/gtk4-brotway GDK_BACKEND=broadway BROADWAY_DISPLAY=:5
-ExecStart=/usr/bin/your-gtk4-app
+# changeme
+ExecStart=/usr/bin/gtk4-demo
 Restart=on-failure
 
 [Install]

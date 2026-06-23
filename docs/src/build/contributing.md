@@ -6,11 +6,11 @@ The tree is large, but you only touch a small corner. This page covers that corn
 
 ## Scope and philosophy
 
-- **Broadway only.** The Broadway backend plus the bits of GDK/GSK/GTK it needs - never X11, Wayland, Win32, or macOS.
-- **GTK 4.x only - never GTK5.** GTK5 removes Broadway entirely, so the fork is anchored to the GTK 4.x lifetime.
+- **Broadway only.** The Broadway backend plus the bits of GDK/GSK/GTK it needs.
+- **GTK 4.x only.** GTK5 removes Broadway entirely, so the fork is anchored to the GTK 4.x lifetime.
 - **Stay close to upstream.** Small, surgical diffs rebase and review easier.
 - **We do not upstream.** Patches live here for the life of GTK4.
-- **App-agnostic docs.** The fork serves any GTK4 binary; docs and examples stay generic (`your-gtk4-app`), never naming a downstream app.
+- **App-agnostic docs.** The fork serves any GTK4 binary; keep examples on upstream demo apps (`gtk4-demo`, `gtk4-widget-factory`, `gnome-calculator`).
 
 ## Supported base
 

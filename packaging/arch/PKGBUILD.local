@@ -6,7 +6,7 @@
 # Same broadway-only recipe and private-prefix layout as PKGBUILD; only the
 # source and the pkgver differ.
 pkgname=gtk4-brotway
-pkgver=3.1.1.local
+pkgver=3.1.2.local
 pkgrel=1
 _gtkbase=4.22.4
 pkgdesc="GTK 4.22 Broadway backend fork (local working-tree build)"

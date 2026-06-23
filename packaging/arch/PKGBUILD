@@ -1,13 +1,13 @@
 # Conflict-free overlay: lives in a private prefix (/usr/lib/gtk4-brotway),
 # opt into the fork per launch via `gtk4-brotway-run`.
 pkgname=gtk4-brotway
-pkgver=3.1.1
+pkgver=3.1.2
 pkgrel=1
 _gtkbase=4.22.4
 pkgdesc="GTK 4.22 Broadway backend fork"
 arch=('x86_64' 'aarch64')
 url="https://github.com/droserasprout/gtk-brotway"
-license=('LGPL-2.1-or-later')
+license=('LGPL-2.0-or-later')
 depends=('gtk4')
 makedepends=('meson' 'ninja' 'git' 'pkgconf' 'gettext' 'sassc' 'python'
              'glib2' 'cairo' 'pango' 'gdk-pixbuf2' 'graphene' 'libepoxy'

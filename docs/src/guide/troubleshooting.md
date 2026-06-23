@@ -17,7 +17,7 @@ Functional test: touch text selection and clipboard copy/paste only exist in the
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| Blank page, no connection | daemon not running, or browser hitting the wrong port | run `gtk4-brotway-run <app>` (it starts the daemon); the page is on `8080 + N` ([Running](running.md)) |
+| Blank page, no connection | daemon not running, or browser hitting the wrong port | run `gtk4-brotway-run gtk4-demo` (it starts the daemon); the page is on `8080 + N` ([Running](running.md)) |
 | Blank page behind a proxy | proxy not forwarding the WebSocket upgrade | forward `Upgrade`/`Connection` headers; all ops run over the WS ([Security model](security.md)) |
 | Page loads, app never appears | app not started, or wrong target | run it via `gtk4-brotway-run` (or by hand; see [Running](running.md#by-hand)) |
 | Page loads, but shows "disconnected" | another fresh tab took the single display | newest fresh load wins; reload the tab you want to own it ([arbitration](../internals/connection.md#single-display-arbitration-newest-fresh-open-wins)) |

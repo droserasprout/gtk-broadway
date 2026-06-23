@@ -8,9 +8,10 @@ Broadway speaks [three message vocabularies](../internals/architecture.md#three-
 
 ## 2. Append the enum values
 
-All wire constants live in `gdk/broadway/broadway-protocol.h`. Append at the **end** of each enum - never renumber, or every deployed daemon/browser pair breaks ([Wire protocol](../internals/protocol.md)):
+All wire constants live in `gdk/broadway/broadway-protocol.h`. Append at the **end** of each enum ([Wire protocol](../internals/protocol.md)):
 
 ```c
+  /* append only: renumbering breaks every deployed daemon/browser pair */
   BROADWAY_OP_OPEN_URI = 21,        /* BroadwayOpType */
   BROADWAY_REQUEST_OPEN_URI,        /* BroadwayRequestType */
 ```
@@ -39,7 +40,7 @@ It clamps `len` to `BROADWAY_CLIPBOARD_MAX_SIZE`, sizes the message as `G_STRUCT
 
 ## 4. Daemon dispatch
 
-`broadwayd.c` routes requests in the `client_handle_request` switch. Reject a request framed smaller than its fixed header, then clamp the wire `len` against the framed size before reading - never trust the client-supplied length:
+`broadwayd.c` routes requests in the `client_handle_request` switch. Reject a request framed smaller than its fixed header, then clamp the wire `len` against the framed size before reading:
 
 ```c
 case BROADWAY_REQUEST_OPEN_URI:
@@ -47,6 +48,7 @@ case BROADWAY_REQUEST_OPEN_URI:
     {
       gsize max = request->base.size -
                   G_STRUCT_OFFSET (BroadwayRequestOpenUri, uri);
+      /* clamp: the client-supplied len is untrusted */
       guint32 len = request->open_uri.len > max
                     ? (guint32) max : request->open_uri.len;
       broadway_server_open_uri (server, request->open_uri.uri, len);

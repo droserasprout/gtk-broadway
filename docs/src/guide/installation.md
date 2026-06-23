@@ -1,6 +1,6 @@
 # Installation
 
-Three ways to get the fork. All install into a private prefix (`/usr/lib/gtk4-brotway`), never touch the system GTK, and so are desktop-safe; the fork only needs to match the [4.22.x base](requirements.md):
+Three ways to get the fork. All install into a private prefix (`/usr/lib/gtk4-brotway`), leave the system GTK untouched, and so are desktop-safe; the fork only needs to match the [4.22.x base](requirements.md):
 
 - **Debian package** `gtk4-brotway` - from [GitHub Releases](https://github.com/droserasprout/gtk-brotway/releases) ([Ubuntu / Debian](#ubuntu--debian))
 - **Base Docker image** `ghcr.io/droserasprout/gtk-brotway` - the `.deb` baked over Ubuntu, multi-arch ([Docker](#docker))

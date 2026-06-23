@@ -30,7 +30,7 @@ The touch path emitted `ENTER`/`LEAVE` crossings on the mouse device, so a tap r
 
 These turn on the popup/toplevel distinction, carried by the [`is_popup` wire flag](protocol.md#changed-stock-struct-is_popup-on-new_surface).
 
-**Tap-outside dismiss.** `check_autohide` looks up the grab on the event's device (now the touchscreen), but the popover grab is on the logical pointer. The fix falls back to `device->associated`; a fallback can only find a grab, never hold one, so it can't strand a grab. *(libgtk, `gdk/gdksurface.c`.)*
+**Tap-outside dismiss.** `check_autohide` looks up the grab on the event's device (now the touchscreen), but the popover grab is on the logical pointer. The fix falls back to `device->associated`; a fallback only reads a grab, so it can't strand one. *(libgtk, `gdk/gdksurface.c`.)*
 
 **Bubble dismiss vs Cut/Copy/Paste.** The action fired instead of the bubble dismissing first: the daemon raised+focused the tapped surface on every touch-begin, so tapping the bubble (a popup) moved keyboard focus to it and the toplevel's focus-out handler hid the bubble before the button's release ran. The fix: on `TOUCH`, only raise+focus genuine toplevels (`!is_popup`), skip popups. *(daemon.)*
 
