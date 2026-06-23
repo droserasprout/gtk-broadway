@@ -17,6 +17,7 @@ Versioning from v3: release tags are three-part `vX.Y.Z`; package versions are `
 - Desktop: compose key, dead key, and IME sequences now reach the app.
 - Desktop: smooth mouse-wheel and touchpad scrolling; use precise deltas instead of a fixed step per event.
 - Blink/WebKit: Ctrl+scroll now zooms the app instead of pinch-zoom of the visual viewport.
+- Notebook tab-strip edge fade no longer dissolves the header's bottom border.
 
 ## v3.1.1 - 2026-06-16
 
