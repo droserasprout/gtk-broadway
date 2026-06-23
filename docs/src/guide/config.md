@@ -22,12 +22,6 @@ The app process (not the daemon) reads these to target the daemon instead of X11
 | `GDK_BACKEND` | `broadway` | use the Broadway GDK backend |
 | `BROADWAY_DISPLAY` | `:N` | connect to the daemon for display `N` |
 
-## Window
-
-| Variable | Value | Purpose |
-|----------|-------|---------|
-| `BROADWAY_MAXIMIZE` | unset/`0` = off (default); any other value = on | Maximize the app's main (first) toplevel on open; dialogs still float. |
-
 ## PNG encoding
 
 Every changed texture is re-encoded to PNG per frame, so the preset trades encode CPU (frame latency) against frame size:

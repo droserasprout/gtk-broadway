@@ -4,23 +4,19 @@ All notable changes to this project will be documented in this file. The format 
 
 Versioning from v3: release tags are three-part `vX.Y.Z`; package versions are `<gtk-base>-X.Y.Z`, e.g. `4.22.4-3.0.0`. Single base (GTK 4.22.x). See [Requirements](https://droserasprout.github.io/gtk-brotway/guide/requirements.html).
 
-## v3.1.2 - 2026-06-22
+## v3.1.2 - 2026-06-2?
 
 [release](https://github.com/droserasprout/gtk-brotway/releases/tag/v3.1.2) | [diff](https://github.com/droserasprout/gtk-brotway/compare/v3.1.1...v3.1.2)
-
-### Added
-
-- Opt-in `BROADWAY_MAXIMIZE` maximizes the app's main (first) toplevel; off by default, dialogs still float.
 
 ### Fixed
 
 - Don't show no-op Minimize button in window menu and CSD.
 - Dialog windows no longer snap top-left and grow when clicking the window below.
-- Menus and popovers on a floating (non-maximized) window open on-screen instead of off-screen.
+- Menus and popovers on a non-maximized window open at correct position.
 - Modal dialogs now dim the window behind them and block its hover/clicks.
 - Desktop: compose key, dead key, and IME sequences now reach the app.
 - Desktop: smooth mouse-wheel and touchpad scrolling; use precise deltas instead of a fixed step per event.
-- Blink/WebKit: Ctrl+scroll now zooms the app, cursor-anchored with a crisp reflow instead of pinch-zoom of the visual viewport.
+- Blink/WebKit: Ctrl+scroll now zooms the app instead of pinch-zoom of the visual viewport.
 
 ## v3.1.1 - 2026-06-16
 
