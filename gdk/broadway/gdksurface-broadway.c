@@ -1853,25 +1853,6 @@ show_surface (GdkSurface *surface)
     gdk_surface_invalidate_rect (surface, NULL);
 }
 
-/* BROADWAY_MAXIMIZE opt-in: auto-maximize the app's main (first) toplevel.
- * Read once; any value but unset/empty/"0" enables it. */
-static gboolean
-broadway_auto_maximize_main (void)
-{
-  static int enabled = -1;
-
-  if (enabled < 0)
-    {
-      const char *v = g_getenv ("BROADWAY_MAXIMIZE");
-      enabled = (v != NULL && v[0] != '\0' && strcmp (v, "0") != 0) ? 1 : 0;
-    }
-
-  return enabled;
-}
-
-/* One main window per client: only the first toplevel is auto-maximized. */
-static gboolean auto_maximize_done = FALSE;
-
 static void
 gdk_broadway_toplevel_present (GdkToplevel       *toplevel,
                                GdkToplevelLayout *layout)
@@ -1879,31 +1860,17 @@ gdk_broadway_toplevel_present (GdkToplevel       *toplevel,
   GdkSurface *surface = GDK_SURFACE (toplevel);
   int width, height;
   gboolean maximize;
-  gboolean app_set_maximized;
 
   gdk_broadway_surface_unminimize (surface);
 
   compute_toplevel_size (surface, gdk_toplevel_layout_get_resizable (layout), &width, &height);
 
-  app_set_maximized = gdk_toplevel_layout_get_maximized (layout, &maximize);
-  if (app_set_maximized)
+  if (gdk_toplevel_layout_get_maximized (layout, &maximize))
     {
       if (maximize)
         gdk_broadway_surface_maximize (surface);
       else
         gdk_broadway_surface_unmaximize (surface);
-    }
-
-  /* Opt-in (BROADWAY_MAXIMIZE): maximize the app's first toplevel when it didn't
-   * ask for a state itself. A Broadway client is one browser viewport, so a
-   * floating main window drives the placement bugs - off-screen popover (#51),
-   * Ctrl+wheel zoom not reflowing (#55); maximizing sidesteps them. Dialogs
-   * (later toplevels) still float. (#52) */
-  if (broadway_auto_maximize_main () && !app_set_maximized && !auto_maximize_done &&
-      !GDK_SURFACE_IS_MAPPED (surface))
-    {
-      auto_maximize_done = TRUE;
-      gdk_broadway_surface_maximize (surface);
     }
 
   gdk_surface_request_layout (surface);
