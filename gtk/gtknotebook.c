@@ -4991,6 +4991,16 @@ gtk_notebook_snapshot_tabs (GtkGizmo    *gizmo,
        * outward by that much so the grey reaches the true strip edge; the gizmo's
        * overflow:hidden clips the excess. */
       const int over = 4;
+      /* The tabs gizmo's negative margin overlaps the header's separator border,
+       * so a full-height band dissolves that 1px line at the faded edge. Keep the
+       * band off the bordered edge (bottom for TOP tabs, top for BOTTOM). */
+      GtkCssStyle *hstyle = gtk_css_node_get_style (gtk_widget_get_css_node (widget));
+      int top_off = 0, bot_off = 0;
+      if (tab_pos == GTK_POS_BOTTOM)
+        top_off = (int) gtk_css_number_value_get (gtk_css_style_get_value (hstyle, GTK_CSS_PROPERTY_BORDER_TOP_WIDTH), 100);
+      else
+        bot_off = (int) gtk_css_number_value_get (gtk_css_style_get_value (hstyle, GTK_CSS_PROPERTY_BORDER_BOTTOM_WIDTH), 100);
+      int fh = h - top_off - bot_off;
 
       if (w > 2 * fade)
         {
@@ -5000,14 +5010,14 @@ gtk_notebook_snapshot_tabs (GtkGizmo    *gizmo,
           if (notebook->touch_pan_px > 0)   /* more tabs off the left edge */
             {
               style = gtk_css_node_get_style (notebook->tab_fade_node[0]);
-              gtk_css_boxes_init_border_box (&boxes, style, -over, 0, fade + over, h);
+              gtk_css_boxes_init_border_box (&boxes, style, -over, top_off, fade + over, fh);
               gtk_css_style_snapshot_background (&boxes, snapshot);
               gtk_css_style_snapshot_border (&boxes, snapshot);
             }
           if (notebook->touch_pan_px < notebook->touch_pan_max)   /* ... off the right */
             {
               style = gtk_css_node_get_style (notebook->tab_fade_node[1]);
-              gtk_css_boxes_init_border_box (&boxes, style, w - fade, 0, fade + over, h);
+              gtk_css_boxes_init_border_box (&boxes, style, w - fade, top_off, fade + over, fh);
               gtk_css_style_snapshot_background (&boxes, snapshot);
               gtk_css_style_snapshot_border (&boxes, snapshot);
             }
