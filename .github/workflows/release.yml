@@ -47,8 +47,45 @@ jobs:
       container: ${{ matrix.target.container }}
       demos: ${{ matrix.target.demos }}
 
+  # Native Arch package, built in an archlinux container against CURRENT Arch gtk4
+  # (so it only loads on an Arch still on the 4.22.x series). Best-effort: if Arch's
+  # gtk4 has drifted off 4.22 the build fails and the .deb release still ships.
+  arch:
+    needs: setup
+    runs-on: ubuntu-latest
+    container: archlinux:base-devel
+    continue-on-error: true
+    env:
+      REV: ${{ needs.setup.outputs.rev }}
+    steps:
+      - name: Install toolchain
+        run: |
+          pacman -Syu --noconfirm --needed base-devel git
+          useradd -m builder
+          printf 'builder ALL=(ALL) NOPASSWD: ALL\n' > /etc/sudoers.d/builder
+
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: packaging/arch
+
+      - name: Build native .pkg.tar.zst
+        run: |
+          set -eux
+          # Pin the package version to this release; _gtkbase stays as committed.
+          sed -i "s/^pkgver=.*/pkgver=${REV}/" packaging/arch/PKGBUILD
+          chown -R builder:builder packaging/arch
+          sudo -u builder bash -c 'cd packaging/arch && makepkg -s --noconfirm --needed --clean'
+          ls -l packaging/arch/*.pkg.tar.zst
+
+      - name: Upload Arch artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: arch-pkg
+          path: packaging/arch/*.pkg.tar.zst
+          if-no-files-found: error
+
   release:
-    needs: build
+    needs: [build, arch]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -63,6 +100,13 @@ jobs:
         with:
           pattern: deb-*
           merge-multiple: true
+
+      - name: Download Arch package (best-effort)
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: arch-pkg
+          path: arch
 
       # Pull the `## vN` section out of CHANGELOG.md as the release body. Falls
       # back to a generic line if the section is missing, so a release never fails
@@ -100,3 +144,10 @@ jobs:
             || gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --title "${TAG}" \
                  --notes-file notes.md
           gh release upload "$TAG" ./versioned/*.deb --repo "$GITHUB_REPOSITORY" --clobber
+          # Attach the native Arch package (install with `pacman -U`) when the Arch
+          # build succeeded (skipped if Arch gtk4 has drifted off 4.22).
+          shopt -s nullglob
+          arch_assets=(arch/*.pkg.tar.zst)
+          if [ ${#arch_assets[@]} -gt 0 ]; then
+            gh release upload "$TAG" "${arch_assets[@]}" --repo "$GITHUB_REPOSITORY" --clobber
+          fi

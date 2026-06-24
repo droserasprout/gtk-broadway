@@ -4,7 +4,7 @@ Three ways to get the fork. All install into a private prefix (`/usr/lib/gtk4-br
 
 - **Debian package** `gtk4-brotway` - from [GitHub Releases](https://github.com/droserasprout/gtk-brotway/releases) ([Ubuntu / Debian](#ubuntu--debian))
 - **Base Docker image** `ghcr.io/droserasprout/gtk-brotway` - the `.deb` baked over Ubuntu, multi-arch ([Docker](#docker))
-- **Arch PKGBUILD** - built from source ([Arch / CachyOS](#arch--cachyos))
+- **Arch package** - prebuilt x86_64 `.pkg.tar.zst`, or build from the PKGBUILD ([Arch / CachyOS](#arch--cachyos))
 
 ## What gets installed
 
@@ -41,12 +41,19 @@ Asset names are `gtk4-brotway_<gtk>-<rev>_<arch>.deb` (e.g. `gtk4-brotway_4.22.4
 
 ## Arch / CachyOS
 
-No prebuilt package - build it with the PKGBUILD on the `ci` branch (your system `gtk4` must be the same 4.22.x series):
+Prebuilt x86_64 package - download the `.pkg.tar.zst` from the Release and install it. It's frozen to the `gtk4` it was built against, so rebuild from source after an Arch `gtk4` soname bump:
+
+```sh
+rel=v3.1.2       # the release to install - see the Releases page for the latest tag
+wget "https://github.com/droserasprout/gtk-brotway/releases/download/${rel}/gtk4-brotway-${rel#v}-1-x86_64.pkg.tar.zst"
+sudo pacman -U ./gtk4-brotway-*.pkg.tar.zst
+```
+
+Or build from source (any arch; tracks your live `gtk4`, which must be the same 4.22.x series):
 
 ```sh
 git clone -b ci https://github.com/droserasprout/gtk-brotway
 cd gtk-brotway/packaging/arch
-less PKGBUILD     # review what it builds and installs
 makepkg -si
 ```
 

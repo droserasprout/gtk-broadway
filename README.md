@@ -6,7 +6,7 @@ A fork of GTK that fills in the missing pieces of the **Broadway** backend - GTK
 
 ```sh
 apt install ./gtk4-brotway_*.deb       # Debian/Ubuntu (.deb from Releases)
-makepkg -si                            # Arch (build from packaging/arch)
+pacman -U ./gtk4-brotway-*.pkg.tar.zst # Arch (.pkg.tar.zst from Releases)
 gtk4-brotway-run gtk4-demo             # changeme  ->  http://localhost:8085
 ```
 
