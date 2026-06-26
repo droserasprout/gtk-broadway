@@ -1,6 +1,6 @@
 # Troubleshooting
 
-Symptom-first, for things that should work but don't - usually a deployment or install mismatch. [Known issues](known-issues.md) lists what is by-design unsupported.
+Symptom-first, for things that should work but don't - usually a deployment or install mismatch. [Known issues](#known-issues) lists what is by-design unsupported.
 
 ## Is the fork actually loaded?
 
@@ -25,9 +25,9 @@ Functional test: touch text selection and clipboard copy/paste only exist in the
 | `undefined symbol: gdk_x11_*` / `gdk_wayland_*` | running against an old fork `libgtk-4` (pre-stub) | update to a current fork build ([Running](running.md#the-launcher)) |
 | Touch UI / OSK / clipboard missing | app launched directly, so it loaded stock GTK | start it via `gtk4-brotway-run` (or export `LD_LIBRARY_PATH=/usr/lib/gtk4-brotway`) |
 | Copy/paste silently does nothing | insecure context over remote `http://` | serve `https://` or `http://localhost` ([secure context](running.md#secure-context-note)) |
-| Middle-click paste doesn't work | PRIMARY selection is unsupported | by design ([Known issues](known-issues.md)) |
+| Middle-click paste doesn't work | PRIMARY selection is unsupported | by design ([Known issues](#known-issues)) |
 | Links don't open / "No known URI provider available" | popup blocker caught `window.open` | allow popups for the origin ([Opening links](../features/input.md#opening-links)) |
-| Socket floods, high CPU | a spinner/progress animation repaints every frame | pre-existing upstream behaviour; stop the animation ([Known issues](known-issues.md)) |
+| Socket floods, high CPU | a spinner/progress animation repaints every frame | pre-existing upstream behaviour; stop the animation ([Known issues](#known-issues)) |
 
 ## Checking the GTK base mismatch
 
@@ -43,3 +43,13 @@ A `4.22.4` fork won't load on a mismatched GTK series; run it on an `ubuntu:26.0
 ## Iterating on a change that didn't take effect
 
 Reloading the browser never picks up a `libgtk` change. What needs a daemon restart vs a rebuild plus app restart is in [broadwayd vs libgtk](../build/from-source.md#iterating-broadwayd-vs-libgtk).
+
+## Known issues
+
+Bugs are tracked on the [issue tracker](https://github.com/droserasprout/gtk-brotway/issues). The items below are known limitations, not currently planned for a fix:
+
+- **PRIMARY selection and middle-click paste.** Desktop browsers expose no JavaScript API for the X11-style PRIMARY selection, so there's no way to bridge it.
+- **Clipboard copy on insecure origins.** Copy may silently fail outside a user gesture, since `navigator.clipboard` is gated to secure contexts. Serve over `https://` or `http://localhost`.
+- **No fling on touchpad/wheel scrolling.** Scrolling is smooth (pixel-precise) but kinetic momentum is off: a server-side fling animates many frames that the remote framebuffer renders choppily, and the browser already drives the deltas. Touch-drag fling is unaffected.
+
+Tested browsers live in [Requirements](requirements.md#tested-browsers).

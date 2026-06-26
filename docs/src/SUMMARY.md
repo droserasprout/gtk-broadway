@@ -16,33 +16,31 @@
   - [Input & interaction](features/input.md)
   - [Display & rendering](features/display.md)
   - [Connection & sessions](features/connection.md)
-- [Security model](guide/security.md)
 - [Configuration reference](guide/config.md)
+- [Security model](guide/security.md)
 - [Troubleshooting](guide/troubleshooting.md)
-- [Known issues](guide/known-issues.md)
-
-# Development
-
-- [Contributing](build/contributing.md)
-- [Building from source](build/from-source.md)
-- [Adding a wire op](build/wire-op.md)
 
 # Internals
 
 - [Architecture](internals/architecture.md)
-- [Window management](internals/window-management.md)
 - [Wire protocol](internals/protocol.md)
-- [Input region & pointer](internals/input-region.md)
-- [Rendering & performance](internals/performance.md)
-- [Debug menu](internals/debug-menu.md)
+- [Display & input]()
+  - [Window management](internals/window-management.md)
+  - [Input region & pointer](internals/input-region.md)
+  - [Dynamic cursor](internals/cursor.md)
+- [Rendering]()
+  - [Rendering & performance](internals/performance.md)
+  - [Debug menu](internals/debug-menu.md)
 - [Feature internals]()
   - [Clipboard](internals/clipboard.md)
   - [Touch interface](internals/touch.md)
   - [Pinch to zoom](internals/zoom.md)
   - [Notebook tabs](internals/notebook.md)
   - [Opening links](internals/open-uri.md)
-  - [Dynamic cursor](internals/cursor.md)
   - [Connection management](internals/connection.md)
+- [Contributing](build/contributing.md)
+  - [Building from source](build/from-source.md)
+  - [Adding a wire op](build/wire-op.md)
 
 ---
 

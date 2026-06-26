@@ -38,4 +38,4 @@ Open `http://localhost:8085` in a browser. Copy/paste, touch text editing, and p
 - [Features](features/comparison.md) - what the fork adds over stock Broadway.
 - [Configuration reference](guide/config.md) - every env var, port, and client-side setting.
 - [Requirements](guide/requirements.md) - host/client support and tested browser/OS combinations.
-- [Known issues](guide/known-issues.md) - what doesn't work.
+- [Known issues](guide/troubleshooting.md#known-issues) - what doesn't work.
