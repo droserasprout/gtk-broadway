@@ -1063,10 +1063,11 @@ menu_push_stats (gpointer user_data)
 
   len = g_snprintf (line, sizeof line,
                     "stats %08x %" G_GUINT64_FORMAT " %.1f %u %d %u %" G_GUINT64_FORMAT
-                    " %u %u %u %u %u %.1f %.1f\n",
+                    " %u %u %u %u %u %.1f %.1f %u %08x\n",
                     server->session_id, bytes, fps, server->last_latency_ms,
                     server->paint_flash ? 1 : 0, tex_count, tex_bytes,
-                    iv_p95, iv_max, w_avg, w_max, bpf, up_s, rel_s);
+                    iv_p95, iv_max, w_avg, w_max, bpf, up_s, rel_s,
+                    server->owner_id, server->session_token);
   g_socket_send (menu_sock, line, len, NULL, NULL); /* best-effort */
   return G_SOURCE_CONTINUE;
 }

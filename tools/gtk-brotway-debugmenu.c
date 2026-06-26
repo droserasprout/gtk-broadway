@@ -17,6 +17,7 @@
 
 static GMainLoop *loop;
 static GtkWidget *session_label;
+static GtkWidget *client_label;
 static GtkWidget *traffic_label;
 static GtkWidget *fps_label;
 static GtkWidget *latency_label;
@@ -48,7 +49,7 @@ on_window_destroy (GtkWidget *window, gpointer user_data)
   if (window == debug_window)
     {
       debug_window = NULL;
-      session_label = traffic_label = fps_label = NULL;
+      session_label = client_label = traffic_label = fps_label = NULL;
       latency_label = textures_label = pacing_label = cost_label = NULL;
       paint_flash_switch = NULL;
     }
@@ -161,12 +162,14 @@ on_control_readable (GSocket *sock, GIOCondition cond, gpointer user_data)
       guint64 tex_bytes = 0;
       unsigned int iv_p95 = 0, iv_max = 0, w_avg = 0, w_max = 0, bpf = 0;
       double up_s = 0, rel_s = 0;   /* texture uploads (= cache misses) / releases per sec */
+      unsigned int owner = 0, token = 0; /* browser client id + resume token */
       int got;
 
       got = sscanf (p, "stats %x %" G_GUINT64_FORMAT " %lf %u %d %u %" G_GUINT64_FORMAT
-                       " %u %u %u %u %u %lf %lf",
+                       " %u %u %u %u %u %lf %lf %u %x",
                     &sid, &bytes, &fps, &latency, &flash, &tex_count, &tex_bytes,
-                    &iv_p95, &iv_max, &w_avg, &w_max, &bpf, &up_s, &rel_s);
+                    &iv_p95, &iv_max, &w_avg, &w_max, &bpf, &up_s, &rel_s,
+                    &owner, &token);
       if (got >= 7)
         {
           /* Traffic rate from the byte delta since the last push (the daemon
@@ -181,7 +184,13 @@ on_control_readable (GSocket *sock, GIOCondition cond, gpointer user_data)
           char *traffic = format_bytes (bytes);
           char *rate_s = format_bytes ((guint64) rate);
           char *texbuf = format_bytes (tex_bytes);
-          char *s = g_strdup_printf ("Session: %08x", sid);
+          char *s = g_strdup_printf ("Server: %08x", sid);
+          /* Browser client: owner id (the ?cid= it carries) + resume token.
+           * Reconnect keeps the token, Drop session rolls it. Only sent by
+           * newer daemons (got==16). */
+          char *c = (got >= 16)
+            ? g_strdup_printf ("Client: #%u · %08x", owner, token)
+            : g_strdup ("Client: --");
           char *t = g_strdup_printf ("Traffic: %s (%s/s)", traffic, rate_s);
           /* "fps" here is non-empty flushes per second, i.e. pushes to the browser. */
           char *f = g_strdup_printf ("Pushes: %.1f/s", fps);
@@ -219,6 +228,7 @@ on_control_readable (GSocket *sock, GIOCondition cond, gpointer user_data)
           prev_time = now;
 
           gtk_label_set_text (GTK_LABEL (session_label), s);
+          gtk_label_set_text (GTK_LABEL (client_label), c);
           gtk_label_set_text (GTK_LABEL (traffic_label), t);
           gtk_label_set_text (GTK_LABEL (fps_label), f);
           gtk_label_set_text (GTK_LABEL (latency_label), l);
@@ -242,6 +252,7 @@ on_control_readable (GSocket *sock, GIOCondition cond, gpointer user_data)
           g_free (rate_s);
           g_free (texbuf);
           g_free (s);
+          g_free (c);
           g_free (t);
           g_free (f);
           g_free (l);
@@ -389,7 +400,7 @@ connect_control_channel (void)
 int
 main (void)
 {
-  GtkWidget *window, *root, *left, *right, *perf, *smooth, *actions, *screen, *screen_btns;
+  GtkWidget *window, *root, *left, *right, *ident, *perf, *smooth, *actions, *screen, *screen_btns;
   GtkCssProvider *css;
 
   gtk_init ();
@@ -429,14 +440,19 @@ main (void)
   gtk_box_append (GTK_BOX (root), left);
   gtk_box_append (GTK_BOX (root), right);
 
+  /* Session: identity of this daemon run (Server) + the connected browser (Client). */
+  ident = add_section (left, "Session");
+  session_label = left_label ("Server: --------");
+  client_label = left_label ("Client: --");
+  gtk_box_append (GTK_BOX (ident), session_label);
+  gtk_box_append (GTK_BOX (ident), client_label);
+
   /* Performance: live stats from the daemon's control channel. */
   perf = add_section (left, "Performance");
-  session_label = left_label ("Session: --------");
   traffic_label = left_label ("Traffic: -- (--/s)");
   fps_label = left_label ("Pushes: --/s");
   latency_label = left_label ("Latency: -- ms");
   textures_label = left_label ("Textures: -- (--)");
-  gtk_box_append (GTK_BOX (perf), session_label);
   gtk_box_append (GTK_BOX (perf), traffic_label);
   gtk_box_append (GTK_BOX (perf), fps_label);
   gtk_box_append (GTK_BOX (perf), latency_label);
