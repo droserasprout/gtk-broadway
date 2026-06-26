@@ -9,6 +9,7 @@ src = "src"
 default-theme = "navy"
 preferred-dark-theme = "navy"
 additional-css = ["theme/adwaita.css"]
+additional-js = ["theme/fold-rows.js"]
 git-repository-url = "https://github.com/droserasprout/gtk-brotway"
 edit-url-template = "https://github.com/droserasprout/gtk-brotway/edit/ci/docs/{path}"
 

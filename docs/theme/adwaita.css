@@ -161,3 +161,16 @@ h4, h5 { margin-block-start: 1.25em; }
 .content li > ol {
     margin-block: 0.25em;
 }
+
+/* Linkless folder rows (draft chapters) read like real links instead of the
+   muted non-existant gray, and the whole row is the fold target. The chevron
+   still works; fold-rows.js wires the click. */
+.chapter li .chapter-link-wrapper > span {
+    color: var(--sidebar-fg);
+    cursor: pointer;
+    flex: 1;
+}
+
+.chapter li .chapter-link-wrapper > span:hover {
+    color: var(--sidebar-active);
+}
