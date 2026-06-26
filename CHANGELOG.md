@@ -6,6 +6,10 @@ Versioning from v3: release tags are three-part `vX.Y.Z`; package versions are `
 
 ## Unreleased
 
+### Added
+
+- The triple-Shift debug menu shows a Session group with the daemon (Server) and browser (Client) ids plus the resume token.
+
 ### Fixed
 
 - The triple-Shift debug menu now stays interactive while a menu or popup grab is open.
