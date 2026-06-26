@@ -101,7 +101,7 @@ Legend: **🟢** full support, **🟡** partial/workaround/caveats, **🔴** not
 
 [^tooltip]: The fork suppresses spurious `:hover` / tooltips on touch taps.
 
-[^popup]: The fork fixes autohide dismiss-on-tap, `GtkDropDown` correct-item selection, and the menu-tap freeze.
+[^popup]: The fork fixes autohide dismiss-on-tap, `GtkDropDown` correct-item selection, the menu-tap freeze, and nested-submenu navigation (a [grab stack](../internals/input-region.md#grab-stack) so a submenu nests over its parent instead of clobbering it).
 
 [^uri]: The fork routes external URIs to the browser's `window.open`, hooked through `gtk_show_uri`. See [Opening links](input.md#opening-links).
 

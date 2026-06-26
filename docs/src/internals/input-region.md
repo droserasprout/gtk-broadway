@@ -27,3 +27,14 @@ It fires only when a popup actually closes (`is_popup`), skips if another intera
 ## The companion libgtk fix
 
 `REASSERT_POINTER` handles popups that close on their own. The dropdown-item path also needed a `check_autohide` touch guard in `gdk/gdksurface.c`: tapping a dropdown item hit `check_autohide`, which thought the tap was *outside* and dismissed the popup, because `has_pointer` is only set from pointer crossings the touch path never sends. The guard skips the `!has_pointer` nulling for `GDK_TOUCH_BEGIN`, so the item activates instead.
+
+## Grab stack
+
+A popup chain (menu → submenu → popover) needs nested pointer grabs. The pointer grab was a single slot, so opening a submenu clobbered the parent's grab: closing the submenu then left the parent grabless, and it got dismissed (the whole chain collapsed, or the child stranded).
+
+The grab is now a **stack**, kept in sync on both ends. The daemon (`broadway-server.c`) holds it as a list with the head = innermost; the old `pointer_grab_*` scalars cache the top so the routing read-sites are unchanged. A `GRAB_POINTER` op pushes, `UNGRAB_POINTER` pops back to the parent, and a surface that vanishes (hide/destroy) drops its level plus everything stacked above it. `broadway.js` mirrors the same stack. On reconnect the daemon replays the whole stack outermost-first.
+
+Two follow-on fixes make keyboard menu navigation behave:
+
+- **Pointer-focus crossing.** For an owner-events grab (menus/popovers), the browser only teleports pointer focus into the grab surface when the cursor is actually over it - on both grab and ungrab. A synthetic grab crossing into a surface the pointer isn't on lands at a stale coordinate and races GTK's keyboard-focus highlight, flickering or clearing the selected menu item. Confining and implicit grabs still teleport, since the pointer really is confined there.
+- **`cascade-popdown`.** `GtkPopoverMenu` sets cascade-popdown (activating an item tears the whole chain down). Closing a submenu with the Left arrow would cascade up and also close the parent, so the popover-menu Left-arrow path suppresses cascade across the submenu popdown - it closes only the submenu and refocuses the parent item.
