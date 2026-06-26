@@ -430,6 +430,8 @@ broadway_input_free (BroadwayInput *input)
   g_free (input);
 }
 
+static gboolean surface_is_above (BroadwayServer *server, BroadwaySurface *s);
+
 static void
 update_event_state (BroadwayServer *server,
                     BroadwayInputMsg *message)
@@ -463,12 +465,23 @@ update_event_state (BroadwayServer *server,
   case BROADWAY_EVENT_BUTTON_PRESS:
   case BROADWAY_EVENT_BUTTON_RELEASE:
     if (message->base.type == BROADWAY_EVENT_BUTTON_PRESS &&
-        server->focused_surface_id != message->pointer.mouse_surface_id &&
-        server->pointer_grab_surface_id == -1)
+        server->focused_surface_id != message->pointer.mouse_surface_id)
       {
-        broadway_server_surface_raise (server, message->pointer.mouse_surface_id);
-        broadway_server_focus_surface (server, message->pointer.mouse_surface_id);
-        broadway_server_flush (server);
+        if (server->pointer_grab_surface_id == -1)
+          {
+            broadway_server_surface_raise (server, message->pointer.mouse_surface_id);
+            broadway_server_focus_surface (server, message->pointer.mouse_surface_id);
+            broadway_server_flush (server);
+          }
+        else if (surface_is_above (server,
+                   broadway_server_lookup_surface (server, message->pointer.mouse_surface_id)))
+          {
+            /* Keyboard half of the keep-above carve-out: a click on an always-on-top
+             * window during a grab is delivered to it, so focus it too - else keys go
+             * to the grabbed surface. No raise (already pinned; don't reorder under a grab). */
+            broadway_server_focus_surface (server, message->pointer.mouse_surface_id);
+            broadway_server_flush (server);
+          }
       }
 
     server->last_x = message->pointer.root_x;
@@ -590,8 +603,6 @@ is_pointer_event (BroadwayInputMsg *message)
     message->base.type == BROADWAY_EVENT_GRAB_NOTIFY ||
     message->base.type == BROADWAY_EVENT_UNGRAB_NOTIFY;
 }
-
-static gboolean surface_is_above (BroadwayServer *server, BroadwaySurface *s);
 
 static void
 process_input_message (BroadwayServer *server,
