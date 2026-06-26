@@ -645,6 +645,18 @@ _gdk_broadway_server_surface_set_modal_hint (GdkBroadwayServer *server,
 }
 
 void
+_gdk_broadway_server_surface_set_keep_above (GdkBroadwayServer *server,
+                                             int id, gboolean keep_above)
+{
+  BroadwayRequestSetKeepAbove msg;
+
+  msg.id = id;
+  msg.keep_above = keep_above;
+  gdk_broadway_server_send_message (server, msg,
+				    BROADWAY_REQUEST_SET_KEEP_ABOVE);
+}
+
+void
 _gdk_broadway_server_surface_set_input_region (GdkBroadwayServer *server,
                                                int id, int mode,
                                                int x, int y, int width, int height)

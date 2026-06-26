@@ -264,6 +264,7 @@ typedef enum {
   BROADWAY_REQUEST_SET_CURSOR,
   BROADWAY_REQUEST_SET_TITLE,
   BROADWAY_REQUEST_SET_ICON,
+  BROADWAY_REQUEST_SET_KEEP_ABOVE,
 } BroadwayRequestType;
 
 typedef struct {
@@ -354,6 +355,12 @@ typedef struct {
 typedef struct {
   BroadwayRequestBase base;
   guint32 id;
+  gboolean keep_above;
+} BroadwayRequestSetKeepAbove;
+
+typedef struct {
+  BroadwayRequestBase base;
+  guint32 id;
   guint32 mode;       /* 0 = whole surface, 1 = empty (click-through), 2 = rect */
   BroadwayRect rect;  /* interactive area (mode 2); the input region's bounding box */
 } BroadwayRequestSetInputRegion;
@@ -417,6 +424,7 @@ typedef union {
   BroadwayRequestSetCursor set_cursor;
   BroadwayRequestSetTitle set_title;
   BroadwayRequestSetIcon set_icon;
+  BroadwayRequestSetKeepAbove set_keep_above;
 } BroadwayRequest;
 
 typedef enum {

@@ -158,6 +158,9 @@ void                broadway_server_focus_surface             (BroadwayServer  *
 void                broadway_server_surface_set_modal_hint    (BroadwayServer *server,
                                                                int             id,
                                                                gboolean        modal_hint);
+void                broadway_server_surface_set_keep_above     (BroadwayServer *server,
+                                                               int             id,
+                                                               gboolean        keep_above);
 void                broadway_server_surface_set_input_region  (BroadwayServer *server,
                                                                int             id,
                                                                int             mode,

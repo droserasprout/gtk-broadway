@@ -164,6 +164,8 @@ struct BroadwaySurface {
   gboolean visible;
   gint32 transient_for;
   gboolean is_popup; /* menu/popover/bubble, as opposed to a toplevel or dialog */
+  gboolean keep_above; /* always-on-top: pinned above normal surfaces, and exempt
+                        * from grab confinement so it stays interactive */
   guint32 texture;
   gboolean modal_hint;
   gboolean input_region_is_empty;  /* mode == 1; kept for any_popup_visible() */
@@ -589,6 +591,8 @@ is_pointer_event (BroadwayInputMsg *message)
     message->base.type == BROADWAY_EVENT_UNGRAB_NOTIFY;
 }
 
+static gboolean surface_is_above (BroadwayServer *server, BroadwaySurface *s);
+
 static void
 process_input_message (BroadwayServer *server,
                        BroadwayInputMsg *message)
@@ -647,7 +651,8 @@ process_input_message (BroadwayServer *server,
       if (message->touch.touch_type != 0 &&
           g_hash_table_lookup_extended (server->touch_sequences, key, NULL, &val))
         client = GPOINTER_TO_INT (val);
-      else if (server->pointer_grab_surface_id != -1)
+      else if (server->pointer_grab_surface_id != -1 &&
+               !surface_is_above (server, surface)) /* carve-out, see below */
         client = server->pointer_grab_client_id;
 
       if (message->touch.touch_type == 0) /* begin */
@@ -656,7 +661,11 @@ process_input_message (BroadwayServer *server,
         g_hash_table_remove (server->touch_sequences, key);
     }
   else if (is_pointer_event (message) &&
-      server->pointer_grab_surface_id != -1)
+      server->pointer_grab_surface_id != -1 &&
+      !surface_is_above (server, surface))
+    /* Grab carve-out: events on a keep-above surface (e.g. the debug menu) stay
+     * with its own client so it keeps working - draggable - while a menu grab is
+     * up, and the grab client never sees the press, so the menu doesn't dismiss. */
     client = server->pointer_grab_client_id;
 
   broadway_events_got_input (message, client);
@@ -2410,7 +2419,7 @@ broadway_server_query_mouse (BroadwayServer *server,
     *surface = server->mouse_in_surface_id;
 }
 
-static void restack_menu_on_top (BroadwayServer *server);
+static void restack_layers (BroadwayServer *server);
 
 void
 broadway_server_destroy_surface (BroadwayServer *server,
@@ -2450,7 +2459,7 @@ broadway_server_destroy_surface (BroadwayServer *server,
 
   /* If a menu toplevel just closed, re-pin the rest (or drop menu_owner when
    * its last toplevel is gone). Harmless no-op for ordinary surfaces. */
-  restack_menu_on_top (server);
+  restack_layers (server);
 
   if (is_popup && transient_for > 0 && !disconnected)
     {
@@ -2518,42 +2527,52 @@ broadway_server_surface_hide (BroadwayServer *server,
   return sent;
 }
 
-/* Keep the debug-menu client's toplevels (menu window, gallery, dialogs) above
- * every other surface, preserving their relative order so the most recently
- * mapped one stays on top. No-op if no menu client is active; clears menu_owner
- * once its last toplevel is gone. */
-static void
-restack_menu_on_top (BroadwayServer *server)
+/* Always-on-top: a surface's explicit keep_above flag, or membership in the
+ * spawned debug-menu client (which is pinned implicitly without a binary change). */
+static gboolean
+surface_is_above (BroadwayServer *server,
+                  BroadwaySurface *s)
 {
-  GList *l, *menu = NULL;
+  return s != NULL &&
+         (s->keep_above ||
+          (server->menu_owner != 0 && s->owner == server->menu_owner));
+}
 
-  if (server->menu_owner == 0)
-    return;
+/* Keep keep-above toplevels (incl. the debug menu's) above every normal surface,
+ * preserving their relative order. Popups follow via transient_for. Also drops a
+ * stale menu_owner once its last surface is gone. Generalizes the old
+ * restack_layers into a per-surface layer. */
+static void
+restack_layers (BroadwayServer *server)
+{
+  GList *l, *above = NULL;
+  gboolean menu_alive = FALSE;
 
-  /* Collect the menu client's non-popup surfaces in current stacking order. */
   for (l = server->surfaces; l != NULL; l = l->next)
     {
       BroadwaySurface *s = l->data;
-      if (s->owner == server->menu_owner && !s->is_popup)
-        menu = g_list_append (menu, s);
+      if (server->menu_owner != 0 && s->owner == server->menu_owner)
+        menu_alive = TRUE;
+      if (surface_is_above (server, s) && !s->is_popup)
+        above = g_list_append (above, s);
     }
 
-  if (menu == NULL)
-    {
-      server->menu_owner = 0; /* the menu client is gone */
-      return;
-    }
+  if (server->menu_owner != 0 && !menu_alive)
+    server->menu_owner = 0; /* the menu client is gone */
+
+  if (above == NULL)
+    return;
 
   /* Already the topmost block, in order? Avoid redundant raises. */
   {
     GList *a = g_list_last (server->surfaces);
-    GList *b = g_list_last (menu);
+    GList *b = g_list_last (above);
     while (b != NULL && a != NULL && a->data == b->data) { a = a->prev; b = b->prev; }
-    if (b == NULL) { g_list_free (menu); return; }
+    if (b == NULL) { g_list_free (above); return; }
   }
 
   /* Move them to the top, keeping their order, and raise each in the browser. */
-  for (l = menu; l != NULL; l = l->next)
+  for (l = above; l != NULL; l = l->next)
     {
       BroadwaySurface *s = l->data;
       server->surfaces = g_list_remove (server->surfaces, s);
@@ -2562,7 +2581,7 @@ restack_menu_on_top (BroadwayServer *server)
         broadway_output_raise_surface (server->output, s->id);
     }
 
-  g_list_free (menu);
+  g_list_free (above);
 }
 
 void
@@ -2582,7 +2601,7 @@ broadway_server_surface_raise (BroadwayServer *server,
     broadway_output_raise_surface (server->output, surface->id);
 
   /* Keep the debug-menu toplevels above the one just raised. */
-  restack_menu_on_top (server);
+  restack_layers (server);
 }
 
 void
@@ -2758,6 +2777,24 @@ broadway_server_surface_set_modal_hint (BroadwayServer *server,
       broadway_output_set_modal (server->output, id, modal_hint);
       broadway_server_flush (server);
     }
+}
+
+void
+broadway_server_surface_set_keep_above (BroadwayServer *server,
+                                        int id, gboolean keep_above)
+{
+  BroadwaySurface *surface;
+
+  surface = broadway_server_lookup_surface (server, id);
+  if (surface == NULL || surface->keep_above == keep_above)
+    return;
+
+  surface->keep_above = keep_above;
+
+  /* restack_layers re-pins keep-above surfaces and emits the raises. */
+  restack_layers (server);
+  if (server->output)
+    broadway_server_flush (server);
 }
 
 void
@@ -3218,7 +3255,7 @@ broadway_server_new_surface (BroadwayServer *server,
 
   /* Keep the menu toplevels on top; a freshly mapped one (e.g. the gallery) was
    * just appended last, so it stacks above the earlier menu windows. */
-  restack_menu_on_top (server);
+  restack_layers (server);
 
   return surface->id;
 }

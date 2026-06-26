@@ -93,6 +93,9 @@ gboolean           _gdk_broadway_server_surface_move_resize       (GdkBroadwaySe
 void               _gdk_broadway_server_surface_set_modal_hint   (GdkBroadwayServer *server,
                                                                   int                id,
                                                                   gboolean           modal_hint);
+void               _gdk_broadway_server_surface_set_keep_above   (GdkBroadwayServer *server,
+                                                                  int                id,
+                                                                  gboolean           keep_above);
 void               _gdk_broadway_server_surface_set_input_region (GdkBroadwayServer *server,
                                                                   int                id,
                                                                   int                mode,

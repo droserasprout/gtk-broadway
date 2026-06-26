@@ -884,6 +884,28 @@ gdk_broadway_surface_set_modal_hint (GdkSurface *surface,
   _gdk_broadway_server_surface_set_modal_hint (display->server, impl->id, impl->modal_hint);
  }
 
+/**
+ * gdk_broadway_surface_set_keep_above:
+ * @surface: a broadway `GdkSurface`
+ * @keep_above: whether to pin the surface above normal ones
+ *
+ * Pins @surface always-on-top (and exempt from menu-grab confinement, so it
+ * stays interactive while another surface holds a popup grab).
+ */
+void
+gdk_broadway_surface_set_keep_above (GdkSurface *surface,
+                                     gboolean    keep_above)
+{
+  GdkBroadwayDisplay *display;
+  GdkBroadwaySurface *impl;
+
+  g_return_if_fail (GDK_IS_BROADWAY_SURFACE (surface));
+
+  impl = GDK_BROADWAY_SURFACE (surface);
+  display = GDK_BROADWAY_DISPLAY (gdk_surface_get_display (surface));
+  _gdk_broadway_server_surface_set_keep_above (display->server, impl->id, keep_above);
+}
+
 static void
 gdk_broadway_surface_get_geometry (GdkSurface *surface,
                                    int        *x,

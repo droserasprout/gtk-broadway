@@ -45,5 +45,11 @@ typedef struct _GdkBroadwaySurfaceClass GdkBroadwaySurfaceClass;
 GDK_AVAILABLE_IN_ALL
 GType    gdk_broadway_surface_get_type          (void);
 
+/* Brotway extension: pin a surface always-on-top. GTK4 dropped
+ * gtk_window_set_keep_above, so this is the broadway-native way in. */
+GDK_AVAILABLE_IN_ALL
+void     gdk_broadway_surface_set_keep_above     (GdkSurface *surface,
+                                                  gboolean    keep_above);
+
 G_END_DECLS
 

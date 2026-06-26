@@ -430,6 +430,11 @@ client_handle_request (BroadwayClient *client,
                                               request->set_modal_hint.id,
                                               request->set_modal_hint.modal_hint);
       break;
+    case BROADWAY_REQUEST_SET_KEEP_ABOVE:
+      broadway_server_surface_set_keep_above (server,
+                                              request->set_keep_above.id,
+                                              request->set_keep_above.keep_above);
+      break;
     case BROADWAY_REQUEST_SET_INPUT_REGION:
       broadway_server_surface_set_input_region (server,
                                                 request->set_input_region.id,
