@@ -2704,6 +2704,13 @@ get_tab_at_pos (GtkNotebook *notebook,
   GtkNotebookPage *page;
   GList *children;
 
+  /* Only tabs inside the visible strip count. Under Broadway pixel-scroll the
+   * tabs are laid out full-width and clipped, so an off-strip tab's bounds can
+   * reach under an end action widget (e.g. a tab-list menu button) - without
+   * this, clicking that button would also switch the page. */
+  if (!in_tabs (notebook, x, y))
+    return NULL;
+
   for (children = notebook->children; children; children = children->next)
     {
       graphene_rect_t bounds;
