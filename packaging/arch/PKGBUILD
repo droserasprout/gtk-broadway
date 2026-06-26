@@ -10,7 +10,7 @@ url="https://github.com/droserasprout/gtk-brotway"
 license=('LGPL-2.0-or-later')
 depends=('gtk4')
 makedepends=('meson' 'ninja' 'git' 'pkgconf' 'gettext' 'sassc' 'python'
-             'glib2' 'cairo' 'pango' 'gdk-pixbuf2' 'graphene' 'libepoxy'
+             'glib2' 'glib2-devel' 'cairo' 'pango' 'gdk-pixbuf2' 'graphene' 'libepoxy'
              'fribidi' 'harfbuzz' 'libxkbcommon' 'libjpeg-turbo' 'libpng'
              'libtiff' 'libdrm')
 
