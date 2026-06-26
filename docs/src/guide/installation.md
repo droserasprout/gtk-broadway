@@ -22,6 +22,8 @@ FROM ghcr.io/droserasprout/gtk-brotway:v3.1.3   # or :latest
 # ... add your GTK4 app on top; it runs on the patched Broadway backend
 ```
 
+For a smaller image use the `-nogl` variant (`:v3.1.3-nogl` or `:nogl`): identical, minus the stock GTK + GL/Mesa/LLVM chain (~200 MB) that Broadway never uses.
+
 To bake the fork into your own base, run the [Ubuntu / Debian](#ubuntu--debian) steps in a `RUN`. See [Security model](security.md#in-a-container) for the full Dockerfile and operator checklist.
 
 ## Ubuntu / Debian

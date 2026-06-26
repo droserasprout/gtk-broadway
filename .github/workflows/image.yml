@@ -32,6 +32,14 @@ jobs:
     runs-on: ubuntu-latest
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # Full image keeps stock GTK; -nogl drops the unused GL/Mesa/LLVM chain
+        # (~200 MB). Each gets a version tag + its own moving tag.
+        variant:
+          - { nogl: "",  suffix: "",      moving: "latest" }
+          - { nogl: "1", suffix: "-nogl", moving: "nogl" }
     steps:
       - uses: actions/checkout@v4   # ci branch: Dockerfile + packaging
 
@@ -60,11 +68,11 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          # `latest` moves only on a real tag push, never on a manual backfill of
-          # an older tag.
+          # The moving tag (`latest`/`nogl`) moves only on a real tag push, never
+          # on a manual backfill of an older tag.
           tags: |
-            type=raw,value=${{ steps.tag.outputs.tag }}
-            type=raw,value=latest,enable=${{ github.event_name == 'push' }}
+            type=raw,value=${{ steps.tag.outputs.tag }}${{ matrix.variant.suffix }}
+            type=raw,value=${{ matrix.variant.moving }},enable=${{ github.event_name == 'push' }}
 
       - name: Build and push (amd64 + arm64)
         uses: docker/build-push-action@v5
@@ -73,5 +81,7 @@ jobs:
           file: packaging/docker/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
+          build-args: |
+            NOGL=${{ matrix.variant.nogl }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

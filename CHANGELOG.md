@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file. The format 
 
 Versioning from v3: release tags are three-part `vX.Y.Z`; package versions are `<gtk-base>-X.Y.Z`, e.g. `4.22.4-3.0.0`. Single base (GTK 4.22.x). See [Requirements](https://droserasprout.github.io/gtk-brotway/guide/requirements.html).
 
+## Unreleased
+
+### Added
+
+- `-nogl` base image tag (`:vX.Y.Z-nogl` / `:nogl`): the full image minus the stock GTK + GL/Mesa/LLVM chain Broadway never uses (~200 MB smaller).
+
+### Fixed
+
+- Arch package builds again: declare `glib2-devel`, which now ships `glib-mkenums` (split out in glib 2.88).
+
 ## v3.1.3 - 2026-06-26
 
 [release](https://github.com/droserasprout/gtk-brotway/releases/tag/v3.1.3) | [diff](https://github.com/droserasprout/gtk-brotway/compare/v3.1.2...v3.1.3)

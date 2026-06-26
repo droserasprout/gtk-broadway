@@ -14,6 +14,11 @@
 ARG UBUNTU_VERSION=26.04
 FROM ubuntu:${UBUNTU_VERSION}
 ARG DEBIAN_FRONTEND=noninteractive
+# Set to 1 (the `-nogl` image variant) to drop the stock GTK + its GL/Mesa/LLVM
+# chain after install. Broadway never uses the GL renderer and the fork lib lives
+# in /usr/lib/gtk4-brotway, so that ~200 MB (mostly libllvm + mesa-gallium) is
+# dead weight here. Empty = full image (stock GTK kept; the conservative default).
+ARG NOGL=
 
 # Broadway is the only backend here, so make it the default; point the loader at
 # the fork prefix so every app picks up the patched libgtk-4; silence the missing
@@ -37,5 +42,16 @@ RUN set -eux; \
     # iconless. Generic to any GTK4 app, so they belong in the base.
     apt-get install -y --no-install-recommends \
       "${deb}" librsvg2-common adwaita-icon-theme; \
+    # -nogl: purge the unused stock GTK + GL/Mesa/LLVM chain in the SAME layer as
+    # the install (a later RUN would only whiteout the files, not shrink the image).
+    # dpkg --force-depends, not apt, so the deb/icon-theme that depend on it on
+    # paper aren't cascaded out. Filter to installed pkgs so a missing one is a
+    # no-op, not a build failure. Runs after install so icon-cache postinsts ran.
+    if [ -n "${NOGL}" ]; then \
+      pkgs="libgtk-4-1 libgtk-4-bin libgstreamer-gl1.0-0 libgl1 libglx0 libegl1 \
+            libgbm1 libgl1-mesa-dri libegl-mesa0 libglx-mesa0 mesa-libgallium libllvm21"; \
+      inst="$(for p in $pkgs; do dpkg-query -W -f='${db:Status-Status} ${Package}\n' "$p" 2>/dev/null | awk '$1=="installed"{print $2}'; done)"; \
+      [ -n "$inst" ] && dpkg --purge --force-depends $inst; \
+    fi; \
     rm -rf /tmp/debs /var/lib/apt/lists/*; \
     apt-get clean
