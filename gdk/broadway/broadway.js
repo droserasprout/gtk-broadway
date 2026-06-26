@@ -2585,8 +2585,20 @@ function onMouseUp (ev) {
 
     sendInput (BROADWAY_EVENT_BUTTON_RELEASE, [realSurfaceWithMouse, id, pos.rootX, pos.rootY, pos.winX, pos.winY, lastState, button]);
 
-    if (grab.surface != null && grab.implicit)
+    /* Release the press's implicit grab. If it's the top, release normally; if an
+     * explicit grab nested over it (a window move), the implicit grab is browser-
+     * local, so splice it out - else it strands and swallows the next press. */
+    if (grab.surface != null && grab.implicit) {
         doUngrab();
+    } else {
+        for (var i = grabStack.length - 1; i >= 0; i--) {
+            if (grabStack[i].implicit) {
+                grabStack.splice(i, 1);
+                updateGrabCache();
+                break;
+            }
+        }
+    }
 
     return false;
 }
