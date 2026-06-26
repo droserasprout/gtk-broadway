@@ -29,6 +29,7 @@
 # Internals
 
 - [Architecture](internals/architecture.md)
+- [Window management](internals/window-management.md)
 - [Wire protocol](internals/protocol.md)
 - [Input region & pointer](internals/input-region.md)
 - [Rendering & performance](internals/performance.md)
