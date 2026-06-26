@@ -6,10 +6,15 @@ Versioning from v3: release tags are three-part `vX.Y.Z`; package versions are `
 
 ## Unreleased
 
+### Added
+
+- Always-on-top windows: a window can pin itself above the rest with `gdk_broadway_surface_set_keep_above()`, and stays interactive - draggable, clickable, keyboard-focusable - while another window holds a menu or popup grab. The triple-Shift debug menu uses it.
+
 ### Fixed
 
 - Nested menus: the Left arrow closes only the open submenu, keeping the parent menu open and focused, instead of dismissing the whole chain.
 - Menu-item highlight no longer flickers or clears when a submenu opens or closes.
+- A client-side-decoration window drag no longer swallows the first click made afterwards.
 
 ## v3.1.2 - 2026-06-23
 

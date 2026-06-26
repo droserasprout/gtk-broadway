@@ -38,3 +38,11 @@ Two follow-on fixes make keyboard menu navigation behave:
 
 - **Pointer-focus crossing.** For an owner-events grab (menus/popovers), the browser only teleports pointer focus into the grab surface when the cursor is actually over it - on both grab and ungrab. A synthetic grab crossing into a surface the pointer isn't on lands at a stale coordinate and races GTK's keyboard-focus highlight, flickering or clearing the selected menu item. Confining and implicit grabs still teleport, since the pointer really is confined there.
 - **`cascade-popdown`.** `GtkPopoverMenu` sets cascade-popdown (activating an item tears the whole chain down). Closing a submenu with the Left arrow would cascade up and also close the parent, so the popover-menu Left-arrow path suppresses cascade across the submenu popdown - it closes only the submenu and refocuses the parent item.
+
+A window move (CSD titlebar drag) nests its own explicit grab over the press's implicit grab. On release the implicit grab must be dropped even though it's no longer the stack top, or it strands and swallows the next click.
+
+## Always on top
+
+`restack_layers` keeps **keep-above** surfaces above every normal one, preserving their order (popups follow via `transient_for`). A surface is keep-above if its `keep_above` flag is set - via the `SET_KEEP_ABOVE` op behind `gdk_broadway_surface_set_keep_above()` - or if it belongs to the spawned debug-menu client (auto-pinned, no binary change). It generalizes the old debug-menu-only pin into a per-surface layer.
+
+A keep-above window also gets a **grab carve-out**: while another surface holds a pointer grab, events on a keep-above surface stay routed to its own client instead of being confined to the grab client, and a click on it moves keyboard focus there. So an always-on-top window (the debug menu) stays draggable, clickable, and typable while a menu is open. Broadway's pointer grab is one global daemon grab - unlike Wayland's per-client popup grab - so without the carve-out the grab would eat all input.
