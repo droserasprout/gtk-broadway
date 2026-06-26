@@ -42,8 +42,4 @@ libgdk-pixbuf-2.0-dev libepoxy-dev libxkbcommon-dev libfribidi-dev libharfbuzz-d
 libjpeg-dev libpng-dev libtiff-dev libdrm-dev
 ```
 
-## :nogl image
-
-The release also publishes a base Docker image (`ghcr.io/droserasprout/gtk-brotway`): stock Ubuntu GTK with the fork `.deb` overlaid. The `-nogl` tag (`:vX.Y.Z-nogl` / `:nogl`) is that image minus the stock GTK + its GL/Mesa/LLVM chain (`libllvm`, `mesa-libgallium`, libGL/EGL/GBM), purged in the install layer - ~200 MB smaller. Broadway renders via cairo, so none of it runs.
-
-It is opt-in, not the default, because the purge (`dpkg --force-depends`) leaves a deliberately broken dpkg state: a downstream `apt-get install -f` can drag the whole chain back in, and any app that creates its own GL context (`GtkGLArea`, offscreen GL) loses the llvmpipe software fallback and fails to realize. Use `-nogl` for apps known not to touch GL; use the full tag as a general base.
+The release also publishes a base Docker image (and a slim `-nogl` variant) built from these artifacts: [Docker](../guide/docker.md).

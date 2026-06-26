@@ -7,6 +7,7 @@
 
 - [Requirements](guide/requirements.md)
 - [Installation](guide/installation.md)
+- [Docker](guide/docker.md)
 - [Running](guide/running.md)
 
 # User Guide

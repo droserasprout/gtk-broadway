@@ -22,19 +22,7 @@ Broadway has none of its own, so put it at the TLS terminator:
 
 ## In a container
 
-Install the arch-matching `.deb` and point `LD_LIBRARY_PATH` at the fork prefix so every app in the container uses it - the [Installation](installation.md) steps, plus `dpkg --print-architecture` to select the asset:
-
-```dockerfile
-ARG GTK_VER=4.22.4
-ARG REL=v3.1.3
-RUN arch="$(dpkg --print-architecture)" \
- && wget -O /tmp/gtk.deb "https://github.com/droserasprout/gtk-brotway/releases/download/${REL}/gtk4-brotway_${GTK_VER}-${REL#v}_${arch}.deb" \
- && apt-get install -y /tmp/gtk.deb \
- && rm /tmp/gtk.deb
-ENV LD_LIBRARY_PATH=/usr/lib/gtk4-brotway
-```
-
-The base image's GTK must match the `.deb` base ([4.22.4 on `ubuntu:26.04`](requirements.md)). (The prebuilt base image already does all this.)
+Build so every app loads the fork via `LD_LIBRARY_PATH=/usr/lib/gtk4-brotway` - `FROM` the prebuilt base or bake the `.deb` in ([Docker](docker.md)). The base image's GTK must match the `.deb` base ([4.22.4 on `ubuntu:26.04`](requirements.md)).
 
 ## Process layout
 

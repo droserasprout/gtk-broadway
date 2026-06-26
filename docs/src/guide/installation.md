@@ -3,7 +3,7 @@
 Three ways to get the fork. All install into a private prefix (`/usr/lib/gtk4-brotway`), leave the system GTK untouched, and so are desktop-safe; the fork only needs to match the [4.22.x base](requirements.md):
 
 - **Debian package** `gtk4-brotway` - from [GitHub Releases](https://github.com/droserasprout/gtk-brotway/releases) ([Ubuntu / Debian](#ubuntu--debian))
-- **Base Docker image** `ghcr.io/droserasprout/gtk-brotway` - the `.deb` baked over Ubuntu, multi-arch ([Docker](#docker))
+- **Base Docker image** `ghcr.io/droserasprout/gtk-brotway` - the `.deb` baked over Ubuntu, multi-arch ([Docker](docker.md))
 - **Arch package** - prebuilt x86_64 `.pkg.tar.zst`, or build from the PKGBUILD ([Arch / CachyOS](#arch--cachyos))
 
 ## What gets installed
@@ -15,16 +15,7 @@ Three ways to get the fork. All install into a private prefix (`/usr/lib/gtk4-br
 
 ## Docker
 
-Use the prebuilt base image - the `.deb` over stock Ubuntu GTK, with the SVG icon loader, Adwaita icons, `GDK_BACKEND=broadway`, and `LD_LIBRARY_PATH` pre-set:
-
-```dockerfile
-FROM ghcr.io/droserasprout/gtk-brotway:v3.1.3   # or :latest
-# ... add your GTK4 app on top; it runs on the patched Broadway backend
-```
-
-For a smaller image use the `-nogl` variant (`:v3.1.3-nogl` or `:nogl`): identical, minus the stock GTK + GL/Mesa/LLVM chain (~200 MB) that Broadway never uses.
-
-To bake the fork into your own base, run the [Ubuntu / Debian](#ubuntu--debian) steps in a `RUN`. See [Security model](security.md#in-a-container) for the full Dockerfile and operator checklist.
+`FROM` the prebuilt base image, or bake the `.deb` into your own. Tags, the slim `-nogl` variant, and build-your-own: [Docker](docker.md).
 
 ## Ubuntu / Debian
 
