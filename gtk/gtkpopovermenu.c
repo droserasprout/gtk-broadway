@@ -477,7 +477,14 @@ gtk_popover_menu_focus (GtkWidget        *widget,
             {
               if (menu->open_submenu)
                 {
+                  /* Navigating back: close only the submenu. cascade-popdown
+                   * (set on popover menus) would also close this parent and its
+                   * ancestors, so suppress it across the popdown. */
+                  gboolean cascade =
+                    gtk_popover_get_cascade_popdown (GTK_POPOVER (menu));
+                  gtk_popover_set_cascade_popdown (GTK_POPOVER (menu), FALSE);
                   gtk_popover_popdown (GTK_POPOVER (menu->open_submenu));
+                  gtk_popover_set_cascade_popdown (GTK_POPOVER (menu), cascade);
                   menu->open_submenu = NULL;
                 }
 

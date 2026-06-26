@@ -308,10 +308,16 @@ function touchIdentifier(tId)
     return tId;
 }
 
-var grab = new Object();
-grab.surface = null;
-grab.ownerEvents = false;
-grab.implicit = false;
+/* Pointer grabs stack (mirrors the daemon) so a popup chain nests: GRAB pushes,
+ * UNGRAB pops to the parent. `grab` caches the top for the read-sites. */
+var grabStack = [];
+var grab = { surface: null, ownerEvents: false, implicit: false };
+function updateGrabCache() {
+    if (grabStack.length > 0)
+        grab = grabStack[grabStack.length - 1];
+    else
+        grab = { surface: null, ownerEvents: false, implicit: false };
+}
 var keyDownList = [];
 var inputList = [];
 var lastSerial = 0;
@@ -1696,8 +1702,7 @@ function handleCommands(cmd, display_commands, new_textures, modified_trees)
 
         case BROADWAY_OP_HIDE_SURFACE:
             id = cmd.get_16();
-            if (grab.surface == id)
-                doUngrab();
+            grabDrop(id);
             surface = surfaces[id];
             if (!surface) {
                 console.warn("broadway: HIDE_SURFACE references unknown surface " + id);
@@ -1761,8 +1766,7 @@ function handleCommands(cmd, display_commands, new_textures, modified_trees)
         case BROADWAY_OP_DESTROY_SURFACE:
             id = cmd.get_16();
 
-            if (grab.surface == id)
-                doUngrab();
+            grabDrop(id);
 
             surface = surfaces[id];
             if (!surface) {
@@ -2475,10 +2479,27 @@ function onMouseOut (ev) {
     surfaceWithMouse = 0;
 }
 
+/* True when the last known pointer position lies within surface `sid`. */
+function pointerInSurface(sid) {
+    var s = surfaces[sid];
+    if (!s)
+        return false;
+    var x = lastX - s.x, y = lastY - s.y;
+    return x >= 0 && y >= 0 && x < s.width && y < s.height;
+}
+
 function doGrab(id, ownerEvents, implicit) {
     var pos;
 
-    if (surfaceWithMouse != id) {
+    /* Owner-events grab (menu/popover): only move pointer focus into the grab
+     * surface if the cursor is actually over it. A grab crossing into a surface
+     * the pointer isn't on races GTK's focus highlight -> menu-item flicker.
+     * Confining/implicit grabs still teleport - the pointer is confined there. */
+    var teleport = surfaceWithMouse != id;
+    if (teleport && ownerEvents && !pointerInSurface(id))
+        teleport = false;
+
+    if (teleport) {
         if (surfaceWithMouse != 0) {
             pos = getPositionsFromAbsCoord(lastX, lastY, surfaceWithMouse);
             sendInput (BROADWAY_EVENT_LEAVE, [realSurfaceWithMouse, surfaceWithMouse, pos.rootX, pos.rootY, pos.winX, pos.winY, lastState, GDK_CROSSING_GRAB]);
@@ -2488,13 +2509,28 @@ function doGrab(id, ownerEvents, implicit) {
         surfaceWithMouse = id;
     }
 
-    grab.surface = id;
-    grab.ownerEvents = ownerEvents;
-    grab.implicit = implicit;
+    /* Push, or update the top in place when re-grabbing the same surface. */
+    if (grabStack.length > 0 && grabStack[grabStack.length - 1].surface == id) {
+        grabStack[grabStack.length - 1].ownerEvents = ownerEvents;
+        grabStack[grabStack.length - 1].implicit = implicit;
+    } else {
+        grabStack.push({ surface: id, ownerEvents: ownerEvents, implicit: implicit });
+    }
+    updateGrabCache();
 }
 
 function doUngrab() {
     var pos;
+    if (grabStack.length == 0)
+        return;
+
+    /* Pop the innermost grab; a remaining parent keeps the chain alive. */
+    grabStack.pop();
+    updateGrabCache();
+
+    /* Restore pointer focus to where the cursor physically is - never teleport
+     * into the parent grab (same race as doGrab: clears the parent item's
+     * keyboard highlight). The remaining grab still routes input. */
     if (realSurfaceWithMouse != surfaceWithMouse) {
         if (surfaceWithMouse != 0) {
             pos = getPositionsFromAbsCoord(lastX, lastY, surfaceWithMouse);
@@ -2506,7 +2542,23 @@ function doUngrab() {
         }
         surfaceWithMouse = realSurfaceWithMouse;
     }
-    grab.surface = null;
+}
+
+/* A surface vanished (hidden/destroyed) while it (or a descendant) held a grab:
+ * pop it and everything stacked above it, mirroring the daemon's drop-through. */
+function grabDrop(id) {
+    var idx = -1;
+    for (var i = grabStack.length - 1; i >= 0; i--) {
+        if (grabStack[i].surface == id) { idx = i; break; }
+    }
+    if (idx < 0)
+        return;
+    /* Drop the levels above `id` silently, then ungrab `id` itself with the
+     * normal crossing restore. */
+    while (grabStack.length - 1 > idx)
+        grabStack.pop();
+    updateGrabCache();
+    doUngrab();
 }
 
 function onMouseDown (ev) {
@@ -4886,10 +4938,9 @@ function resetClientState()
     pinchActive = false;
     suppressTouchForward = false;
     /* A grab held at disconnect may point at a dead surface id and would route
-     * all input there; the daemon re-asserts any live grab after the resync. */
-    grab.surface = null;
-    grab.ownerEvents = false;
-    grab.implicit = false;
+     * all input there; the daemon replays the whole grab stack after the resync. */
+    grabStack = [];
+    updateGrabCache();
     lastState = 0;
     pendingMove = null;
 }

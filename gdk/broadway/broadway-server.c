@@ -105,8 +105,11 @@ struct _BroadwayServer {
   guint32 last_state;
   gint32 real_mouse_in_surface_id; /* Not affected by grabs */
 
-  /* Explicit pointer grabs: */
-  gint32 pointer_grab_surface_id; /* -1 => none */
+  /* Pointer grabs stack so a popup chain (menu -> submenu) nests: a submenu
+   * pushes over its parent instead of clobbering it, and pops back on close.
+   * Head = innermost; the scalars below cache the top so read-sites stay plain. */
+  GList *pointer_grabs;
+  gint32 pointer_grab_surface_id; /* -1 => none (== top's surface) */
   gint32 pointer_grab_client_id; /* -1 => none */
   guint32 pointer_grab_time;
   gboolean pointer_grab_owner_events;
@@ -359,6 +362,8 @@ broadway_server_finalize (GObject *object)
       g_free (de);
     }
   g_slist_free (server->deferred_enters);
+
+  g_list_free_full (server->pointer_grabs, g_free);
 
   /* The menu control sources and child watch hold the server raw. */
   menu_control_teardown ();
@@ -800,6 +805,67 @@ recover_pointer_focus (BroadwayServer *server,
   de->parent_id = top;
   server->deferred_enters = g_slist_prepend (server->deferred_enters, de);
   de->source_id = g_timeout_add (50, deferred_enter_cb, de);
+}
+
+/* One level of the pointer-grab stack (see the struct comment). */
+typedef struct {
+  gint32 surface_id;
+  gint32 client_id;
+  gboolean owner_events;
+  guint32 time;
+} BroadwayGrab;
+
+/* Mirror the innermost grab into the cached scalars the read-sites use. */
+static void
+update_grab_cache (BroadwayServer *server)
+{
+  if (server->pointer_grabs)
+    {
+      BroadwayGrab *g = server->pointer_grabs->data;
+      server->pointer_grab_surface_id = g->surface_id;
+      server->pointer_grab_client_id = g->client_id;
+      server->pointer_grab_owner_events = g->owner_events;
+      server->pointer_grab_time = g->time;
+    }
+  else
+    {
+      server->pointer_grab_surface_id = -1;
+      server->pointer_grab_client_id = -1;
+      server->pointer_grab_owner_events = FALSE;
+    }
+}
+
+/* A surface vanished without a clean ungrab: drop its grab level and everything
+ * above it. No ungrab op - the browser drops the same levels on HIDE/DESTROY. */
+static void
+grab_stack_drop_through (BroadwayServer *server,
+                         gint32          id)
+{
+  gboolean found = FALSE;
+  GList *l;
+
+  for (l = server->pointer_grabs; l != NULL; l = l->next)
+    if (((BroadwayGrab *) l->data)->surface_id == id)
+      {
+        found = TRUE;
+        break;
+      }
+  if (!found)
+    return;
+
+  while (server->pointer_grabs)
+    {
+      BroadwayGrab *g = server->pointer_grabs->data;
+      gint32 sid = g->surface_id;
+
+      g_free (g);
+      server->pointer_grabs = g_list_delete_link (server->pointer_grabs,
+                                                  server->pointer_grabs);
+      if (sid == id)
+        break;
+    }
+
+  update_grab_cache (server);
 }
 
 static guint32 *
@@ -2005,11 +2071,18 @@ start (BroadwayInput *input)
 
   broadway_server_resync_surfaces (server);
 
-  /* The resync flushes may have dropped the output on a write error. */
-  if (server->pointer_grab_surface_id != -1 && server->output)
-    broadway_output_grab_pointer (server->output,
-                                  server->pointer_grab_surface_id,
-                                  server->pointer_grab_owner_events);
+  /* The resync flushes may have dropped the output on a write error. Replay the
+   * whole grab stack outermost-first so the client rebuilds the chain in order. */
+  if (server->pointer_grabs && server->output)
+    {
+      GList *l;
+      for (l = g_list_last (server->pointer_grabs); l != NULL; l = l->prev)
+        {
+          BroadwayGrab *g = l->data;
+          broadway_output_grab_pointer (server->output, g->surface_id,
+                                        g->owner_events);
+        }
+    }
 
   process_input_messages (server);
 
@@ -2355,8 +2428,7 @@ broadway_server_destroy_surface (BroadwayServer *server,
       server->mouse_in_surface_id = 0;
     }
 
-  if (server->pointer_grab_surface_id == id)
-    server->pointer_grab_surface_id = -1;
+  grab_stack_drop_through (server, id);
 
   if (server->output)
     broadway_output_destroy_surface (server->output, id);
@@ -2430,8 +2502,7 @@ broadway_server_surface_hide (BroadwayServer *server,
       server->mouse_in_surface_id = 0;
     }
 
-  if (server->pointer_grab_surface_id == id)
-    server->pointer_grab_surface_id = -1;
+  grab_stack_drop_through (server, id);
 
   if (server->output)
     {
@@ -3017,17 +3088,33 @@ broadway_server_grab_pointer (BroadwayServer *server,
                               guint32 event_mask,
                               guint32 time_)
 {
-  if (server->pointer_grab_surface_id != -1 &&
-      time_ != 0 && server->pointer_grab_time > time_)
+  BroadwayGrab *top = server->pointer_grabs ? server->pointer_grabs->data : NULL;
+
+  /* Reject a stale (older) grab; a newer one on a new surface nests, a re-grab
+   * of the current surface updates the top in place. */
+  if (top && time_ != 0 && top->time > time_)
     return GDK_GRAB_ALREADY_GRABBED;
 
   if (time_ == 0)
     time_ = server->last_seen_time;
 
-  server->pointer_grab_surface_id = id;
-  server->pointer_grab_client_id = client_id;
-  server->pointer_grab_owner_events = owner_events;
-  server->pointer_grab_time = time_;
+  if (top && top->surface_id == id)
+    {
+      top->client_id = client_id;
+      top->owner_events = owner_events;
+      top->time = time_;
+    }
+  else
+    {
+      BroadwayGrab *g = g_new0 (BroadwayGrab, 1);
+      g->surface_id = id;
+      g->client_id = client_id;
+      g->owner_events = owner_events;
+      g->time = time_;
+      server->pointer_grabs = g_list_prepend (server->pointer_grabs, g);
+    }
+
+  update_grab_cache (server);
 
   if (server->output)
     {
@@ -3047,9 +3134,9 @@ broadway_server_ungrab_pointer (BroadwayServer *server,
                                 guint32    time_)
 {
   guint32 serial;
+  BroadwayGrab *top = server->pointer_grabs ? server->pointer_grabs->data : NULL;
 
-  if (server->pointer_grab_surface_id != -1 &&
-      time_ != 0 && server->pointer_grab_time > time_)
+  if (top && time_ != 0 && top->time > time_)
     return 0;
 
   /* TODO: What about surface grab events if we're not connected? */
@@ -3064,7 +3151,14 @@ broadway_server_ungrab_pointer (BroadwayServer *server,
       serial = server->saved_serial;
     }
 
-  server->pointer_grab_surface_id = -1;
+  /* Pop the innermost grab, falling back to its parent (the new top). */
+  if (server->pointer_grabs)
+    {
+      g_free (server->pointer_grabs->data);
+      server->pointer_grabs = g_list_delete_link (server->pointer_grabs,
+                                                  server->pointer_grabs);
+    }
+  update_grab_cache (server);
 
   return serial;
 }
