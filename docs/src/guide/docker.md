@@ -9,7 +9,11 @@ FROM ghcr.io/droserasprout/gtk-brotway:v3.1.3   # or :latest
 # ... add your GTK4 app on top; it runs on the patched Broadway backend
 ```
 
-Tags: `:vX.Y.Z` pins a release, `:3` tracks the latest 3.x, `:latest` tracks the newest. The `-nogl` suffix selects the slim variant below (`:vX.Y.Z-nogl`, `:3-nogl`, `:nogl`).
+| Tag | Slim ([`-nogl`](#nogl-variant)) | Tracks |
+|---|---|---|
+| `:vX.Y.Z` | `:vX.Y.Z-nogl` | a pinned release |
+| `:3` | `:3-nogl` | the latest 3.x (not v4+) |
+| `:latest` | `:nogl` | the newest release |
 
 ## `:nogl` variant
 
