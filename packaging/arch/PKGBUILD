@@ -1,7 +1,7 @@
 # Conflict-free overlay: lives in a private prefix (/usr/lib/gtk4-brotway),
 # opt into the fork per launch via `gtk4-brotway-run`.
 pkgname=gtk4-brotway
-pkgver=3.1.2
+pkgver=3.1.3
 pkgrel=1
 _gtkbase=4.22.4
 pkgdesc="GTK 4.22 Broadway backend fork"

@@ -4,11 +4,13 @@ All notable changes to this project will be documented in this file. The format 
 
 Versioning from v3: release tags are three-part `vX.Y.Z`; package versions are `<gtk-base>-X.Y.Z`, e.g. `4.22.4-3.0.0`. Single base (GTK 4.22.x). See [Requirements](https://droserasprout.github.io/gtk-brotway/guide/requirements.html).
 
-## Unreleased
+## v3.1.3 - 2026-06-26
+
+[release](https://github.com/droserasprout/gtk-brotway/releases/tag/v3.1.3) | [diff](https://github.com/droserasprout/gtk-brotway/compare/v3.1.2...v3.1.3)
 
 ### Added
 
-- The triple-Shift debug menu shows a Session group with the daemon (Server) and browser (Client) ids plus the resume token.
+- The triple-Shift debug menu shows Client session ID and resume token.
 
 ### Fixed
 
@@ -16,7 +18,7 @@ Versioning from v3: release tags are three-part `vX.Y.Z`; package versions are `
 - Nested menus: the Left arrow closes only the open submenu, keeping the parent menu open and focused, instead of dismissing the whole chain.
 - Menu-item highlight no longer flickers or clears when a submenu opens or closes.
 - A CSD window drag no longer swallows the first click made afterwards.
-- Notebook: clicking end action widget (e.g. a tab-list menu button) no also switches the active tab.
+- Notebook: clicking an end action widget (e.g. a tab-list menu button) no longer also switches the active tab.
 
 ## v3.1.2 - 2026-06-23
 

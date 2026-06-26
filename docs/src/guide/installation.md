@@ -18,7 +18,7 @@ Three ways to get the fork. All install into a private prefix (`/usr/lib/gtk4-br
 Use the prebuilt base image - the `.deb` over stock Ubuntu GTK, with the SVG icon loader, Adwaita icons, `GDK_BACKEND=broadway`, and `LD_LIBRARY_PATH` pre-set:
 
 ```dockerfile
-FROM ghcr.io/droserasprout/gtk-brotway:v3.1.1   # or :latest
+FROM ghcr.io/droserasprout/gtk-brotway:v3.1.3   # or :latest
 # ... add your GTK4 app on top; it runs on the patched Broadway backend
 ```
 
@@ -29,13 +29,13 @@ To bake the fork into your own base, run the [Ubuntu / Debian](#ubuntu--debian) 
 Pick the asset for your architecture (base is GTK 4.22.4 on `ubuntu:26.04`):
 
 ```sh
-rel=v3.1.1       # the release to install - see the Releases page for the latest tag
+rel=v3.1.3       # the release to install - see the Releases page for the latest tag
 arch="$(dpkg --print-architecture)"
 wget -O gtk.deb "https://github.com/droserasprout/gtk-brotway/releases/download/${rel}/gtk4-brotway_4.22.4-${rel#v}_${arch}.deb"
 apt-get install -y ./gtk.deb
 ```
 
-Asset names are `gtk4-brotway_<gtk>-<rev>_<arch>.deb` (e.g. `gtk4-brotway_4.22.4-3.1.1_amd64.deb`). Uninstall with `apt-get remove gtk4-brotway`.
+Asset names are `gtk4-brotway_<gtk>-<rev>_<arch>.deb` (e.g. `gtk4-brotway_4.22.4-3.1.3_amd64.deb`). Uninstall with `apt-get remove gtk4-brotway`.
 
 > Latest tag without hardcoding: `rel="$(curl -fsSL https://api.github.com/repos/droserasprout/gtk-brotway/releases/latest | grep -oP '"tag_name":\s*"\K[^"]+')"`.
 
@@ -44,7 +44,7 @@ Asset names are `gtk4-brotway_<gtk>-<rev>_<arch>.deb` (e.g. `gtk4-brotway_4.22.4
 Prebuilt x86_64 package - download the `.pkg.tar.zst` from the Release and install it. It's frozen to the `gtk4` it was built against, so rebuild from source after an Arch `gtk4` soname bump:
 
 ```sh
-rel=v3.1.2       # the release to install - see the Releases page for the latest tag
+rel=v3.1.3       # the release to install - see the Releases page for the latest tag
 wget "https://github.com/droserasprout/gtk-brotway/releases/download/${rel}/gtk4-brotway-${rel#v}-1-x86_64.pkg.tar.zst"
 sudo pacman -U ./gtk4-brotway-*.pkg.tar.zst
 ```

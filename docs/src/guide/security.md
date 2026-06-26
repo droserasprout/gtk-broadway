@@ -26,7 +26,7 @@ Install the arch-matching `.deb` and point `LD_LIBRARY_PATH` at the fork prefix 
 
 ```dockerfile
 ARG GTK_VER=4.22.4
-ARG REL=v3.1.1
+ARG REL=v3.1.3
 RUN arch="$(dpkg --print-architecture)" \
  && wget -O /tmp/gtk.deb "https://github.com/droserasprout/gtk-brotway/releases/download/${REL}/gtk4-brotway_${GTK_VER}-${REL#v}_${arch}.deb" \
  && apt-get install -y /tmp/gtk.deb \

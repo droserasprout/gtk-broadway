@@ -7,7 +7,7 @@ Install the fork, then launch an app with `gtk4-brotway-run`.
 On Debian/Ubuntu, grab the `.deb` for your architecture and install it:
 
 ```sh
-rel=v3.1.1       # the release to install - see the Releases page for the latest tag
+rel=v3.1.3       # the release to install - see the Releases page for the latest tag
 gtk_ver=4.22.4   # on an ubuntu:26.04 base
 arch="$(dpkg --print-architecture)"
 wget -O gtk.deb "https://github.com/droserasprout/gtk-brotway/releases/download/${rel}/gtk4-brotway_${gtk_ver}-${rel#v}_${arch}.deb"
