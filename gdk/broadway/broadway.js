@@ -309,7 +309,12 @@ function touchIdentifier(tId)
 }
 
 /* Pointer grabs stack (mirrors the daemon) so a popup chain nests: GRAB pushes,
- * UNGRAB pops to the parent. `grab` caches the top for the read-sites. */
+ * UNGRAB pops to the parent. `grab` caches the top for the read-sites. Invariant:
+ * explicit grabs (from daemon ops) stay LIFO-synced with the daemon's stack; an
+ * implicit grab (button press) is browser-local - the daemon never sees it -
+ * taken only when the stack is empty, so it's at most one entry, always at the
+ * bottom. onMouseUp must therefore splice it, not pop, when an explicit grab
+ * nested over it. */
 var grabStack = [];
 var grab = { surface: null, ownerEvents: false, implicit: false };
 function updateGrabCache() {

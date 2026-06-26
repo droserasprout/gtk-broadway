@@ -107,12 +107,13 @@ struct _BroadwayServer {
 
   /* Pointer grabs stack so a popup chain (menu -> submenu) nests: a submenu
    * pushes over its parent instead of clobbering it, and pops back on close.
-   * Head = innermost; the scalars below cache the top so read-sites stay plain. */
+   * Head = innermost. Push/pop are strictly LIFO (UNGRAB carries no surface id,
+   * so both ends just drop the innermost) - fine for popup chains, the only
+   * producers here. These scalars cache the top so read-sites stay plain;
+   * owner_events/time are read off the head directly, so they're not cached. */
   GList *pointer_grabs;
   gint32 pointer_grab_surface_id; /* -1 => none (== top's surface) */
   gint32 pointer_grab_client_id; /* -1 => none */
-  guint32 pointer_grab_time;
-  gboolean pointer_grab_owner_events;
 
   /* Active touch sequences: sequence id -> client the BEGIN was routed to,
    * so the rest of the sequence follows even across grab changes. */
@@ -844,14 +845,11 @@ update_grab_cache (BroadwayServer *server)
       BroadwayGrab *g = server->pointer_grabs->data;
       server->pointer_grab_surface_id = g->surface_id;
       server->pointer_grab_client_id = g->client_id;
-      server->pointer_grab_owner_events = g->owner_events;
-      server->pointer_grab_time = g->time;
     }
   else
     {
       server->pointer_grab_surface_id = -1;
       server->pointer_grab_client_id = -1;
-      server->pointer_grab_owner_events = FALSE;
     }
 }
 
