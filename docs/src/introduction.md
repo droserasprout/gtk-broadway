@@ -28,19 +28,20 @@ Broadway stayed an experimental, lightly-maintained corner of GTK, and in Februa
 
 ## Project goals
 
-- **Thin layer on GTK4.** Patches stay inside the Broadway backend, so each point release re-forks with a minimal diff.
-- **Accurate rendering.** The browser matches what the app draws: correct scaling, no white flash, no stretched bitmaps, crisp HiDPI and zoom.
-- **Any browser, any device.** Touch and mobile are primary targets; touch text editing, the OSK, IME, and pinch-zoom work as well as mouse and keyboard.
-- **Match the GNOME/Mutter experience.** A Broadway session behaves like a real compositor, not a degraded remote view.
-- **Stable.** No crashes, wedged input, or dropped sessions; reconnect in place.
+- **Thin layer on GTK4.** A small, ABI-compatible patch over the stock toolkit.
+- **Accurate rendering.** The browser matches what the app draws: correct scaling, crisp HiDPI and zoom.
+- **Any browser, any device.** Touch, mobile, and arm64 are primary targets.
+- **Match the GNOME stack experience.** A Broadway session behaves like a real compositor.
+- **Performance and stability.** Aim for minimal resource usage and latency.
 
 ## Links
 
 Original docs, blog posts, discussions, everything Broadway related.
 
-- [Gtk: The Broadway windowing system](https://docs.gtk.org/gtk4/broadway.html)
-- [Gtk: Preparing for GTK5](https://docs.gtk.org/gtk4/migrating-4to5.html)
-- [Phoronix: GTK4's Broadway HTML5 Backend Coming Back To Ubuntu, Debian (2022)](https://www.phoronix.com/news/GTK4-Broadway-Being-Used)
+- [Gtk: The Broadway windowing system](https://docs.gtk.org/gtk4/broadway.html) - original docs
+- [valpackett/awesome-gtk](https://github.com/valpackett/awesome-gtk) - try those apps with Brotway!
+- [Phoronix: GTK4's Broadway HTML5 Backend Coming Back To Ubuntu, Debian (2022)](https://www.phoronix.com/news/GTK4-Broadway-Being-Used) - some real Broadway users
+- [Gtk: Preparing for GTK5](https://docs.gtk.org/gtk4/migrating-4to5.html) - doesn't affect us, FYI
 - [HackerNews: The Broadway Windowing System (2024)](https://news.ycombinator.com/item?id=39175112)
 - [HackerNews: New Renderers for GTK (2024)](https://news.ycombinator.com/item?id=39172377)
 

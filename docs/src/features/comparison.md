@@ -6,6 +6,7 @@ Legend: **🟢** full support, **🟡** partial/workaround/caveats, **🔴** not
 
 | Feature | Broadway | **Brotway** | Wayland |
 |---------|:---:|:---:|:---:|
+| Remote access | 🟢 [^remote] | ✨ | 🔴 |
 | **Clipboard & drag-and-drop** | | | |
 | Text clipboard (host read/write) | 🔴 | 🟢 [^clip] | 🟢 |
 | Rich clipboard / images / mimetypes | 🔴 | 🔴 [^rich] | 🟢 |
@@ -44,10 +45,15 @@ Legend: **🟢** full support, **🟡** partial/workaround/caveats, **🔴** not
 | Server-side decorations | ⚪ | ⚪ [^deco] | 🟢 |
 | Multiple top-level windows | 🟢 | 🟢 | 🟢 |
 | Window transparency / RGBA | 🟢 | 🟢 | 🟢 |
+| Browser tab title, favicon | 🔴 | 🟢 [^tabtitle] | ⚪ |
+| **Window management** | | | |
+| Interactive move / resize | 🟡 | 🟢 [^moveresize] | 🟢 |
+| Maximize | 🟡 | 🟢 [^maximize] | 🟢 |
+| Modal dialogs (dim + block parent) | 🔴 | 🟢 [^modal] | 🟢 |
 | WM stacking & workspace hints (keep above/below, lower, sticky) | 🔴 | 🔴 | 🔴 |
-| Startup notification / window handle export (xdg-activation) | 🔴 | 🔴 | 🟢 |
 | Server window menu (`show_window_menu`) | 🔴 | 🔴 | 🟡 |
 | Tiled-edge constraints | 🔴 | 🔴 | 🟢 |
+| Startup notification / window handle export (xdg-activation) | 🔴 | 🔴 | 🟢 |
 | **UI surfaces** | | | |
 | Tooltips | 🟢 | 🟢 [^tooltip] | 🟢 |
 | Popovers / autohide popups | 🟢 | 🟢 [^popup] | 🟢 |
@@ -56,6 +62,16 @@ Legend: **🟢** full support, **🟡** partial/workaround/caveats, **🔴** not
 | System tray / status icon | 🔴 | 🔴 | 🟡 [^tray] |
 | Accessibility bridge | 🔴 | 🔴 | 🟢 [^a11y] |
 | Desktop settings (dark mode / accent / fonts) | 🔴 | 🔴 | 🟢 [^settings] |
+
+[^remote]: A `gtk4-broadwayd` daemon serves the running app over HTTP/WebSocket; any browser on any OS connects, no client install. Native backends draw to a local display only.
+
+[^tabtitle]: The fork sets the browser tab's title and favicon from the app's title and icon. See [Tab title & favicon](display.md#tab-title-and-favicon).
+
+[^moveresize]: Stock mis-places a "centered" dialog hard against the left edge (x=0) and can snap or grow it when resizing near an edge after a move; the fork centers and stabilizes the geometry (#61).
+
+[^maximize]: Double-click-titlebar maximize toggles cleanly on the fork but is buggy on stock. Minimize is a no-op (no shell to minimize into) and GTK-level fullscreen is unimplemented (browser F11 covers it).
+
+[^modal]: Stock tracks `modal_hint` but never enforces it - the parent isn't dimmed and hover leaks through. The fork adds a client-side scrim that dims and blocks the parent, matching libadwaita's backdrop.
 
 [^clip]: Stock upstream Broadway ships no `GdkClipboard`. The fork adds one, bridging the browser clipboard in both directions. See [Clipboard](input.md#clipboard).
 
