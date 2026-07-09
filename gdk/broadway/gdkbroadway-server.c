@@ -750,7 +750,10 @@ broadway_png_preset (void)
 {
   if (g_once_init_enter (&png_preset_init))
     {
-      const char *v = g_getenv ("BROADWAY_PNG");
+      const char *v = g_getenv ("BROTWAY_PNG");
+
+      if (v == NULL && (v = g_getenv ("BROADWAY_PNG")) != NULL)
+        g_warning ("BROADWAY_PNG is deprecated; use BROTWAY_PNG");
 
       if (v && *v)
         {

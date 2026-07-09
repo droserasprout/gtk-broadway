@@ -362,7 +362,7 @@ int main(int argc, char **argv)
     }
 
   setenv("GDK_BACKEND", "broadway", 1);
-  setenv("BROADWAY_DISPLAY", disp, 1);
+  setenv("BROTWAY_DISPLAY", disp, 1);
 
   pid_t app_pid = fork();
   if (app_pid < 0)

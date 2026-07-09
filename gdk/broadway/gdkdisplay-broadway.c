@@ -474,7 +474,12 @@ _gdk_broadway_display_open (const char *display_name)
   gdk_event_init (display);
 
   if (display_name == NULL)
-    display_name = g_getenv ("BROADWAY_DISPLAY");
+    {
+      display_name = g_getenv ("BROTWAY_DISPLAY");
+      if (display_name == NULL &&
+          (display_name = g_getenv ("BROADWAY_DISPLAY")) != NULL)
+        g_warning ("BROADWAY_DISPLAY is deprecated; use BROTWAY_DISPLAY");
+    }
 
   broadway_display->server = _gdk_broadway_server_new (display, display_name, &error);
   if (broadway_display->server == NULL)

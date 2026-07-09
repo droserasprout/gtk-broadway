@@ -301,6 +301,12 @@ gtk_settings_init (GtkSettings *settings)
   gtk_settings_load_from_key_file (settings, path, GTK_SETTINGS_SOURCE_DEFAULT);
   g_free (path);
 
+  /* Brotway: BROTWAY_ANIMATIONS=0 force-disables animations. The Broadway backend
+   * has no settings bridge (get_setting returns FALSE), so this env is the reliable
+   * per-container knob; g_object_set marks it SOURCE_APPLICATION, beating settings.ini. */
+  if (g_strcmp0 (g_getenv ("BROTWAY_ANIMATIONS"), "0") == 0)
+    g_object_set (settings, "gtk-enable-animations", FALSE, NULL);
+
   g_object_thaw_notify (G_OBJECT (settings));
 
   /* ensure that derived fields are initialized */

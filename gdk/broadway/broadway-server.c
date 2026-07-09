@@ -1231,7 +1231,9 @@ broadway_server_summon_menu (BroadwayServer *server)
   fcntl (sv[0], F_SETFD, FD_CLOEXEC);
   g_snprintf (fdstr, sizeof fdstr, "%d", sv[1]);
 
-  cmd = g_getenv ("BROADWAY_DEBUGMENU");
+  cmd = g_getenv ("BROTWAY_DEBUGMENU");
+  if (cmd == NULL && (cmd = g_getenv ("BROADWAY_DEBUGMENU")) != NULL)
+    g_warning ("BROADWAY_DEBUGMENU is deprecated; use BROTWAY_DEBUGMENU");
   if (cmd == NULL)
     cmd = "gtk4-brotway-debugmenu";
 
@@ -1241,8 +1243,8 @@ broadway_server_summon_menu (BroadwayServer *server)
   envp = g_get_environ ();
   envp = g_environ_setenv (envp, "GDK_BACKEND", "broadway", TRUE);
   if (server->display != NULL)
-    envp = g_environ_setenv (envp, "BROADWAY_DISPLAY", server->display, TRUE);
-  envp = g_environ_setenv (envp, "BROADWAY_DEBUGMENU_FD", fdstr, TRUE);
+    envp = g_environ_setenv (envp, "BROTWAY_DISPLAY", server->display, TRUE);
+  envp = g_environ_setenv (envp, "BROTWAY_DEBUGMENU_FD", fdstr, TRUE);
 
   /* LEAVE_DESCRIPTORS_OPEN keeps sv[1] across exec; the daemon's own fds are
    * close-on-exec (GIO sets that), so only the control fd passes through. */
