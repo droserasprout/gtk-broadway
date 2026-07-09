@@ -30,6 +30,7 @@
 #include "gtkwidgetprivate.h"
 
 #include "gdk/gdkdisplayprivate.h"
+#include "gdk/broadway/broadway-env.h"   /* broadway_env_flag () */
 
 #include <string.h>
 
@@ -301,10 +302,11 @@ gtk_settings_init (GtkSettings *settings)
   gtk_settings_load_from_key_file (settings, path, GTK_SETTINGS_SOURCE_DEFAULT);
   g_free (path);
 
-  /* Brotway: BROTWAY_ANIMATIONS=0 force-disables animations. The Broadway backend
-   * has no settings bridge (get_setting returns FALSE), so this env is the reliable
-   * per-container knob; g_object_set marks it SOURCE_APPLICATION, beating settings.ini. */
-  if (g_strcmp0 (g_getenv ("BROTWAY_ANIMATIONS"), "0") == 0)
+  /* Brotway: BROTWAY_ANIMATIONS=0 force-disables animations (also gates libadwaita
+   * via gtk-enable-animations). The Broadway backend has no settings bridge
+   * (get_setting returns FALSE), so this env is the reliable per-container knob;
+   * g_object_set marks it SOURCE_APPLICATION, beating settings.ini. */
+  if (!broadway_env_flag ("BROTWAY_ANIMATIONS", TRUE))
     g_object_set (settings, "gtk-enable-animations", FALSE, NULL);
 
   g_object_thaw_notify (G_OBJECT (settings));

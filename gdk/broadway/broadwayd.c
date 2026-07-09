@@ -18,6 +18,7 @@
 #endif
 
 #include "broadway-server.h"
+#include "broadway-env.h"
 
 BroadwayServer *server;
 GList *clients;
@@ -697,6 +698,8 @@ main (int argc, char *argv[])
   };
 
   setlocale (LC_ALL, "");
+
+  broadway_migrate_legacy_env ();
 
   context = g_option_context_new ("[:DISPLAY] - broadway display daemon");
   g_option_context_add_main_entries (context, entries, GETTEXT_PACKAGE);

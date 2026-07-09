@@ -376,9 +376,6 @@ static void
 connect_control_channel (void)
 {
   const char *fdenv = g_getenv ("BROTWAY_DEBUGMENU_FD");
-
-  if (fdenv == NULL && (fdenv = g_getenv ("BROADWAY_DEBUGMENU_FD")) != NULL)
-    g_warning ("BROADWAY_DEBUGMENU_FD is deprecated; use BROTWAY_DEBUGMENU_FD");
   int fd;
 
   if (fdenv == NULL)

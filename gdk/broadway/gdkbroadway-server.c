@@ -752,9 +752,6 @@ broadway_png_preset (void)
     {
       const char *v = g_getenv ("BROTWAY_PNG");
 
-      if (v == NULL && (v = g_getenv ("BROADWAY_PNG")) != NULL)
-        g_warning ("BROADWAY_PNG is deprecated; use BROTWAY_PNG");
-
       if (v && *v)
         {
           if (g_ascii_strcasecmp (v, "fast") == 0)         png_preset = BROADWAY_PNG_FAST;

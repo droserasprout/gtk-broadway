@@ -23,6 +23,7 @@
 #include "config.h"
 
 #include "gdkdisplay-broadway.h"
+#include "broadway-env.h"   /* broadway_migrate_legacy_env () */
 
 #include "gdkcairocontext-broadway.h"
 #include "gdkdisplay.h"
@@ -446,6 +447,8 @@ _gdk_broadway_display_open (const char *display_name)
   GError *error = NULL;
   GdkSeat *seat;
 
+  broadway_migrate_legacy_env ();
+
   display = g_object_new (GDK_TYPE_BROADWAY_DISPLAY, NULL);
   broadway_display = GDK_BROADWAY_DISPLAY (display);
 
@@ -474,12 +477,7 @@ _gdk_broadway_display_open (const char *display_name)
   gdk_event_init (display);
 
   if (display_name == NULL)
-    {
-      display_name = g_getenv ("BROTWAY_DISPLAY");
-      if (display_name == NULL &&
-          (display_name = g_getenv ("BROADWAY_DISPLAY")) != NULL)
-        g_warning ("BROADWAY_DISPLAY is deprecated; use BROTWAY_DISPLAY");
-    }
+    display_name = g_getenv ("BROTWAY_DISPLAY");
 
   broadway_display->server = _gdk_broadway_server_new (display, display_name, &error);
   if (broadway_display->server == NULL)

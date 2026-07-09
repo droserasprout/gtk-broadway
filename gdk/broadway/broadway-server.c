@@ -1232,8 +1232,6 @@ broadway_server_summon_menu (BroadwayServer *server)
   g_snprintf (fdstr, sizeof fdstr, "%d", sv[1]);
 
   cmd = g_getenv ("BROTWAY_DEBUGMENU");
-  if (cmd == NULL && (cmd = g_getenv ("BROADWAY_DEBUGMENU")) != NULL)
-    g_warning ("BROADWAY_DEBUGMENU is deprecated; use BROTWAY_DEBUGMENU");
   if (cmd == NULL)
     cmd = "gtk4-brotway-debugmenu";
 
