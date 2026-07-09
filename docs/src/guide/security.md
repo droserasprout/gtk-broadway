@@ -29,7 +29,7 @@ Build so every app loads the fork via `LD_LIBRARY_PATH=/usr/lib/gtk4-brotway` - 
 Inside the container two processes run, as in [Running](running.md#by-hand), both loading the fork via `LD_LIBRARY_PATH=/usr/lib/gtk4-brotway`:
 
 - `/usr/lib/gtk4-brotway/gtk4-broadwayd :N` owns the display and serves the page on `8080 + N`.
-- the app, started with `GDK_BACKEND=broadway BROADWAY_DISPLAY=:N`, renders into it.
+- the app, started with `GDK_BACKEND=broadway BROTWAY_DISPLAY=:N`, renders into it.
 
 The TLS terminator proxies `https://your-host/` to the daemon's `8080 + N`, and must **forward WebSocket upgrades** - all display ops and input run over the same socket.
 
@@ -87,7 +87,7 @@ After=broadwayd.service
 
 [Service]
 User=broadway
-Environment=LD_LIBRARY_PATH=/usr/lib/gtk4-brotway GDK_BACKEND=broadway BROADWAY_DISPLAY=:5
+Environment=LD_LIBRARY_PATH=/usr/lib/gtk4-brotway GDK_BACKEND=broadway BROTWAY_DISPLAY=:5
 # changeme
 ExecStart=/usr/bin/gtk4-demo
 Restart=on-failure

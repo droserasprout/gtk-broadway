@@ -59,6 +59,6 @@ The daemon sends `BROADWAY_OP_DEBUG_FLASH` to toggle it; the client tags each no
 
 ## How it is wired
 
-Triple-Shift in `broadway.js` sends `BROADWAY_EVENT_MENU`. `broadwayd` intercepts it and spawns `gtk4-brotway-debugmenu` with `GDK_BACKEND`/`BROADWAY_DISPLAY` pointed at itself, so the window renders into the same display, pinned always-on-top. Since `EVENT_MENU` comes from the untrusted browser, a failed spawn backs off 10s, and the menu is matched by client id (only a client that connected after the summon can own it) so another app's surface can't get pinned on top.
+Triple-Shift in `broadway.js` sends `BROADWAY_EVENT_MENU`. `broadwayd` intercepts it and spawns `gtk4-brotway-debugmenu` with `GDK_BACKEND`/`BROTWAY_DISPLAY` pointed at itself, so the window renders into the same display, pinned always-on-top. Since `EVENT_MENU` comes from the untrusted browser, a failed spawn backs off 10s, and the menu is matched by client id (only a client that connected after the summon can own it) so another app's surface can't get pinned on top.
 
-The daemon hands the child one end of a control socketpair via `BROADWAY_DEBUGMENU_FD`. Over it the daemon pushes a `stats` line every ~500 ms and reads back commands (`reconnect`, `drop-session`, `open-uri`, `paint-flash 0|1`, `screen W H S`, `png-preset N`). The titlebar, Escape, and a second Triple-Shift all dismiss it.
+The daemon hands the child one end of a control socketpair via `BROTWAY_DEBUGMENU_FD`. Over it the daemon pushes a `stats` line every ~500 ms and reads back commands (`reconnect`, `drop-session`, `open-uri`, `paint-flash 0|1`, `screen W H S`, `png-preset N`). The titlebar, Escape, and a second Triple-Shift all dismiss it.

@@ -31,7 +31,7 @@ export LD_LIBRARY_PATH=/usr/lib/gtk4-brotway   # so both load the fork lib
 /usr/lib/gtk4-brotway/gtk4-broadwayd :5 &
 
 # app: point it at that display
-GDK_BACKEND=broadway BROADWAY_DISPLAY=:5 gtk4-demo   # changeme
+GDK_BACKEND=broadway BROTWAY_DISPLAY=:5 gtk4-demo   # changeme
 ```
 
 Open `http://localhost:8085`. The app renders into the daemon, which streams render nodes to every connected browser tab; the browser sends input (pointer, touch, keyboard) back over the same socket.

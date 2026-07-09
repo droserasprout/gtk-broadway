@@ -20,13 +20,16 @@ The app process (not the daemon) reads these to target the daemon instead of X11
 | Variable | Value | Purpose |
 |----------|-------|---------|
 | `GDK_BACKEND` | `broadway` | use the Broadway GDK backend |
-| `BROADWAY_DISPLAY` | `:N` | connect to the daemon for display `N` |
+| `BROTWAY_DISPLAY` | `:N` | connect to the daemon for display `N` |
+| `BROTWAY_ANIMATIONS` | `0` | force-disable GTK/libadwaita animations (`gtk-enable-animations=false`). Broadway pushes every animated frame over the socket, so turning them off cuts frame churn and bandwidth. |
+
+> The fork's `BROTWAY_*` env vars were previously named `BROADWAY_*`. The old names still work but print a one-time deprecation warning; switch to `BROTWAY_*`.
 
 ## PNG encoding
 
 Every changed texture is re-encoded to PNG per frame, so the preset trades encode CPU (frame latency) against frame size:
 
-| `BROADWAY_PNG` | libpng settings | Use |
+| `BROTWAY_PNG` | libpng settings | Use |
 |----------------|-----------------|-----|
 | `fast` (default) | adaptive filter, level 3 | localhost / LAN - bandwidth is free, CPU/latency is the cost |
 | `compact` | adaptive filter, level 7 | remote / metered links - frame size dominates |
@@ -37,7 +40,7 @@ The [debug menu](../internals/debug-menu.md) (Triple-Shift) has a **PNG encoding
 
 | Variable | Set by | Purpose |
 |----------|--------|---------|
-| `BROADWAY_DEBUGMENU_FD` | the daemon, on the spawned `gtk4-brotway-debugmenu` child | one end of a control socketpair carrying the `stats ...` line and command replies ([Debug menu](../internals/debug-menu.md)) |
+| `BROTWAY_DEBUGMENU_FD` | the daemon, on the spawned `gtk4-brotway-debugmenu` child | one end of a control socketpair carrying the `stats ...` line and command replies ([Debug menu](../internals/debug-menu.md)) |
 
 The debug menu is summoned by **Triple-Shift** in the browser, not by configuration.
 

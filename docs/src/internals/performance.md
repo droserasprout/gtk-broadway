@@ -57,7 +57,7 @@ The reuse tiers cut *texture* traffic. A second pass trims the rest: redundant w
 
 *New in v3*
 
-Every cache miss re-encodes a texture to PNG on the frame path, so libpng's settings are a real CPU/latency-vs-size knob. `gdk_save_png_full` exposes zlib level, filter, and strategy, driven by a preset: **fast** (adaptive filter, level 3) for localhost/LAN, **compact** (level 7) for remote/metered links. Only the level differs; both keep adaptive filtering, which (vs a single Sub filter) keeps anti-aliased text and gradients small. Seeded from `BROADWAY_PNG`, switched live from the debug menu. See [PNG encoding](../guide/config.md#png-encoding).
+Every cache miss re-encodes a texture to PNG on the frame path, so libpng's settings are a real CPU/latency-vs-size knob. `gdk_save_png_full` exposes zlib level, filter, and strategy, driven by a preset: **fast** (adaptive filter, level 3) for localhost/LAN, **compact** (level 7) for remote/metered links. Only the level differs; both keep adaptive filtering, which (vs a single Sub filter) keeps anti-aliased text and gradients small. Seeded from `BROTWAY_PNG`, switched live from the debug menu. See [PNG encoding](../guide/config.md#png-encoding).
 
 ### Wire: drop empty frames
 

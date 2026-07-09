@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file. The format 
 
 Versioning from v3: release tags are three-part `vX.Y.Z`; package versions are `<gtk-base>-X.Y.Z`, e.g. `4.22.4-3.0.0`. Single base (GTK 4.22.x). See [Requirements](https://droserasprout.github.io/gtk-brotway/guide/requirements.html).
 
+## v3.2.0 - ???
+
+### Added
+
+- `BROTWAY_ANIMATIONS=0` force-disables GTK/libadwaita animations
+
+### Changed
+
+- Fork env vars renamed `BROADWAY_*` -> `BROTWAY_*` (`BROTWAY_PNG`, `BROTWAY_DEBUGMENU`, `BROTWAY_DEBUGMENU_FD`, `BROTWAY_DISPLAY`). Legacy `BROADWAY_*` names still work but print a one-time deprecation warning.
+
+### Fixed
+
+- `-nogl` base image is now apt-expandable: a shim Provides `libgtk-4-1`/`libgtk-4-bin` so the dpkg graph stays consistent after the GL/Mesa/LLVM chain is force-purged. Downstream apps can install `gir1.2-gtk-4.0`/`python3-gi` without pulling GL back.
+
 ## v3.1.3 - 2026-06-26
 
 [release](https://github.com/droserasprout/gtk-brotway/releases/tag/v3.1.3) | [diff](https://github.com/droserasprout/gtk-brotway/compare/v3.1.2...v3.1.3)

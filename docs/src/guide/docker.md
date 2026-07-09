@@ -41,7 +41,7 @@ ENV LD_LIBRARY_PATH=/usr/lib/gtk4-brotway
 
 ## Running the container
 
-Two processes run, both loading the fork via `LD_LIBRARY_PATH`: `gtk4-broadwayd :N` owns the display and serves the page on `8080 + N`, and the app renders into it with `GDK_BACKEND=broadway BROADWAY_DISPLAY=:N`. The launcher wires both up:
+Two processes run, both loading the fork via `LD_LIBRARY_PATH`: `gtk4-broadwayd :N` owns the display and serves the page on `8080 + N`, and the app renders into it with `GDK_BACKEND=broadway BROTWAY_DISPLAY=:N`. The launcher wires both up:
 
 ```sh
 gtk4-brotway-run gtk4-widget-factory   # -> http://localhost:8085

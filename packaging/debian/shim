@@ -1,0 +1,9 @@
+Package: gtk4-brotway-shim
+Version: ${DEB_VERSION}
+Architecture: ${ARCH}
+Maintainer: Lev Gorodetskii <github@drsr.io>
+Section: libs
+Priority: optional
+Homepage: https://github.com/droserasprout/gtk-brotway
+Provides: libgtk-4-1 (= ${GTK_DEB_VERSION}), libgtk-4-bin (= ${GTK_DEB_VERSION})
+Description: virtual provides for Brotway (-nogl base image)
