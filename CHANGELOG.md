@@ -9,6 +9,7 @@ Versioning from v3: release tags are three-part `vX.Y.Z`; package versions are `
 ### Added
 
 - `BROTWAY_ANIMATIONS=0` force-disables GTK/libadwaita animations
+- `BROTWAY_MAXIMIZE=1` maximizes the app's first toplevel to fill the browser viewport (dialogs still float)
 
 ### Changed
 
