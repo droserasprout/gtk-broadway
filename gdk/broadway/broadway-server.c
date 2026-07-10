@@ -3,6 +3,7 @@
 #include "broadway-server.h"
 
 #include "broadway-output.h"
+#include "broadway-portal.h"
 
 #include <glib.h>
 #include <glib/gprintf.h>
@@ -1337,6 +1338,7 @@ broadway_event_min_size (guint32 type)
     case BROADWAY_EVENT_SCREEN_SIZE_CHANGED: words += 3;     break; /* w, h, scale */
     case BROADWAY_EVENT_CLIPBOARD_CONTENTS:  words += 2;     break; /* id, len (text follows) */
     case BROADWAY_EVENT_PING:                words += 1;     break; /* latency */
+    case BROADWAY_EVENT_COLOR_SCHEME:        words += 1;     break; /* scheme */
     /* GRAB/UNGRAB_NOTIFY, SUSPEND/RESUME, MENU and unknown types: base only. */
     default: break;
     }
@@ -1519,6 +1521,12 @@ parse_input_message (BroadwayInput *input, const unsigned char *message, gsize p
   case BROADWAY_EVENT_MENU:
     /* Daemon-intercepted: spawn/toggle the menu, never forward to clients. */
     broadway_server_summon_menu (server);
+    return;
+
+  case BROADWAY_EVENT_COLOR_SCHEME:
+    /* Daemon-intercepted: browser prefers-color-scheme -> settings portal, not
+     * an input event for the app. */
+    broadway_portal_set_color_scheme (ntohl (*p++));
     return;
 
   default:

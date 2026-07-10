@@ -76,6 +76,7 @@ typedef enum {
   BROADWAY_EVENT_SUSPEND = 18, /* tab hidden: freeze app rendering (no payload) */
   BROADWAY_EVENT_RESUME = 19,  /* tab visible again: thaw rendering (no payload) */
   BROADWAY_EVENT_SET_PNG = 20, /* daemon->client: switch the PNG preset (from the debug menu) */
+  BROADWAY_EVENT_COLOR_SCHEME = 21, /* daemon-intercepted: browser prefers-color-scheme (0 no-pref, 1 dark, 2 light) */
 } BroadwayEventType;
 
 /* PNG preset (BROADWAY_EVENT_SET_PNG / "png-preset"). The client maps it to

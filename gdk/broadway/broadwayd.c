@@ -19,6 +19,7 @@
 
 #include "broadway-server.h"
 #include "broadway-env.h"
+#include "broadway-portal.h"
 
 BroadwayServer *server;
 GList *clients;
@@ -765,6 +766,10 @@ main (int argc, char *argv[])
 
   /* So the daemon can spawn the debug-menu client on our own display. */
   broadway_server_set_display (server, display);
+
+  /* Serve org.freedesktop.portal.Settings so libadwaita apps follow the
+   * browser's prefers-color-scheme (updated on COLOR_SCHEME events). */
+  broadway_portal_start ();
 
   listener = g_socket_service_new ();
   if (!g_socket_listener_add_address (G_SOCKET_LISTENER (listener),

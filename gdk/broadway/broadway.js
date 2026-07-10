@@ -93,6 +93,10 @@ const BROADWAY_EVENT_MENU = 17;
  * frames; the open socket lets RESUME repaint just the delta (no reconnect). */
 const BROADWAY_EVENT_SUSPEND = 18;
 const BROADWAY_EVENT_RESUME = 19;
+/* Browser->daemon prefers-color-scheme (0 no-pref, 1 dark, 2 light). The daemon
+ * intercepts it and reports it via org.freedesktop.portal.Settings so libadwaita
+ * follows the browser theme; never forwarded to GTK as an input event. */
+const BROADWAY_EVENT_COLOR_SCHEME = 21;
 
 const DISPLAY_OP_REPLACE_CHILD = 0;
 const DISPLAY_OP_APPEND_CHILD = 1;
@@ -4803,6 +4807,30 @@ function setupDocument(document)
     }
 }
 
+/* prefers-color-scheme -> freedesktop color-scheme (1 dark, 2 light, 0 none). */
+function currentColorScheme() {
+    if (!window.matchMedia)
+        return 0;
+    return window.matchMedia("(prefers-color-scheme: dark)").matches ? 1 : 2;
+}
+
+function sendColorScheme() {
+    sendInput(BROADWAY_EVENT_COLOR_SCHEME, [currentColorScheme()]);
+}
+
+var colorSchemeWatch = null;
+function watchColorScheme() {
+    if (colorSchemeWatch || !window.matchMedia)
+        return;
+    colorSchemeWatch = window.matchMedia("(prefers-color-scheme: dark)");
+    var onChange = function() { sendColorScheme(); };
+    /* addEventListener('change') is the modern API; older Safari used addListener. */
+    if (colorSchemeWatch.addEventListener)
+        colorSchemeWatch.addEventListener("change", onChange);
+    else if (colorSchemeWatch.addListener)
+        colorSchemeWatch.addListener(onChange);
+}
+
 function sendScreenSizeChanged() {
     var w, h, s;
     /* Touch pinch-zoom: report a logical size shrunk by zoomFactor and a
@@ -5244,6 +5272,10 @@ function connect()
             tabSuspended = true;
             sendInput(BROADWAY_EVENT_SUSPEND, []);
         }
+        /* Report the browser theme (and re-report after a reconnect); then follow
+         * live changes. */
+        sendColorScheme();
+        watchColorScheme();
     };
     ws.onerror = function() {
         /* onclose follows and drives the reconnect. */
