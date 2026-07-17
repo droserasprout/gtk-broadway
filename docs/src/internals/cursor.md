@@ -12,7 +12,7 @@ GTK4 cursor names are CSS-aligned (`text`, `pointer`, `ew-resize`, ...), so it's
 
 `BROADWAY_OP_SET_CURSOR` (26) mirrors `SET_INPUT_REGION` (it carries a surface id) plus the `len + bytes` string framing of `OPEN_URI`. The path:
 
-```
+```text
 gdk_broadway_device_set_surface_cursor (gdkdevice-broadway.c)  // resolve name, dedup
   -> _gdk_broadway_server_surface_set_cursor (gdkbroadway-server.c)
   -> BROADWAY_REQUEST_SET_CURSOR (broadwayd.c, len clamped to the framed request)

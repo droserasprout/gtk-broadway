@@ -6,7 +6,7 @@ The user-facing summary is in [Opening links](../features/input.md#opening-links
 
 `BROADWAY_OP_OPEN_URI` (21) mirrors `SET_CLIPBOARD`, using the same `len + bytes` framing. The path:
 
-```
+```text
 _gdk_broadway_server_open_uri (gdkbroadway-server.c)
   -> BROADWAY_REQUEST_OPEN_URI (broadwayd.c, len clamped to the framed request)
   -> broadway_server_open_uri -> broadway_output_open_uri  (op + serial + len + bytes)

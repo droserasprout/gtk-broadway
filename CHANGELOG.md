@@ -1,15 +1,19 @@
 # Changelog
 
-All notable changes to this project will be documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+All notable changes to this project will be documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-Versioning from v3: release tags are three-part `vX.Y.Z`; package versions are `<gtk-base>-X.Y.Z`, e.g. `4.22.4-3.0.0`. Single base (GTK 4.22.x). See [Requirements](https://droserasprout.github.io/gtk-brotway/guide/requirements.html).
+## v3.2.0 - 2026-07-16
 
-## v3.2.0 - ???
+[release](https://github.com/droserasprout/gtk-brotway/releases/tag/v3.2.0) | [diff](https://github.com/droserasprout/gtk-brotway/compare/v3.1.3...v3.2.0)
 
 ### Added
 
-- `BROTWAY_ANIMATIONS=0` force-disables GTK/libadwaita animations
-- `BROTWAY_MAXIMIZE=1` maximizes the app's first toplevel to fill the browser viewport (dialogs still float)
+- Apps follow the browser's `prefers-color-scheme` (light/dark) live - broadwayd serves an `org.freedesktop.appearance` portal that both plain GTK (via `gtk-interface-color-scheme`) and libadwaita apps read.
+- `BROTWAY_COLOR_SCHEME=auto/light/dark` env var pins the color scheme per process and ignores the browser.
+- `BROTWAY_NO_ANIMATIONS=1` env var force-disables GTK/libadwaita animations.
+- `BROTWAY_MAXIMIZE=1` env var maximizes the app's first toplevel to fill the browser viewport (dialogs still float)
+- Always-on-top: per-surface keep-above via `gdk_broadway_surface_set_keep_above()` / the `SET_KEEP_ABOVE` op, with a grab carve-out so a pinned window stays interactive while a menu grab is up. The debug menu now rides this generic flag.
 
 ### Changed
 

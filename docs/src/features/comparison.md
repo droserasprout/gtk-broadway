@@ -17,14 +17,14 @@ Legend: **🟢** full support, **🟡** partial/workaround/caveats, **🔴** not
 | Touch input / touchscreen events | 🔴 [^touchstock] | 🟢 | 🟢 |
 | Touch text-selection UI (handles + bubble) | 🔴 | 🟢 | 🟢 |
 | Multi-touch gesture (pinch-zoom UI) | 🔴 | 🟢 [^zoom] | 🟢 |
-| Tablet / stylus input (pressure, tilt, tool) | 🔴 | 🔴 [^stylus] | 🟢 |
 | On-screen keyboard sync | 🔴 | 🟢 [^osk] | 🟢 |
 | IME / non-Latin / preedit | 🔴 | 🟡 [^ime] | 🟢 |
 | Smooth (pixel-precise) scrolling | 🔴 | 🟢 [^smooth] | 🟢 |
 | Touchpad / scroll-source detection | 🔴 | 🟡 [^scroll] | 🟢 |
+| Named mouse cursors (resize / text / pointer) | 🔴 | 🟢 [^cursor] | 🟢 |
+| Tablet / stylus input (pressure, tilt, tool) | 🔴 | 🔴 [^stylus] | 🟢 |
 | Keyboard layout groups | 🔴 | 🔴 | 🟢 |
 | Inhibit system shortcuts (grab all keys) | 🔴 | 🔴 | 🟢 |
-| Named mouse cursors (resize / text / pointer) | 🔴 | 🟢 [^cursor] | 🟢 |
 | **Rendering** | | | |
 | OpenGL rendering | 🔴 | 🔴 [^render] | 🟢 |
 | Vulkan rendering | 🔴 | 🔴 [^render] | 🟢 |
@@ -41,16 +41,16 @@ Legend: **🟢** full support, **🟡** partial/workaround/caveats, **🔴** not
 | Session reconnect after network drop / sleep | 🔴 | 🟢 [^reconn] | ⚪ |
 | Pause rendering while not visible | 🔴 | 🟢 [^suspend] | 🟢 |
 | **Windowing** | | | |
+| Browser tab title, favicon | 🔴 | 🟢 [^tabtitle] | ⚪ |
 | Client-side decorations | 🟢 | 🟢 | 🟢 |
 | Server-side decorations | ⚪ | ⚪ [^deco] | 🟢 |
 | Multiple top-level windows | 🟢 | 🟢 | 🟢 |
 | Window transparency / RGBA | 🟢 | 🟢 | 🟢 |
-| Browser tab title, favicon | 🔴 | 🟢 [^tabtitle] | ⚪ |
 | **Window management** | | | |
 | Interactive move / resize | 🟡 | 🟢 [^moveresize] | 🟢 |
 | Maximize | 🟡 | 🟢 [^maximize] | 🟢 |
 | Modal dialogs (dim + block parent) | 🔴 | 🟢 [^modal] | 🟢 |
-| WM stacking & workspace hints (keep above/below, lower, sticky) | 🔴 | 🔴 | 🔴 |
+| WM stacking & workspace hints (keep above/below, lower, sticky) | 🔴 | 🟡 [^keepabove] | 🔴 |
 | Server window menu (`show_window_menu`) | 🔴 | 🔴 | 🟡 |
 | Tiled-edge constraints | 🔴 | 🔴 | 🟢 |
 | Startup notification / window handle export (xdg-activation) | 🔴 | 🔴 | 🟢 |
@@ -59,9 +59,11 @@ Legend: **🟢** full support, **🟡** partial/workaround/caveats, **🔴** not
 | Popovers / autohide popups | 🟢 | 🟢 [^popup] | 🟢 |
 | **Platform integration** | | | |
 | `gtk_show_uri` / open external URIs | 🔴 | 🟢 [^uri] | 🟢 |
+| Desktop dark mode / color scheme | 🔴 | 🟢 [^colorscheme] | 🟢 [^settings] |
 | System tray / status icon | 🔴 | 🔴 | 🟡 [^tray] |
 | Accessibility bridge | 🔴 | 🔴 | 🟢 [^a11y] |
-| Desktop settings (dark mode / accent / fonts) | 🔴 | 🔴 | 🟢 [^settings] |
+| Desktop accent color | 🔴 | 🔴 | 🟢 [^settings] |
+| Desktop / installed fonts | 🟡 [^fonts] | 🟡 [^fonts] | 🟢 [^settings] |
 
 [^remote]: A `gtk4-broadwayd` daemon serves the running app over HTTP/WebSocket; any browser on any OS connects, no client install. Native backends draw to a local display only.
 
@@ -72,6 +74,8 @@ Legend: **🟢** full support, **🟡** partial/workaround/caveats, **🔴** not
 [^maximize]: Double-click-titlebar maximize toggles cleanly on the fork but is buggy on stock. Minimize is a no-op (no shell to minimize into) and GTK-level fullscreen is unimplemented (browser F11 covers it).
 
 [^modal]: Stock tracks `modal_hint` but never enforces it - the parent isn't dimmed and hover leaks through. The fork adds a client-side scrim that dims and blocks the parent, matching libadwaita's backdrop.
+
+[^keepabove]: The fork adds keep-above (always-on-top) as a per-surface flag via `gdk_broadway_surface_set_keep_above()` / the `SET_KEEP_ABOVE` op; it's set-only (no re-lower) and there's no below/lower/sticky. Wayland exposes no client stacking control at all. See [Always-on-top](../internals/input-region.md#always-on-top).
 
 [^clip]: Stock upstream Broadway ships no `GdkClipboard`. The fork adds one, bridging the browser clipboard in both directions. See [Clipboard](input.md#clipboard).
 
@@ -125,4 +129,8 @@ Legend: **🟢** full support, **🟡** partial/workaround/caveats, **🔴** not
 
 [^a11y]: AT-SPI over D-Bus on the Linux backends, AccessKit on Windows/macOS. Broadway has no a11y bridge.
 
-[^settings]: Dark-mode / accent / font settings come from the xdg settings portal on Wayland, XSETTINGS on X11, and AppKit (`NSAppearance`) on macOS. Broadway has no desktop session; theming is whatever CSS the app ships.
+[^settings]: Dark-mode / accent / font settings come from the xdg settings portal on Wayland, XSETTINGS on X11, and AppKit (`NSAppearance`) on macOS. Stock Broadway has no desktop session and bridges none of them; the fork bridges color scheme only, over the browser's appearance portal.
+
+[^colorscheme]: broadwayd serves the browser's `prefers-color-scheme` over an `org.freedesktop.appearance` portal, so plain GTK (`gtk-interface-color-scheme`) and libadwaita apps follow the browser's dark/light. `BROTWAY_COLOR_SCHEME` overrides it per process. See [Display & rendering](display.md).
+
+[^fonts]: Installed fonts render through fontconfig, so text uses the host's fonts on a `run-host` or shared-config session; neither Broadway backend bridges the desktop's configured UI font, hinting, or antialiasing over a settings portal.

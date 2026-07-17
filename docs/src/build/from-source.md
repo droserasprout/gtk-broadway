@@ -35,7 +35,7 @@ The **broadwayd-only** loop is fast: even a pure JS change needs the daemon rebu
 
 The Broadway-only build needs the GTK build toolchain and these `-dev` libraries (the CI list, for Ubuntu):
 
-```
+```text
 build-essential meson ninja-build pkg-config gettext python3 git ca-certificates
 libglib2.0-dev libglib2.0-dev-bin libgraphene-1.0-dev libcairo2-dev libpango1.0-dev
 libgdk-pixbuf-2.0-dev libepoxy-dev libxkbcommon-dev libfribidi-dev libharfbuzz-dev

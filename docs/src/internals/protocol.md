@@ -68,6 +68,7 @@ What the browser sends back - input and surface notifications. `TOUCH` (5) alrea
 | `BROADWAY_EVENT_SUSPEND`            | 18 | tab hidden; forwarded to GTK to freeze rendering ([Connection management](../features/connection.md)) |
 | `BROADWAY_EVENT_RESUME`             | 19 | tab visible again; thaws rendering ([Connection management](../features/connection.md)) |
 | `BROADWAY_EVENT_SET_PNG`            | 20 | daemon -> app, not from the browser: switch the PNG encoding preset live from the debug menu ([PNG encoding](../guide/config.md#png-encoding)) |
+| `BROADWAY_EVENT_COLOR_SCHEME`       | 21 | browser's `prefers-color-scheme` (0 no-preference, 1 dark, 2 light), on connect and on change; the daemon intercepts it to serve the appearance portal, so it never reaches the app ([Display & rendering](../features/display.md)) |
 
 ## Requests
 
@@ -100,8 +101,9 @@ What the GDK backend asks the daemon to do over the local socket. These carry no
 | `BROADWAY_REQUEST_SET_CURSOR`        | set a surface's CSS cursor ([Dynamic cursor](cursor.md)) |
 | `BROADWAY_REQUEST_SET_TITLE`         | set a surface's window title ([Tab identity](../features/display.md#tab-title-and-favicon)) |
 | `BROADWAY_REQUEST_SET_ICON`          | set a surface's icon ([Tab identity](../features/display.md#tab-title-and-favicon)) |
+| `BROADWAY_REQUEST_SET_KEEP_ABOVE`    | pin a surface always-on-top ([Always-on-top](input-region.md#always-on-top)) |
 
-The fork's requests carry matching structs (`BroadwayRequestSetClipboard`, `BroadwayRequestOpenUri`, `BroadwayRequestSetInputRegion`, `BroadwayRequestSetCursor`).
+The fork's requests carry matching structs (`BroadwayRequestSetClipboard`, `BroadwayRequestOpenUri`, `BroadwayRequestSetInputRegion`, `BroadwayRequestSetCursor`, `BroadwayRequestSetKeepAbove`).
 
 Variable-length requests use `len + bytes` framing (`guint32 len; char text[1];`), the same shape as `SET_NODES`. The sender pads the request size to 4 bytes so the daemon reads aligned structs in place; the daemon rejects a request framed smaller than its fixed header, then clamps `len` to the framed size before reading.
 
