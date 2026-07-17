@@ -4556,6 +4556,17 @@ function onTouchEnd(ev) {
     if (activeTouchCount() < 2)
         cancelHoldMenu();
 
+    /* Last finger up: a touch leaves no pointer behind, so drop the mouse-focus
+     * trackers the tap set in onTouchStart. Only the touched surface's own
+     * destruction used to clear them, so dismissing a popup by tapping *outside*
+     * it left realSurfaceWithMouse pinned to the (surviving) parent - and
+     * REASSERT_POINTER then read that as "a real mouse is hovering" and skipped
+     * the unstick, stranding pointer focus on the dead popup. */
+    if (activeTouchCount() == 0) {
+        surfaceWithMouse = 0;
+        realSurfaceWithMouse = 0;
+    }
+
     if (pinchActive) {
         if (activeTouchCount() < 2)
             endPinch();
