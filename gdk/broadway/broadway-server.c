@@ -1609,6 +1609,11 @@ parse_input (BroadwayInput *input)
           data += 8;
         }
 
+      /* Never trust the declared length: a 64-bit payload_len wraps the
+         bounds check below and the unmask loop then runs off the buffer. */
+      if (payload_len > len)
+        return; /* wait to accumulate more */
+
       mask = NULL;
       if (is_mask)
         {
