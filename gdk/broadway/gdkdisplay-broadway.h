@@ -69,6 +69,12 @@ struct _GdkBroadwayDisplay
   guint idle_flush_id;
 
   gboolean suspended; /* tab hidden: surfaces frozen so we stream no frames */
+
+  /* Browser prefers-color-scheme, read from broadwayd's Settings portal and
+   * exposed as gtk-interface-color-scheme so plain GTK apps follow it too. */
+  GDBusProxy *settings_portal; /* NULL if no portal available */
+  int color_scheme;            /* GtkInterfaceColorScheme value */
+  gboolean color_scheme_forced; /* BROTWAY_COLOR_SCHEME pins it; the portal is ignored */
 };
 
 struct _GdkBroadwayDisplayClass

@@ -104,6 +104,11 @@ void          _gdk_broadway_clipboard_contents_received   (GdkDisplay *display,
 
 void _gdk_broadway_display_init_root_window (GdkDisplay *display);
 GdkDisplay * _gdk_broadway_display_open (const char *display_name);
+void     _gdk_broadway_display_init_settings     (GdkDisplay *display);
+void     _gdk_broadway_display_finalize_settings (GdkDisplay *display);
+gboolean _gdk_broadway_display_get_setting       (GdkDisplay *display,
+                                                  const char *name,
+                                                  GValue     *value);
 void _gdk_broadway_display_queue_events (GdkDisplay *display);
 GdkCursor*_gdk_broadway_display_get_cursor_for_name (GdkDisplay  *display,
                                                      const char *name);

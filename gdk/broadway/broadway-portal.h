@@ -12,5 +12,6 @@
 void broadway_portal_start (void);
 
 /* Update the reported color-scheme (0/1/2) and emit SettingChanged. Called when
- * the browser reports its prefers-color-scheme over the Broadway protocol. */
+ * the browser reports its prefers-color-scheme over the Broadway protocol.
+ * A no-op when BROTWAY_COLOR_SCHEME pins the scheme. */
 void broadway_portal_set_color_scheme (guint32 scheme);

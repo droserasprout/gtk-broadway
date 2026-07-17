@@ -489,6 +489,8 @@ _gdk_broadway_display_open (const char *display_name)
 
   display->clipboard = gdk_broadway_clipboard_new (display);
 
+  _gdk_broadway_display_init_settings (display);
+
   g_signal_emit_by_name (display, "opened");
 
   return display;
@@ -558,6 +560,8 @@ gdk_broadway_display_finalize (GObject *object)
     g_object_unref (broadway_display->keymap);
 
   _gdk_broadway_cursor_display_finalize (GDK_DISPLAY(broadway_display));
+
+  _gdk_broadway_display_finalize_settings (GDK_DISPLAY (broadway_display));
 
   content_cache_destroy_all (broadway_display);
 
@@ -684,14 +688,6 @@ gdk_broadway_display_get_monitors (GdkDisplay *display)
     }
 
   return G_LIST_MODEL (self->monitors);
-}
-
-static gboolean
-gdk_broadway_display_get_setting (GdkDisplay *display,
-                                  const char *name,
-                                  GValue     *value)
-{
-  return FALSE;
 }
 
 typedef struct {
@@ -824,5 +820,5 @@ gdk_broadway_display_class_init (GdkBroadwayDisplayClass * class)
   display_class->get_keymap = _gdk_broadway_display_get_keymap;
 
   display_class->get_monitors = gdk_broadway_display_get_monitors;
-  display_class->get_setting = gdk_broadway_display_get_setting;
+  display_class->get_setting = _gdk_broadway_display_get_setting;
 }

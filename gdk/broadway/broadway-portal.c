@@ -48,6 +48,7 @@ static GDBusConnection    *portal_conn;
 static GDBusNodeInfo      *portal_node;
 static guint               portal_owner_id;
 static guint32             current_scheme;  /* 0 no-pref, 1 dark, 2 light */
+static gboolean            scheme_forced;   /* BROTWAY_COLOR_SCHEME pins it, ignore browser */
 
 static gboolean
 is_color_scheme (const char *ns, const char *key)
@@ -174,10 +175,29 @@ on_name_lost (GDBusConnection *conn, const char *name, gpointer user_data)
 void
 broadway_portal_start (void)
 {
+  const char *forced;
+
   if (portal_owner_id != 0)
     return;
 
+  /* BROTWAY_COLOR_SCHEME pins the scheme for every portal reader (incl.
+   * libadwaita) and ignores the browser; auto/unset follows the browser. */
+  forced = g_getenv ("BROTWAY_COLOR_SCHEME");
+  if (forced != NULL && *forced != '\0' && g_ascii_strcasecmp (forced, "auto") != 0)
+    {
+      if (g_ascii_strcasecmp (forced, "dark") == 0)
+        { current_scheme = 1; scheme_forced = TRUE; }
+      else if (g_ascii_strcasecmp (forced, "light") == 0)
+        { current_scheme = 2; scheme_forced = TRUE; }
+      else
+        g_warning ("BROTWAY_COLOR_SCHEME: unknown value '%s' (want auto/light/dark)",
+                   forced);
+    }
+
   portal_node = g_dbus_node_info_new_for_xml (introspection_xml, NULL);
+  if (portal_node == NULL)
+    return;  /* static XML is valid; guards a future edit from a NULL interfaces[0] deref */
+
   portal_owner_id = g_bus_own_name (G_BUS_TYPE_SESSION, PORTAL_BUS_NAME,
                                     G_BUS_NAME_OWNER_FLAGS_NONE,
                                     on_bus_acquired, on_name_acquired, on_name_lost,
@@ -187,6 +207,8 @@ broadway_portal_start (void)
 void
 broadway_portal_set_color_scheme (guint32 scheme)
 {
+  if (scheme_forced)
+    return;
   if (scheme > 2)
     scheme = 0;
   if (scheme == current_scheme)
