@@ -3,7 +3,7 @@
 All notable changes to this project will be documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## v3.2.0 - 2026-07-16
+## v3.2.0 - 2026-07-17
 
 [release](https://github.com/droserasprout/gtk-brotway/releases/tag/v3.2.0) | [diff](https://github.com/droserasprout/gtk-brotway/compare/v3.1.3...v3.2.0)
 
@@ -12,8 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Apps follow the browser's `prefers-color-scheme` (light/dark) live - broadwayd serves an `org.freedesktop.appearance` portal that both plain GTK (via `gtk-interface-color-scheme`) and libadwaita apps read.
 - `BROTWAY_COLOR_SCHEME=auto/light/dark` env var pins the color scheme per process and ignores the browser.
 - `BROTWAY_NO_ANIMATIONS=1` env var force-disables GTK/libadwaita animations.
-- `BROTWAY_MAXIMIZE=1` env var maximizes the app's first toplevel to fill the browser viewport (dialogs still float)
-- Always-on-top: per-surface keep-above via `gdk_broadway_surface_set_keep_above()` / the `SET_KEEP_ABOVE` op, with a grab carve-out so a pinned window stays interactive while a menu grab is up. The debug menu now rides this generic flag.
+- `BROTWAY_MAXIMIZE=1` env var maximizes the app's first toplevel to fill the browser viewport (dialogs still float).
 
 ### Changed
 
@@ -22,6 +21,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - `-nogl` base image is now apt-expandable: a shim Provides `libgtk-4-1`/`libgtk-4-bin` so the dpkg graph stays consistent after the GL/Mesa/LLVM chain is force-purged. Downstream apps can install `gir1.2-gtk-4.0`/`python3-gi` without pulling GL back.
+- Touch: tapping outside a popup to dismiss it no longer strands pointer focus on the closed popup; the last finger lifting now clears the mouse-focus trackers.
+
+### Security
+
+- Reject a WebSocket frame whose declared `payload_len` exceeds the received buffer, so the unmask loop can't run past the end.
 
 ## v3.1.3 - 2026-06-26
 
@@ -30,6 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - The triple-Shift debug menu shows Client session ID and resume token.
+- Always-on-top: per-surface keep-above via `gdk_broadway_surface_set_keep_above()` / the `SET_KEEP_ABOVE` op, with a grab carve-out so a pinned window stays interactive while a menu grab is up. The debug menu now rides this generic flag.
 - `-nogl` base image tag (`:v3.1.3-nogl` / `:nogl`): the full image minus the stock GTK + GL/Mesa/LLVM chain Broadway never uses (~200 MB smaller).
 
 ### Fixed
