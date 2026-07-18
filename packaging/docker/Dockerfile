@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 # Base Brotway image: stock Ubuntu GTK runtime + the brotway Broadway .deb in a
 # private prefix. App-agnostic - FROM this for any GTK4 Broadway binary; no app,
 # Python, or bindings, just the patched GTK + gtk4-broadwayd.
@@ -22,10 +23,11 @@ ENV GDK_BACKEND=broadway \
     NO_AT_BRIDGE=1
 
 # Both per-arch .debs land in ./debs; pick the target arch. Under buildx emulation
-# dpkg reports the emulated arch, so this resolves per platform.
-COPY debs/ /tmp/debs/
+# dpkg reports the emulated arch, so this resolves per platform. Bind-mount the debs
+# (build-only) so they never land in a layer.
 COPY packaging/debian/shim /tmp/shim.control
-RUN set -eux; \
+RUN --mount=type=bind,source=debs,target=/tmp/debs \
+    set -eux; \
     arch="$(dpkg --print-architecture)"; \
     deb="$(ls /tmp/debs/gtk4-brotway_*_${arch}.deb)"; \
     apt-get update; \
@@ -54,5 +56,5 @@ RUN set -eux; \
       inst="$(for p in $pkgs; do dpkg-query -W -f='${db:Status-Status} ${Package}\n' "$p" 2>/dev/null | awk '$1=="installed"{print $2}'; done)"; \
       [ -n "$inst" ] && dpkg --purge --force-depends $inst; \
     fi; \
-    rm -rf /tmp/shim /tmp/shim.control /tmp/gtk4-brotway-shim.deb /tmp/debs /var/lib/apt/lists/*; \
+    rm -rf /tmp/shim /tmp/shim.control /tmp/gtk4-brotway-shim.deb /var/lib/apt/lists/*; \
     apt-get clean
